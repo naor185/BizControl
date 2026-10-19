@@ -10,6 +10,7 @@ import {
     ResponsiveContainer, CartesianGrid, Cell,
 } from "recharts";
 
+import { intl, tx } from "@/lib/i18n";
 // The business's analytics in one place (the owner, 2026-10-15: "too many analytics"): the month's summary, revenue and
 // appointments by month, the busy days and hours, the average per appointment, revenue by service and the team's
 // performance. The charts that were a tab on לוח בקרה live here now (GET /api/dashboard/analytics); the clients'
@@ -37,7 +38,7 @@ interface ByMonth {
     busiest_days: { day: string; count: number }[];
 }
 
-const fmt = (n: number) => `₪${n.toLocaleString("he-IL")}`;
+const fmt = (n: number) => `₪${n.toLocaleString(intl())}`;
 const pct = (n: number) => `${n > 0 ? "+" : ""}${n}%`;
 const shortIls = (v: number) => `₪${Number(v) >= 1000 ? (Number(v) / 1000).toFixed(0) + "k" : v}`;
 const TIP = { borderRadius: 10, fontSize: 12 };
@@ -93,24 +94,24 @@ export default function BusinessAnalyticsPage() {
 
     return (
         <RequireAuth>
-            <AppShell title="אנליטיקה עסקית">
+            <AppShell title={tx("אנליטיקה עסקית")}>
                 {loading ? (
                     <div className="flex justify-center items-center h-64">
                         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-violet-600" />
                     </div>
                 ) : !data ? (
-                    <div className="text-center text-slate-400 py-16">שגיאה בטעינת הנתונים</div>
+                    <div className="text-center text-slate-400 py-16">{tx("שגיאה בטעינת הנתונים")}</div>
                 ) : (
                     <div className="space-y-8 pb-12">
                         {/* ── The month ── */}
                         <section>
-                            <h2 className="text-base font-bold text-slate-700 mb-3">סיכום החודש</h2>
+                            <h2 className="text-base font-bold text-slate-700 mb-3">{tx("סיכום החודש")}</h2>
                             <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-                                <KpiCard title="הכנסות החודש" value={fmt(data.kpis.revenue_this_month_ils)}
+                                <KpiCard title={tx("הכנסות החודש")} value={fmt(data.kpis.revenue_this_month_ils)}
                                     growth={data.kpis.revenue_growth_pct} icon={Wallet} color="#7c3aed" />
-                                <KpiCard title="תורים החודש" value={String(data.kpis.appts_this_month)}
+                                <KpiCard title={tx("תורים החודש")} value={String(data.kpis.appts_this_month)}
                                     growth={data.kpis.appts_growth_pct} icon={CalendarCheck} color="#0ea5e9" />
-                                <KpiCard title="ממוצע לתור (30 יום)" value={fmt(data.kpis.avg_appt_value_ils)}
+                                <KpiCard title={tx("ממוצע לתור (30 יום)")} value={fmt(data.kpis.avg_appt_value_ils)}
                                     icon={Receipt} color="#6366f1" />
                             </div>
                         </section>
@@ -118,23 +119,23 @@ export default function BusinessAnalyticsPage() {
                         {/* ── Month by month ── */}
                         {byMonth && (
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                <Card title="הכנסה לפי חודש — 6 חודשים אחרונים">
+                                <Card title={tx("הכנסה לפי חודש — 6 חודשים אחרונים")}>
                                     <ResponsiveContainer width="100%" height={200}>
                                         <BarChart data={byMonth.revenue_by_month} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
                                             <XAxis dataKey="month" tick={{ fontSize: 12, fill: "#94a3b8" }} />
                                             <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} tickFormatter={shortIls} />
-                                            <Tooltip formatter={v => [`₪${Number(v).toLocaleString()}`, "הכנסה"]} contentStyle={TIP} />
+                                            <Tooltip formatter={v => [`₪${Number(v).toLocaleString()}`, tx("הכנסה")]} contentStyle={TIP} />
                                             <Bar dataKey="revenue" radius={[6, 6, 0, 0]} fill="#7c3aed" />
                                         </BarChart>
                                     </ResponsiveContainer>
                                 </Card>
-                                <Card title="תורים לפי חודש — 6 חודשים אחרונים">
+                                <Card title={tx("תורים לפי חודש — 6 חודשים אחרונים")}>
                                     <ResponsiveContainer width="100%" height={200}>
                                         <LineChart data={byMonth.appts_by_month} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
                                             <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                                             <XAxis dataKey="month" tick={{ fontSize: 12, fill: "#94a3b8" }} />
                                             <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} allowDecimals={false} />
-                                            <Tooltip formatter={v => [Number(v), "תורים"]} contentStyle={TIP} />
+                                            <Tooltip formatter={v => [Number(v), tx("תורים")]} contentStyle={TIP} />
                                             <Line type="monotone" dataKey="count" stroke="#0ea5e9" strokeWidth={2.5} dot={{ r: 4, fill: "#0ea5e9" }} activeDot={{ r: 6 }} />
                                         </LineChart>
                                     </ResponsiveContainer>
@@ -145,23 +146,23 @@ export default function BusinessAnalyticsPage() {
                         {/* ── When it's busy ── */}
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                             {byMonth && (
-                                <Card title="ימים עמוסים — 90 ימים אחרונים">
+                                <Card title={tx("ימים עמוסים — 90 ימים אחרונים")}>
                                     <ResponsiveContainer width="100%" height={180}>
                                         <BarChart data={byMonth.busiest_days} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
                                             <XAxis dataKey="day" tick={{ fontSize: 11, fill: "#94a3b8" }} />
                                             <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} allowDecimals={false} />
-                                            <Tooltip formatter={v => [Number(v), "תורים"]} contentStyle={TIP} />
+                                            <Tooltip formatter={v => [Number(v), tx("תורים")]} contentStyle={TIP} />
                                             <Bar dataKey="count" radius={[4, 4, 0, 0]} fill="#6366f1" />
                                         </BarChart>
                                     </ResponsiveContainer>
                                 </Card>
                             )}
-                            <Card title="שעות עמוסות — 90 ימים אחרונים">
+                            <Card title={tx("שעות עמוסות — 90 ימים אחרונים")}>
                                 <ResponsiveContainer width="100%" height={180}>
                                     <BarChart data={data.hourly_heatmap} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
                                         <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#94a3b8" }} />
                                         <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} allowDecimals={false} />
-                                        <Tooltip formatter={v => [v, "תורים"]} contentStyle={TIP} />
+                                        <Tooltip formatter={v => [v, tx("תורים")]} contentStyle={TIP} />
                                         <Bar dataKey="count" radius={[4, 4, 0, 0]}>
                                             {data.hourly_heatmap.map((entry, i) => {
                                                 const max = Math.max(...data.hourly_heatmap.map(h => h.count));
@@ -178,13 +179,13 @@ export default function BusinessAnalyticsPage() {
                         </div>
 
                         {/* ── Average per appointment ── */}
-                        <Card title="ממוצע לתור — מגמה">
+                        <Card title={tx("ממוצע לתור — מגמה")}>
                             <ResponsiveContainer width="100%" height={180}>
                                 <LineChart data={data.avg_value_trend} margin={{ top: 4, right: 4, left: -4, bottom: 0 }}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                                     <XAxis dataKey="month" tick={{ fontSize: 12, fill: "#94a3b8" }} />
                                     <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} tickFormatter={v => `₪${v}`} />
-                                    <Tooltip formatter={v => [`₪${Number(v).toLocaleString()}`, "ממוצע לתור"]} contentStyle={TIP} />
+                                    <Tooltip formatter={v => [`₪${Number(v).toLocaleString()}`, tx("ממוצע לתור")]} contentStyle={TIP} />
                                     <Line type="monotone" dataKey="avg_ils" stroke="#7c3aed"
                                         strokeWidth={2.5} dot={{ r: 4, fill: "#7c3aed" }} activeDot={{ r: 6 }} />
                                 </LineChart>
@@ -192,9 +193,9 @@ export default function BusinessAnalyticsPage() {
                         </Card>
 
                         {/* ── Revenue by service ── */}
-                        <Card title="הכנסות לפי שירות — 90 ימים אחרונים">
+                        <Card title={tx("הכנסות לפי שירות — 90 ימים אחרונים")}>
                             {data.revenue_by_service.length === 0 ? (
-                                <div className="text-center text-slate-400 py-8">אין נתונים עדיין</div>
+                                <div className="text-center text-slate-400 py-8">{tx("אין נתונים עדיין")}</div>
                             ) : (
                                 <>
                                     <ResponsiveContainer width="100%" height={200}>
@@ -203,7 +204,7 @@ export default function BusinessAnalyticsPage() {
                                             <XAxis type="number" tick={{ fontSize: 11, fill: "#94a3b8" }} tickFormatter={shortIls} />
                                             <YAxis type="category" dataKey="service" width={90}
                                                 tick={{ fontSize: 11, fill: "#334155" }} />
-                                            <Tooltip formatter={v => [`₪${Number(v).toLocaleString()}`, "הכנסות"]} contentStyle={TIP} />
+                                            <Tooltip formatter={v => [`₪${Number(v).toLocaleString()}`, tx("הכנסות")]} contentStyle={TIP} />
                                             <Bar dataKey="revenue_ils" radius={[0, 6, 6, 0]} fill="#7c3aed" />
                                         </BarChart>
                                     </ResponsiveContainer>
@@ -211,8 +212,8 @@ export default function BusinessAnalyticsPage() {
                                         {data.revenue_by_service.map((s, i) => (
                                             <div key={i} className="flex justify-between items-center text-sm py-1.5 border-b border-slate-50 last:border-0">
                                                 <span className="text-slate-700 font-medium">{s.service}</span>
-                                                <div className="flex gap-4 text-right">
-                                                    <span className="text-slate-400 text-xs">{s.count} תורים</span>
+                                                <div className="flex gap-4 text-start">
+                                                    <span className="text-slate-400 text-xs">{s.count}{tx(" תורים")}</span>
                                                     <span className="font-bold text-slate-800">{fmt(s.revenue_ils)}</span>
                                                 </div>
                                             </div>
@@ -225,7 +226,7 @@ export default function BusinessAnalyticsPage() {
                         {/* ── The team ── */}
                         {byMonth && byMonth.artists.length > 0 && (
                             <section>
-                                <h2 className="text-base font-bold text-slate-700 mb-3">ביצועי {terms.staff_plural}</h2>
+                                <h2 className="text-base font-bold text-slate-700 mb-3">{tx("ביצועי ")}{terms.staff_plural}</h2>
                                 <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden divide-y divide-slate-50">
                                     {byMonth.artists.map((a, i) => (
                                         <div key={a.name} className="px-5 py-4 flex items-center gap-4">
@@ -234,11 +235,11 @@ export default function BusinessAnalyticsPage() {
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <div className="font-semibold text-slate-800 truncate">{a.name}</div>
-                                                <div className="text-xs text-slate-400">{a.appointments} תורים</div>
+                                                <div className="text-xs text-slate-400">{a.appointments}{tx(" תורים")}</div>
                                             </div>
                                             <div className="text-left" dir="ltr">
                                                 <div className="font-bold text-slate-900">{fmt(a.revenue)}</div>
-                                                <div className="text-xs text-slate-400">הכנסה כוללת</div>
+                                                <div className="text-xs text-slate-400">{tx("הכנסה כוללת")}</div>
                                             </div>
                                         </div>
                                     ))}

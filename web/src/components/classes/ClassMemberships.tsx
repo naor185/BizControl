@@ -19,6 +19,7 @@ import {
     STATUS_LABEL, fullDate, ilDate, ilTime, methodLabel, shekels,
 } from "@/lib/classes";
 
+import { tx } from "@/lib/i18n";
 // Memberships: who has what (balance, dates, status), selling one, a membership's entry log, a manual
 // correction, renewal, the freeze requests clients sent from BizFind — and the membership types, and the
 // open fees the owner's rules recorded.
@@ -34,7 +35,7 @@ export default function ClassMemberships({ terms, canSell, canChange, canConfigu
 }) {
     const [section, setSection] = useState<Section>("memberships");
     const sections: { id: Section; label: string }[] = [
-        { id: "memberships", label: "מנויים" }, { id: "types", label: "סוגי מנוי" }, { id: "fees", label: "חיובים פתוחים" },
+        { id: "memberships", label: tx("מנויים") }, { id: "types", label: tx("סוגי מנוי") }, { id: "fees", label: tx("חיובים פתוחים") },
     ];
     return (
         <div className="space-y-4">
@@ -58,12 +59,12 @@ function Balance({ m }: { m: MembershipRow }) {
         const pct = m.balance.total ? Math.max(0, Math.min(100, (m.balance.available / m.balance.total) * 100)) : 0;
         return (
             <div className="w-28">
-                <p className="text-xs text-slate-700 tabular-nums">נותרו {m.balance.available} מתוך {m.balance.total}</p>
+                <p className="text-xs text-slate-700 tabular-nums">{tx("נותרו ")}{m.balance.available}{tx(" מתוך ")}{m.balance.total}</p>
                 <div className="mt-1 h-1.5 rounded-full bg-slate-100 overflow-hidden"><div className="h-full bg-indigo-500" style={{ width: `${pct}%` }} /></div>
             </div>
         );
     }
-    return <p className="text-xs text-slate-700">{m.kind === "weekly" ? `${m.weekly_limit} בשבוע` : "ללא הגבלה"}</p>;
+    return <p className="text-xs text-slate-700">{m.kind === "weekly" ? tx("{0} בשבוע", { 0: m.weekly_limit }) : tx("ללא הגבלה")}</p>;
 }
 
 function MembershipList({ terms, canSell, canChange }: { terms: Terms; canSell: boolean; canChange: boolean }) {
@@ -83,25 +84,25 @@ function MembershipList({ terms, canSell, canChange }: { terms: Terms; canSell: 
                 {canSell && (
                     <button type="button" onClick={() => setSelling(true)}
                         className="inline-flex items-center gap-2 min-h-11 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold">
-                        <Plus className="w-4 h-4" aria-hidden /> מכירת מנוי
+                        <Plus className="w-4 h-4" aria-hidden /> {tx("מכירת מנוי")}
                     </button>
                 )}
                 <label className="flex items-center gap-2 text-sm text-slate-700">
-                    <input type="checkbox" checked={all} onChange={e => setAll(e.target.checked)} /> גם מנויים שהסתיימו
+                    <input type="checkbox" checked={all} onChange={e => setAll(e.target.checked)} /> {tx("גם מנויים שהסתיימו")}
                 </label>
             </div>
-            {rows === null ? <Loader2 className="w-6 h-6 text-indigo-500 animate-spin" aria-label="טוען" /> : rows.length === 0 ? (
-                <p className="text-sm text-slate-500 bg-white border border-slate-200 rounded-2xl px-5 py-8 text-center">אין מנויים עדיין.</p>
+            {rows === null ? <Loader2 className="w-6 h-6 text-indigo-500 animate-spin" aria-label={tx("טוען")} /> : rows.length === 0 ? (
+                <p className="text-sm text-slate-500 bg-white border border-slate-200 rounded-2xl px-5 py-8 text-center">{tx("אין מנויים עדיין.")}</p>
             ) : (
                 <ul className="bg-white rounded-2xl border border-slate-200/70 divide-y divide-slate-100">
                     {rows.map(m => (
                         <li key={m.id}>
-                            <button type="button" onClick={() => setOpenId(m.id)} className="w-full text-right px-4 py-3 flex items-center gap-3 hover:bg-slate-50">
+                            <button type="button" onClick={() => setOpenId(m.id)} className="w-full text-start px-4 py-3 flex items-center gap-3 hover:bg-slate-50">
                                 <div className="min-w-0 flex-1">
                                     <p className="text-sm font-semibold text-slate-900 truncate">
                                         {m.client_name}{m.is_family && m.members.length > 1 ? ` + ${m.members.length - 1}` : ""}
                                     </p>
-                                    <p className="text-xs text-slate-500 truncate">{freezeLine(m) ?? `${m.name} · ${m.ends_on ? `עד ${fullDate(m.ends_on)}` : "ללא תאריך סיום"}`}</p>
+                                    <p className="text-xs text-slate-500 truncate">{freezeLine(m) ?? `${m.name} · ${m.ends_on ? tx("עד {0}", { 0: fullDate(m.ends_on) }) : tx("ללא תאריך סיום")}`}</p>
                                 </div>
                                 <Balance m={m} />
                                 <span className={`text-[11px] font-semibold rounded-full px-2 py-0.5 shrink-0 ${STATUS_CLS[m.status]}`}>{STATUS_LABEL[m.status]}</span>
@@ -146,41 +147,41 @@ function SellSheet({ terms, onClose, onDone }: { terms: Terms; onClose: () => vo
                     price_cents: price === "" ? null : Math.round(price * 100), notes: notes.trim() || null,
                     members: family ? members.map(c => c.id) : [] }),
             });
-            toast.success(`${type.name} נמכר ל${who.full_name}`);
+            toast.success(tx("{0} נמכר ל{1}", { 0: type.name, 1: who.full_name }));
             onDone();
         } catch (e) {
-            toast.error(e instanceof Error ? e.message : "המכירה נכשלה");
+            toast.error(e instanceof Error ? e.message : tx("המכירה נכשלה"));
         } finally {
             setBusy(false);
         }
     };
 
     return (
-        <BottomSheet open onClose={onClose} title="מכירת מנוי" className="sm:max-w-lg"
+        <BottomSheet open onClose={onClose} title={tx("מכירת מנוי")} className="sm:max-w-lg"
             footer={
                 <button type="button" onClick={sell} disabled={busy || !who || !type}
                     className="w-full inline-flex items-center justify-center gap-2 min-h-11 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white text-sm font-bold">
                     {busy && <Loader2 className="w-4 h-4 animate-spin" aria-hidden />}
-                    {who && type ? `מכירה: ${type.name} ל${who.full_name}` : "מכירה"}
+                    {who && type ? tx("מכירה: {0} ל{1}", { 0: type.name, 1: who.full_name }) : tx("מכירה")}
                 </button>
             }>
             <div className="px-5 py-4 space-y-4 overflow-y-auto min-h-0">
                 {who ? (
                     <div className="flex items-center justify-between rounded-xl border border-slate-200 px-3 min-h-11">
                         <span className="text-sm font-semibold text-slate-900">{who.full_name}</span>
-                        <button type="button" onClick={() => setWho(null)} aria-label="החלפת לקוח" className="w-9 h-9 flex items-center justify-center text-slate-400">
+                        <button type="button" onClick={() => setWho(null)} aria-label={tx("החלפת לקוח")} className="w-9 h-9 flex items-center justify-center text-slate-400">
                             <X className="w-4 h-4" aria-hidden />
                         </button>
                     </div>
                 ) : <ClientSearch terms={terms} onPick={setWho} />}
                 <fieldset>
-                    <legend className={label}>סוג מנוי</legend>
-                    {types.length === 0 ? <p className="text-sm text-slate-500 mt-1">אין סוגי מנוי למכירה — הוסף בלשונית &quot;סוגי מנוי&quot;.</p> : (
+                    <legend className={label}>{tx("סוג מנוי")}</legend>
+                    {types.length === 0 ? <p className="text-sm text-slate-500 mt-1">{tx("אין סוגי מנוי למכירה — הוסף בלשונית \"סוגי מנוי\".")}</p> : (
                         <div className="mt-1 grid gap-2">
                             {types.map(t => (
                                 <button key={t.id} type="button" role="radio" aria-checked={typeId === t.id}
                                     onClick={() => { setTypeId(t.id); setMembers([]); }}
-                                    className={`text-right rounded-xl border px-3 py-2 ${typeId === t.id ? "border-indigo-500 bg-indigo-50" : "border-slate-200"}`}>
+                                    className={`text-start rounded-xl border px-3 py-2 ${typeId === t.id ? "border-indigo-500 bg-indigo-50" : "border-slate-200"}`}>
                                     <span className="block text-sm font-semibold text-slate-900">{t.name}</span>
                                     <span className="block text-xs text-slate-500 tabular-nums">{describeType(t)}</span>
                                 </button>
@@ -190,17 +191,17 @@ function SellSheet({ terms, onClose, onDone }: { terms: Terms; onClose: () => vo
                 </fieldset>
                 {family && type && <SellMembers type={type} holderId={who?.id ?? null} members={members} setMembers={setMembers} terms={terms} />}
                 <div className="grid grid-cols-2 gap-3">
-                    <label className={label}>מתחיל ב-
-                        <PickerBox type="date" label="תחילת המנוי" value={start} onChange={v => setStart(v)} min={new Date().toISOString().slice(0, 10)} className={cn(`${field} mt-1`, "text-start")} />
+                    <label className={label}>{tx("מתחיל ב-")}
+                        <PickerBox type="date" label={tx("תחילת המנוי")} value={start} onChange={v => setStart(v)} min={new Date().toISOString().slice(0, 10)} className={cn(`${field} mt-1`, "text-start")} />
                     </label>
-                    <label className={label}>מחיר (₪)
+                    <label className={label}>{tx("מחיר (₪)")}
                         <input type="number" min={0} value={price} onChange={e => setPrice(e.target.value === "" ? "" : Number(e.target.value))} className={`${field} mt-1 tabular-nums`} dir="ltr" />
                     </label>
                 </div>
-                <label className={label}>הערה
+                <label className={label}>{tx("הערה")}
                     <input value={notes} onChange={e => setNotes(e.target.value)} maxLength={500} className={`${field} mt-1`} />
                 </label>
-                <p className="text-xs text-slate-500">התשלום עצמו נרשם בנפרד — המערכת לא גובה כסף.</p>
+                <p className="text-xs text-slate-500">{tx("התשלום עצמו נרשם בנפרד — המערכת לא גובה כסף.")}</p>
             </div>
         </BottomSheet>
     );
@@ -208,10 +209,10 @@ function SellSheet({ terms, onClose, onDone }: { terms: Terms; onClose: () => vo
 
 const ENTRY_TEXT = (e: MembershipDetail["entries"][number]) => {
     const cls = e.class_name && e.class_at ? ` — ${e.class_name} ${ilDate(e.class_at)}` : "";
-    if (e.stage === "opening") return `${e.reason ?? "פתיחה"} (+${e.amount})`;
-    if (e.stage === "reserve") return `כניסה שמורה${cls}`;
-    if (e.stage === "close") return `${e.outcome === "consume" ? "הכניסה נוצלה" : "הכניסה חזרה"}${cls}${e.reason ? ` · ${e.reason}` : ""}`;
-    return `תיקון ${e.amount > 0 ? "+" : ""}${e.amount}${cls}${e.reason ? ` · ${e.reason}` : ""}`;
+    if (e.stage === "opening") return `${e.reason ?? tx("פתיחה")} (+${e.amount})`;
+    if (e.stage === "reserve") return tx("כניסה שמורה{0}", { 0: cls });
+    if (e.stage === "close") return `${e.outcome === "consume" ? tx("הכניסה נוצלה") : tx("הכניסה חזרה")}${cls}${e.reason ? ` · ${e.reason}` : ""}`;
+    return tx("תיקון {0}{1}{2}{3}", { 0: e.amount > 0 ? "+" : "", 1: e.amount, 2: cls, 3: e.reason ? ` · ${e.reason}` : "" });
 };
 
 function MembershipSheet({ id, terms, canSell, canChange, onClose, onChanged }: {
@@ -237,20 +238,20 @@ function MembershipSheet({ id, terms, canSell, canChange, onClose, onChanged }: 
             reload();
             onChanged();
         } catch (e) {
-            toast.error(e instanceof Error ? e.message : "הפעולה נכשלה");
+            toast.error(e instanceof Error ? e.message : tx("הפעולה נכשלה"));
         } finally {
             setBusy(false);
         }
     };
 
     return (
-        <BottomSheet open onClose={onClose} title={m ? `${m.name} — ${m.client_name}` : "מנוי"} className="sm:max-w-lg">
-            {!m ? <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 text-indigo-500 animate-spin" aria-label="טוען" /></div> : (
+        <BottomSheet open onClose={onClose} title={m ? `${m.name} — ${m.client_name}` : tx("מנוי")} className="sm:max-w-lg">
+            {!m ? <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 text-indigo-500 animate-spin" aria-label={tx("טוען")} /></div> : (
                 <div className="px-5 py-4 space-y-4 overflow-y-auto min-h-0 text-sm">
                     <div className="flex items-start justify-between gap-3">
                         <div className="space-y-1">
-                            <p className="text-slate-700">{m.kind_label} · <span dir="ltr">{fullDate(m.starts_on)} – {m.ends_on ? fullDate(m.ends_on) : "…"}</span>{m.ends_on ? "" : " (ללא תאריך סיום)"}</p>
-                            {m.price_cents > 0 && <p className="text-slate-500 tabular-nums">מחיר: {shekels(m.price_cents)}</p>}
+                            <p className="text-slate-700">{m.kind_label} · <span dir="ltr">{fullDate(m.starts_on)} – {m.ends_on ? fullDate(m.ends_on) : "…"}</span>{m.ends_on ? "" : tx(" (ללא תאריך סיום)")}</p>
+                            {m.price_cents > 0 && <p className="text-slate-500 tabular-nums">{tx("מחיר: ")}{shekels(m.price_cents)}</p>}
                             {m.notes && <p className="text-slate-500">{m.notes}</p>}
                             {freezeLine(m) && <p className="text-cyan-800">{freezeLine(m)}</p>}
                         </div>
@@ -258,7 +259,7 @@ function MembershipSheet({ id, terms, canSell, canChange, onClose, onChanged }: 
                     </div>
                     {m.kind === "punch" && m.balance && (
                         <div className="grid grid-cols-3 gap-2 text-center">
-                            {([["זמינות", m.balance.available], ["שמורות", m.balance.reserved], ["נוצלו", m.balance.consumed]] as const).map(([k, v]) => (
+                            {([[tx("זמינות"), m.balance.available], [tx("שמורות"), m.balance.reserved], [tx("נוצלו"), m.balance.consumed]] as const).map(([k, v]) => (
                                 <div key={k} className="rounded-xl bg-slate-50 py-2">
                                     <p className="text-lg font-bold text-slate-900 tabular-nums">{v}</p>
                                     <p className="text-xs text-slate-500">{k}</p>
@@ -268,28 +269,28 @@ function MembershipSheet({ id, terms, canSell, canChange, onClose, onChanged }: 
                     )}
                     {m.is_family && (
                         <MembershipMembers m={m} terms={terms} canAdd={canSell} canRemove={canChange} busy={busy}
-                            onAdd={clientId => act(`/api/classes/memberships/${m.id}/members`, { client_id: clientId }, "נוסף/ה למנוי")}
-                            onRemove={(clientId, name) => act(`/api/classes/memberships/${m.id}/members/${clientId}/remove`, {}, `${name} יצא/ה מהמנוי`)} />
+                            onAdd={clientId => act(`/api/classes/memberships/${m.id}/members`, { client_id: clientId }, tx("נוסף/ה למנוי"))}
+                            onRemove={(clientId, name) => act(`/api/classes/memberships/${m.id}/members/${clientId}/remove`, {}, tx("{0} יצא/ה מהמנוי", { 0: name }))} />
                     )}
                     <div className="flex items-center justify-between gap-2 rounded-xl bg-slate-50 px-3 py-2">
                         <p className="text-slate-700 tabular-nums">
-                            שולם {shekels(m.paid_cents)}{m.price_cents > 0 ? ` מתוך ${shekels(m.price_cents)}` : ""}
-                            {m.price_cents > m.paid_cents && <span className="text-rose-700"> · נותר {shekels(m.price_cents - m.paid_cents)}</span>}
+                            {tx("שולם")} {shekels(m.paid_cents)}{m.price_cents > 0 ? tx(" מתוך {0}", { 0: shekels(m.price_cents) }) : ""}
+                            {m.price_cents > m.paid_cents && <span className="text-rose-700">{tx(" · נותר ")}{shekels(m.price_cents - m.paid_cents)}</span>}
                         </p>
                         {canSell && !paying && (
                             <button type="button" onClick={() => setPaying(true)}
-                                className="min-h-9 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold">רישום תשלום</button>
+                                className="min-h-9 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold">{tx("רישום תשלום")}</button>
                         )}
                     </div>
                     {paying && (
                         <PayForm defaultAmountCents={Math.max(0, m.price_cents - m.paid_cents)} busy={busy} onCancel={() => setPaying(false)} clientId={m.client_id}
-                            onPay={p => act(`/api/classes/memberships/${m.id}/payments`, p, "התשלום נרשם")} />
+                            onPay={p => act(`/api/classes/memberships/${m.id}/payments`, p, tx("התשלום נרשם"))} />
                     )}
                     {m.payments.length > 0 && (
                         <ul className="text-xs text-slate-600 space-y-0.5">
                             {m.payments.map(p => (
                                 <li key={p.id} className="flex justify-between tabular-nums">
-                                    <span>{shekels(p.amount_cents)} · {p.is_coupon ? "הנחת קופון" : methodLabel(p.method)}</span>
+                                    <span>{shekels(p.amount_cents)} · {p.is_coupon ? tx("הנחת קופון") : methodLabel(p.method)}</span>
                                     <span dir="ltr">{ilDate(p.created_at)}</span>
                                 </li>
                             ))}
@@ -297,42 +298,42 @@ function MembershipSheet({ id, terms, canSell, canChange, onClose, onChanged }: 
                     )}
                     <div className="flex flex-wrap gap-2">
                         {canSell && (
-                            <button type="button" disabled={busy} onClick={() => act(`/api/classes/memberships/${m.id}/renew`, {}, "המנוי חודש — המנוי החדש מתחיל כשהנוכחי נגמר")}
+                            <button type="button" disabled={busy} onClick={() => act(`/api/classes/memberships/${m.id}/renew`, {}, tx("המנוי חודש — המנוי החדש מתחיל כשהנוכחי נגמר"))}
                                 className="inline-flex items-center gap-1.5 min-h-11 px-3 rounded-xl border border-slate-200 text-sm font-semibold text-slate-700 hover:border-indigo-400">
-                                <RefreshCw className="w-4 h-4" aria-hidden /> חידוש
+                                <RefreshCw className="w-4 h-4" aria-hidden /> {tx("חידוש")}
                             </button>
                         )}
                         {canChange && m.kind === "punch" && !fixing && (
                             <button type="button" onClick={() => setFixing(true)}
                                 className="inline-flex items-center gap-1.5 min-h-11 px-3 rounded-xl border border-slate-200 text-sm font-semibold text-slate-700 hover:border-indigo-400">
-                                <PencilLine className="w-4 h-4" aria-hidden /> תיקון כניסות
+                                <PencilLine className="w-4 h-4" aria-hidden /> {tx("תיקון כניסות")}
                             </button>
                         )}
                     </div>
                     {fixing && (
                         <div className="rounded-xl border border-slate-200 p-3 space-y-2">
                             <div className="flex gap-2">
-                                <label className="text-xs text-slate-600">כניסות (+/-)
+                                <label className="text-xs text-slate-600">{tx("כניסות (+/-)")}
                                     <input type="number" value={delta} onChange={e => setDelta(Number(e.target.value))} dir="ltr"
                                         className="block mt-1 w-20 min-h-10 rounded-lg border border-slate-200 text-center tabular-nums" />
                                 </label>
-                                <label className="text-xs text-slate-600 flex-1">סיבה
-                                    <input value={reason} onChange={e => setReason(e.target.value)} maxLength={160} placeholder="למשל: מתנה"
+                                <label className="text-xs text-slate-600 flex-1">{tx("סיבה")}
+                                    <input value={reason} onChange={e => setReason(e.target.value)} maxLength={160} placeholder={tx("למשל: מתנה")}
                                         className="block mt-1 w-full min-h-10 rounded-lg border border-slate-200 px-2" />
                                 </label>
                             </div>
                             <div className="flex gap-2">
                                 <button type="button" disabled={busy || !delta || !reason.trim()}
-                                    onClick={() => act(`/api/classes/memberships/${m.id}/adjust`, { delta, reason }, "הכניסות תוקנו")}
-                                    className="min-h-10 px-4 rounded-xl bg-indigo-600 text-white text-sm font-bold disabled:opacity-40">שמירה</button>
-                                <button type="button" onClick={() => setFixing(false)} className="min-h-10 px-3 text-sm text-slate-600">ביטול</button>
+                                    onClick={() => act(`/api/classes/memberships/${m.id}/adjust`, { delta, reason }, tx("הכניסות תוקנו"))}
+                                    className="min-h-10 px-4 rounded-xl bg-indigo-600 text-white text-sm font-bold disabled:opacity-40">{tx("שמירה")}</button>
+                                <button type="button" onClick={() => setFixing(false)} className="min-h-10 px-3 text-sm text-slate-600">{tx("ביטול")}</button>
                             </div>
                         </div>
                     )}
                     <MembershipChanges m={m} canChange={canChange} onDone={next => { setM(next); onChanged(); }} />
                     {m.kind === "punch" && m.entries.length > 0 && (
                         <div>
-                            <p className="text-xs font-semibold text-slate-500 mb-1">יומן הכניסות</p>
+                            <p className="text-xs font-semibold text-slate-500 mb-1">{tx("יומן הכניסות")}</p>
                             <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200">
                                 {[...m.entries].reverse().map((e, i) => (
                                     <li key={i} className="px-3 py-2 flex items-start justify-between gap-2">
@@ -345,7 +346,7 @@ function MembershipSheet({ id, terms, canSell, canChange, onClose, onChanged }: 
                     )}
                     {m.bookings.length > 0 && (
                         <div>
-                            <p className="text-xs font-semibold text-slate-500 mb-1">שיעורים</p>
+                            <p className="text-xs font-semibold text-slate-500 mb-1">{tx("שיעורים")}</p>
                             <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200">
                                 {m.bookings.map(b => (
                                     <li key={b.id} className="px-3 py-2 flex items-center justify-between gap-2">
@@ -374,12 +375,12 @@ function Fees({ canWaive, canPay }: { canWaive: boolean; canPay: boolean }) {
     const waive = async (id: string) => {
         try {
             await apiFetch(`/api/classes/fees/${id}/waive`, { method: "POST", body: JSON.stringify({ reason }) });
-            toast.success("החיוב נמחל");
+            toast.success(tx("החיוב נמחל"));
             setWaiving(null);
             setReason("");
             load();
         } catch (e) {
-            toast.error(e instanceof Error ? e.message : "הפעולה נכשלה");
+            toast.error(e instanceof Error ? e.message : tx("הפעולה נכשלה"));
         }
     };
 
@@ -387,26 +388,26 @@ function Fees({ canWaive, canPay }: { canWaive: boolean; canPay: boolean }) {
         setBusy(true);
         try {
             await apiFetch(`/api/classes/fees/${id}/pay`, { method: "POST", body: JSON.stringify(p) });
-            toast.success("התשלום נרשם — החיוב שולם");
+            toast.success(tx("התשלום נרשם — החיוב שולם"));
             setPaying(null);
             load();
         } catch (e) {
-            toast.error(e instanceof Error ? e.message : "הפעולה נכשלה");
+            toast.error(e instanceof Error ? e.message : tx("הפעולה נכשלה"));
         } finally {
             setBusy(false);
         }
     };
 
-    if (fees === null) return <Loader2 className="w-6 h-6 text-indigo-500 animate-spin" aria-label="טוען" />;
+    if (fees === null) return <Loader2 className="w-6 h-6 text-indigo-500 animate-spin" aria-label={tx("טוען")} />;
     const total = fees.reduce((a, f) => a + f.amount_cents, 0);
     return (
         <div className="space-y-3">
             <p className="text-sm text-slate-600">
-                חיובים שנרשמו לפי כללי הביטול המאוחר ואי-ההגעה. הם נשמרים כחוב על הלקוח — המערכת לא גובה אותם.
-                {fees.length > 0 && <span className="font-semibold text-slate-900 tabular-nums"> סה״כ פתוח: {shekels(total)}</span>}
+                {tx("חיובים שנרשמו לפי כללי הביטול המאוחר ואי-ההגעה. הם נשמרים כחוב על הלקוח — המערכת לא גובה אותם.")}
+                {fees.length > 0 && <span className="font-semibold text-slate-900 tabular-nums">{tx(" סה״כ פתוח: ")}{shekels(total)}</span>}
             </p>
             {fees.length === 0 ? (
-                <p className="text-sm text-slate-500 bg-white border border-slate-200 rounded-2xl px-5 py-8 text-center">אין חיובים פתוחים.</p>
+                <p className="text-sm text-slate-500 bg-white border border-slate-200 rounded-2xl px-5 py-8 text-center">{tx("אין חיובים פתוחים.")}</p>
             ) : (
                 <ul className="bg-white rounded-2xl border border-slate-200/70 divide-y divide-slate-100">
                     {fees.map(f => (
@@ -419,11 +420,11 @@ function Fees({ canWaive, canPay }: { canWaive: boolean; canPay: boolean }) {
                                 <span className="text-sm font-bold text-rose-700 tabular-nums">{shekels(f.amount_cents)}</span>
                                 {canPay && paying !== f.id && waiving !== f.id && (
                                     <button type="button" onClick={() => setPaying(f.id)}
-                                        className="min-h-9 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold">תשלום</button>
+                                        className="min-h-9 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold">{tx("תשלום")}</button>
                                 )}
                                 {canWaive && waiving !== f.id && paying !== f.id && (
                                     <button type="button" onClick={() => { setWaiving(f.id); setReason(""); }}
-                                        className="min-h-9 px-3 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 hover:border-slate-400">מחילה</button>
+                                        className="min-h-9 px-3 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 hover:border-slate-400">{tx("מחילה")}</button>
                                 )}
                             </div>
                             {paying === f.id && (
@@ -432,11 +433,11 @@ function Fees({ canWaive, canPay }: { canWaive: boolean; canPay: boolean }) {
                             )}
                             {waiving === f.id && (
                                 <div className="flex gap-2">
-                                    <input value={reason} onChange={e => setReason(e.target.value)} maxLength={200} autoFocus placeholder="סיבת המחילה"
+                                    <input value={reason} onChange={e => setReason(e.target.value)} maxLength={200} autoFocus placeholder={tx("סיבת המחילה")}
                                         className="flex-1 min-h-10 rounded-lg border border-slate-200 px-2 text-sm" />
                                     <button type="button" onClick={() => waive(f.id)} disabled={!reason.trim()}
-                                        className="min-h-10 px-3 rounded-lg bg-indigo-600 text-white text-sm font-bold disabled:opacity-40">מחילה</button>
-                                    <button type="button" onClick={() => setWaiving(null)} className="min-h-10 px-2 text-sm text-slate-600">ביטול</button>
+                                        className="min-h-10 px-3 rounded-lg bg-indigo-600 text-white text-sm font-bold disabled:opacity-40">{tx("מחילה")}</button>
+                                    <button type="button" onClick={() => setWaiving(null)} className="min-h-10 px-2 text-sm text-slate-600">{tx("ביטול")}</button>
                                 </div>
                             )}
                         </li>

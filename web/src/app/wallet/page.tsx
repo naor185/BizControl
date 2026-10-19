@@ -9,6 +9,7 @@ import AppShell from "@/components/AppShell";
 import ClientsTabs from "@/components/ClientsTabs";
 import { apiFetch, API_BASE } from "@/lib/api";
 
+import { tx } from "@/lib/i18n";
 type Design = {
     background_color: string;
     text_color: string;
@@ -62,11 +63,11 @@ function PremiumCardPreview({ d, studioName, studioLogoUrl }: { d: Design; studi
                 />
 
                 {/* Top gradient strip */}
-                <div className="absolute top-0 left-0 right-0 h-1"
+                <div className="absolute top-0 end-0 start-0 h-1"
                     style={{ background: `linear-gradient(90deg, ${accent}00, ${accent}, ${accent}00)` }} />
 
                 {/* Radial glow in corner */}
-                <div className="absolute -top-8 -right-8 w-32 h-32 rounded-full pointer-events-none"
+                <div className="absolute -top-8 -start-8 w-32 h-32 rounded-full pointer-events-none"
                     style={{ background: `radial-gradient(circle, ${accent}30, transparent 70%)` }} />
 
                 <div className="relative h-full flex flex-col justify-between p-5">
@@ -113,7 +114,7 @@ function PremiumCardPreview({ d, studioName, studioLogoUrl }: { d: Design; studi
                             className="text-[9px] font-bold uppercase tracking-[0.25em] mb-0.5"
                             style={{ color: d.label_color, opacity: 0.7 }}
                         >
-                            מועדון לקוחות
+                            {tx("מועדון לקוחות")}
                         </div>
                         <div className="text-[15px] font-black tracking-wide leading-tight" style={{ letterSpacing: "0.04em" }}>
                             {d.card_title || studioName}
@@ -124,14 +125,14 @@ function PremiumCardPreview({ d, studioName, studioLogoUrl }: { d: Design; studi
                     <div className="flex items-end justify-between gap-3">
                         <div className="space-y-2 flex-1 min-w-0">
                             <div>
-                                <div className="text-[8px] font-bold uppercase tracking-widest opacity-40" style={{ color: d.label_color }}>שם חבר/ה</div>
-                                <div className="text-[11px] font-bold truncate mt-0.5">שם הלקוח</div>
+                                <div className="text-[8px] font-bold uppercase tracking-widest opacity-40" style={{ color: d.label_color }}>{tx("שם חבר/ה")}</div>
+                                <div className="text-[11px] font-bold truncate mt-0.5">{tx("שם הלקוח")}</div>
                             </div>
 
                             {d.show_points && (
                                 <div className="flex items-center gap-3">
                                     <div>
-                                        <div className="text-[8px] font-bold uppercase tracking-widest opacity-40" style={{ color: d.label_color }}>נקודות</div>
+                                        <div className="text-[8px] font-bold uppercase tracking-widest opacity-40" style={{ color: d.label_color }}>{tx("נקודות")}</div>
                                         <div className="text-lg font-black leading-none mt-0.5">1,250</div>
                                     </div>
                                 </div>
@@ -160,7 +161,7 @@ function PremiumCardPreview({ d, studioName, studioLogoUrl }: { d: Design; studi
                 </div>
 
                 {/* Bottom glow line */}
-                <div className="absolute bottom-0 left-0 right-0 h-px"
+                <div className="absolute bottom-0 end-0 start-0 h-px"
                     style={{ background: `linear-gradient(90deg, transparent, ${accent}88, transparent)` }} />
             </div>
         </div>
@@ -180,11 +181,11 @@ function StatusPill({ configured, label }: { configured: boolean; label: string 
             <div className="flex-1">
                 <div className="text-sm font-bold text-slate-800">{label}</div>
                 <div className={`text-xs font-semibold mt-0.5 ${configured ? "text-emerald-600" : "text-amber-600"}`}>
-                    {configured ? "מחובר ומוכן" : "ממתין להגדרת מערכת"}
+                    {configured ? tx("מחובר ומוכן") : tx("ממתין להגדרת מערכת")}
                 </div>
             </div>
             <span className={`text-[11px] font-black px-2.5 py-1 rounded-full ${configured ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
-                {configured ? "פעיל" : "לא פעיל"}
+                {configured ? tx("פעיל") : tx("לא פעיל")}
             </span>
         </div>
     );
@@ -192,7 +193,7 @@ function StatusPill({ configured, label }: { configured: boolean; label: string 
 
 export default function WalletDesignerPage() {
     const [design, setDesign] = useState<Design>(DEFAULT_DESIGN);
-    const [studioName, setStudioName] = useState("העסק שלי");
+    const [studioName, setStudioName] = useState(tx("העסק שלי"));
     const [studioLogoUrl, setStudioLogoUrl] = useState<string | null>(null);
     const [walletStatus, setWalletStatus] = useState<WalletStatus>({ apple_configured: false, google_configured: false });
     const [saving, setSaving] = useState(false);
@@ -226,7 +227,7 @@ export default function WalletDesignerPage() {
             setSaved(true);
             setTimeout(() => setSaved(false), 2500);
         } catch {
-            toast.error("שגיאה בשמירה");
+            toast.error(tx("שגיאה בשמירה"));
         } finally {
             setSaving(false);
         }
@@ -234,9 +235,9 @@ export default function WalletDesignerPage() {
 
     return (
         <RequireAuth>
-            <AppShell title="לקוחות">
+            <AppShell title={tx("לקוחות")}>
                 <div className="pb-4"><ClientsTabs /></div>
-                <PlanLock module="wallet" feature="כרטיס דיגיטלי בארנק">
+                <PlanLock module="wallet" feature={tx("כרטיס דיגיטלי בארנק")}>
                 <div className="grid lg:grid-cols-[1fr_380px] gap-10 items-start">
 
                     {/* ── Controls ── */}
@@ -244,21 +245,21 @@ export default function WalletDesignerPage() {
 
                         {/* Wallet Status */}
                         <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm space-y-3">
-                            <h3 className="font-bold text-slate-800 text-base">סטטוס Wallet</h3>
+                            <h3 className="font-bold text-slate-800 text-base">{tx("סטטוס Wallet")}</h3>
                             <StatusPill configured={walletStatus.apple_configured} label="Apple Wallet" />
                             <StatusPill configured={walletStatus.google_configured} label="Google Wallet" />
                             {(!walletStatus.apple_configured || !walletStatus.google_configured) && (
                                 <p className="text-xs text-slate-400 pt-1 leading-relaxed">
-                                    כפתורי Wallet יופיעו אוטומטית בפורטל הלקוח כאשר מנהל המערכת יסיים את ההגדרה הטכנית.
+                                    {tx("כפתורי Wallet יופיעו אוטומטית בפורטל הלקוח כאשר מנהל המערכת יסיים את ההגדרה הטכנית.")}
                                 </p>
                             )}
                         </div>
 
                         {/* Card texts */}
                         <div className="bg-white rounded-3xl border border-slate-100 p-6 space-y-4 shadow-sm">
-                            <h3 className="font-bold text-slate-800 text-base">טקסטים על הכרטיס</h3>
+                            <h3 className="font-bold text-slate-800 text-base">{tx("טקסטים על הכרטיס")}</h3>
                             <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">שם על הכרטיס</label>
+                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">{tx("שם על הכרטיס")}</label>
                                 <input
                                     type="text"
                                     value={design.card_title || ""}
@@ -268,12 +269,12 @@ export default function WalletDesignerPage() {
                                 />
                             </div>
                             <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">תיאור קצר (אופציונלי)</label>
+                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">{tx("תיאור קצר (אופציונלי)")}</label>
                                 <input
                                     type="text"
                                     value={design.card_description || ""}
                                     onChange={e => update("card_description", e.target.value || null)}
-                                    placeholder="הצטרף/י למועדון ותיהנה מהטבות"
+                                    placeholder={tx("הצטרף/י למועדון ותיהנה מהטבות")}
                                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-400 transition"
                                 />
                             </div>
@@ -281,13 +282,13 @@ export default function WalletDesignerPage() {
 
                         {/* Colors */}
                         <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm">
-                            <h3 className="font-bold text-slate-800 text-base mb-4">צבעים</h3>
+                            <h3 className="font-bold text-slate-800 text-base mb-4">{tx("צבעים")}</h3>
                             <div className="grid grid-cols-2 gap-4">
                                 {([
-                                    ["background_color", "רקע"],
-                                    ["text_color", "טקסט"],
-                                    ["strip_color", "צבע מבטא"],
-                                    ["label_color", "תוויות"],
+                                    ["background_color", tx("רקע")],
+                                    ["text_color", tx("טקסט")],
+                                    ["strip_color", tx("צבע מבטא")],
+                                    ["label_color", tx("תוויות")],
                                 ] as [keyof Design, string][]).map(([key, label]) => (
                                     <label key={key} className="flex items-center gap-3 cursor-pointer group">
                                         <div className="relative">
@@ -310,11 +311,11 @@ export default function WalletDesignerPage() {
 
                         {/* Fields visibility */}
                         <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm">
-                            <h3 className="font-bold text-slate-800 text-base mb-4">שדות להצגה בכרטיס</h3>
+                            <h3 className="font-bold text-slate-800 text-base mb-4">{tx("שדות להצגה בכרטיס")}</h3>
                             <div className="space-y-3">
                                 {([
-                                    ["show_points", "הצג נקודות"],
-                                    ["show_barcode", "הצג QR Code"],
+                                    ["show_points", tx("הצג נקודות")],
+                                    ["show_barcode", tx("הצג QR Code")],
                                 ] as [keyof Design, string][]).map(([key, label]) => (
                                     <div key={key} className="flex items-center justify-between py-1">
                                         <span className="text-sm font-medium text-slate-700">{label}</span>
@@ -329,17 +330,16 @@ export default function WalletDesignerPage() {
                             disabled={saving}
                             className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl shadow-lg transition-all disabled:opacity-50 text-base"
                         >
-                            {saving ? "שומר..." : saved ? "✅ נשמר בהצלחה!" : "שמור עיצוב"}
+                            {saving ? tx("שומר...") : saved ? tx("✅ נשמר בהצלחה!") : tx("שמור עיצוב")}
                         </button>
                     </div>
 
                     {/* ── Live Preview ── */}
                     <div className="lg:sticky lg:top-6 flex flex-col items-center gap-5">
-                        <div className="text-xs text-slate-500 font-bold uppercase tracking-widest">תצוגה מקדימה חיה</div>
+                        <div className="text-xs text-slate-500 font-bold uppercase tracking-widest">{tx("תצוגה מקדימה חיה")}</div>
                         <PremiumCardPreview d={design} studioName={studioName} studioLogoUrl={studioLogoUrl} />
                         <p className="text-[11px] text-slate-400 text-center max-w-70 leading-relaxed">
-                            כרטיס זה יוצג ללקוחות בפורטל האישי.
-                            כפתורי Apple Wallet ו-Google Wallet יופיעו אוטומטית כשהשירות יהיה פעיל.
+                            {tx("כרטיס זה יוצג ללקוחות בפורטל האישי. כפתורי Apple Wallet ו-Google Wallet יופיעו אוטומטית כשהשירות יהיה פעיל.")}
                         </p>
                     </div>
                 </div>

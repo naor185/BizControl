@@ -16,6 +16,7 @@ import { apiFetch, getCurrentUserId, getCurrentUserRole } from "@/lib/api";
 import { useTerms } from "@/lib/useTerms";
 import type { Room, StaffMember } from "@/lib/classes";
 
+import { tx } from "@/lib/i18n";
 // Group classes: the week's schedule, the recurring classes it is made from, and rooms. Behind the
 // "classes" module; the rooms tab only when "rooms" is on. /classes?session=<id> opens one class
 // (the calendar links here).
@@ -62,24 +63,24 @@ function Classes() {
         return (
             <div className="max-w-xl mx-auto mt-10 bg-white rounded-2xl border border-slate-200 p-6 text-center">
                 <Info className="w-8 h-8 text-indigo-500 mx-auto mb-3" aria-hidden />
-                <p className="font-bold text-slate-800">שיעורים קבוצתיים לא פעילים בעסק</p>
-                <p className="text-sm text-slate-500 mt-1">להפעלה — פנו לתמיכה של BizControl.</p>
+                <p className="font-bold text-slate-800">{tx("שיעורים קבוצתיים לא פעילים בעסק")}</p>
+                <p className="text-sm text-slate-500 mt-1">{tx("להפעלה — פנו לתמיכה של BizControl.")}</p>
             </div>
         );
     }
     if (!ready) {
-        return <div className="flex justify-center py-20"><Loader2 className="w-7 h-7 text-indigo-500 animate-spin" aria-label="טוען" /></div>;
+        return <div className="flex justify-center py-20"><Loader2 className="w-7 h-7 text-indigo-500 animate-spin" aria-label={tx("טוען")} /></div>;
     }
 
     const roomsOn = !modules || modules.rooms !== false;
     const canManage = MANAGERS.has(role ?? "");
     const membershipsOn = !modules || modules.memberships !== false;
     const tabs: { id: Tab; label: string; icon: LucideIcon }[] = [
-        { id: "schedule", label: "לוח שיעורים", icon: CalendarDays },
-        { id: "templates", label: "שיעורים קבועים", icon: Repeat },
-        ...(membershipsOn ? [{ id: "memberships" as Tab, label: "מנויים", icon: IdCard }] : []),
-        ...(roomsOn ? [{ id: "rooms" as Tab, label: "חדרים", icon: DoorOpen }] : []),
-        ...(roomsOn && (canManage || role === "staff") ? [{ id: "rentals" as Tab, label: "השכרות", icon: KeyRound }] : []),
+        { id: "schedule", label: tx("לוח שיעורים"), icon: CalendarDays },
+        { id: "templates", label: tx("שיעורים קבועים"), icon: Repeat },
+        ...(membershipsOn ? [{ id: "memberships" as Tab, label: tx("מנויים"), icon: IdCard }] : []),
+        ...(roomsOn ? [{ id: "rooms" as Tab, label: tx("חדרים"), icon: DoorOpen }] : []),
+        ...(roomsOn && (canManage || role === "staff") ? [{ id: "rentals" as Tab, label: tx("השכרות"), icon: KeyRound }] : []),
     ];
 
     return (
@@ -95,7 +96,7 @@ function Classes() {
                     ))}
                 </div>
                 <Link href="/classes/settings" className="inline-flex items-center gap-1.5 min-h-11 px-2 text-sm text-slate-600 hover:text-indigo-700 shrink-0">
-                    <SlidersHorizontal className="w-4 h-4" aria-hidden /><span className="hidden sm:inline">הגדרות</span>
+                    <SlidersHorizontal className="w-4 h-4" aria-hidden /><span className="hidden sm:inline">{tx("הגדרות")}</span>
                 </Link>
             </div>
 
@@ -120,7 +121,7 @@ function Classes() {
 export default function ClassesPage() {
     return (
         <RequireAuth>
-            <AppShell title="שיעורים">
+            <AppShell title={tx("שיעורים")}>
                 <Suspense fallback={null}>
                     <Classes />
                 </Suspense>

@@ -18,6 +18,7 @@ import {
     DAY_LONG, ilTime, ilDate, ilDay, weekStart, shiftDay, dayLabel, clashLine, staffName, classPermissions,
 } from "@/lib/classes";
 
+import { tx } from "@/lib/i18n";
 // The week's classes, day by day (Sunday first). A class opens in a sheet: its details, the class list
 // (booking a client in, attendance, cancelling), and — for owner/admin — changing or cancelling it. Both ask the server first (dry_run)
 // and show clashes and how many booked clients will get a message before anything is saved.
@@ -36,7 +37,7 @@ export default function ClassSchedule({ rooms, staff, terms, role, userId, openS
         const q = `start=${week}T00:00:00&end=${shiftDay(week, 7)}T00:00:00${room ? `&room_id=${room}` : ""}`;
         apiFetch<ClassSession[]>(`/api/classes/sessions?${q}`)
             .then(setSessions)
-            .catch(e => { setSessions([]); toast.error(e instanceof Error ? e.message : "טעינה נכשלה"); });
+            .catch(e => { setSessions([]); toast.error(e instanceof Error ? e.message : tx("טעינה נכשלה")); });
     }, [week, room]);
 
     useEffect(() => { load(); }, [load]);
@@ -46,7 +47,7 @@ export default function ClassSchedule({ rooms, staff, terms, role, userId, openS
         if (!openSessionId) return;
         apiFetch<ClassSession>(`/api/classes/sessions/${openSessionId}`)
             .then(s => { setWeek(weekStart(s.starts_at)); setOpenId(s.id); })
-            .catch(() => toast.error("השיעור לא נמצא"));
+            .catch(() => toast.error(tx("השיעור לא נמצא")));
     }, [openSessionId]);
 
     const today = ilDay(todayIso());
@@ -57,48 +58,48 @@ export default function ClassSchedule({ rooms, staff, terms, role, userId, openS
         <div className="space-y-4">
             <div className="flex flex-wrap items-center gap-2">
                 <div className="inline-flex items-center rounded-xl border border-slate-200 bg-white">
-                    <button type="button" onClick={() => setWeek(w => shiftDay(w, -7))} aria-label="השבוע הקודם"
+                    <button type="button" onClick={() => setWeek(w => shiftDay(w, -7))} aria-label={tx("השבוע הקודם")}
                         className="w-11 h-11 flex items-center justify-center text-slate-600 hover:text-indigo-700">
-                        <ChevronRight className="w-5 h-5" aria-hidden />
+                        <ChevronRight className="ltr:-scale-x-100 w-5 h-5" aria-hidden />
                     </button>
                     <span dir="ltr" className="px-2 text-sm font-semibold text-slate-800 tabular-nums min-w-[7.5rem] text-center">
                         {dayLabel(week)} – {dayLabel(shiftDay(week, 6))}
                     </span>
-                    <button type="button" onClick={() => setWeek(w => shiftDay(w, 7))} aria-label="השבוע הבא"
+                    <button type="button" onClick={() => setWeek(w => shiftDay(w, 7))} aria-label={tx("השבוע הבא")}
                         className="w-11 h-11 flex items-center justify-center text-slate-600 hover:text-indigo-700">
-                        <ChevronLeft className="w-5 h-5" aria-hidden />
+                        <ChevronLeft className="ltr:-scale-x-100 w-5 h-5" aria-hidden />
                     </button>
                 </div>
                 {week !== thisWeek && (
                     <button type="button" onClick={() => setWeek(thisWeek)}
                         className="min-h-11 px-3 rounded-xl border border-slate-200 bg-white text-sm text-slate-700 hover:border-indigo-400">
-                        השבוע
+                        {tx("השבוע")}
                     </button>
                 )}
                 {rooms.length > 1 && (
-                    <select value={room} onChange={e => setRoom(e.target.value)} aria-label="חדר"
+                    <select value={room} onChange={e => setRoom(e.target.value)} aria-label={tx("חדר")}
                         className="min-h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 ms-auto">
-                        <option value="">כל החדרים</option>
+                        <option value="">{tx("כל החדרים")}</option>
                         {rooms.filter(r => r.is_active).map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
                     </select>
                 )}
             </div>
 
             {sessions === null ? (
-                <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 text-indigo-500 animate-spin" aria-label="טוען" /></div>
+                <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 text-indigo-500 animate-spin" aria-label={tx("טוען")} /></div>
             ) : (
                 <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
                     {days.map((day, i) => {
                         const items = sessions.filter(s => ilDay(s.starts_at) === day);
                         return (
-                            <section key={day} aria-label={`יום ${DAY_LONG[i]}`}
+                            <section key={day} aria-label={tx("יום {0}", { 0: DAY_LONG[i] })}
                                 className={`rounded-2xl border p-2.5 ${day === today ? "border-indigo-300 bg-indigo-50/40" : "border-slate-200/70 bg-white"}`}>
                                 <h3 className="flex items-baseline justify-between px-1 pb-2">
                                     <span className={`text-sm font-bold ${day === today ? "text-indigo-700" : "text-slate-800"}`}>{DAY_LONG[i]}</span>
                                     <span className="text-xs text-slate-500 tabular-nums">{dayLabel(day)}</span>
                                 </h3>
                                 {items.length === 0 ? (
-                                    <p className="text-xs text-slate-400 px-1 pb-1">אין שיעורים</p>
+                                    <p className="text-xs text-slate-400 px-1 pb-1">{tx("אין שיעורים")}</p>
                                 ) : (
                                     <ul className="space-y-2">
                                         {items.map(s => (
@@ -125,11 +126,11 @@ function SessionRow({ s, onOpen }: { s: ClassSession; onOpen: () => void }) {
     const full = s.booked >= s.capacity;
     return (
         <button type="button" onClick={onOpen}
-            className={`w-full text-right rounded-xl border px-2.5 py-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 ${canceled ? "border-slate-200 bg-slate-50 opacity-70" : "border-slate-200 bg-white hover:border-indigo-300"}`}>
+            className={`w-full text-start rounded-xl border px-2.5 py-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 ${canceled ? "border-slate-200 bg-slate-50 opacity-70" : "border-slate-200 bg-white hover:border-indigo-300"}`}>
             <span className="flex items-center justify-between gap-2">
                 <span dir="ltr" className="text-xs font-semibold text-slate-600 tabular-nums whitespace-nowrap">{ilTime(s.starts_at)}–{ilTime(s.ends_at)}</span>
                 {canceled ? (
-                    <span className="text-[11px] font-semibold text-rose-700 bg-rose-50 rounded-full px-1.5">בוטל</span>
+                    <span className="text-[11px] font-semibold text-rose-700 bg-rose-50 rounded-full px-1.5">{tx("בוטל")}</span>
                 ) : (
                     <span className={`inline-flex items-center gap-0.5 text-[11px] font-semibold tabular-nums rounded-full px-1.5 ${full ? "text-amber-800 bg-amber-100" : "text-slate-600 bg-slate-100"}`}>
                         <Users className="w-3 h-3" aria-hidden />{s.booked}/{s.capacity}
@@ -163,7 +164,7 @@ export function SessionSheet({ id, rooms, staff, terms, role, userId, onClose, o
 
     const reload = useCallback(() => {
         apiFetch<ClassSession>(`/api/classes/sessions/${id}`).then(setS)
-            .catch(e => setMissing(e instanceof Error ? e.message : "השיעור לא נמצא"));
+            .catch(e => setMissing(e instanceof Error ? e.message : tx("השיעור לא נמצא")));
     }, [id]);
     useEffect(() => { reload(); }, [reload]);
 
@@ -172,24 +173,24 @@ export function SessionSheet({ id, rooms, staff, terms, role, userId, onClose, o
     const perms = classPermissions(role, userId, s?.instructor_id ?? null);
 
     return (
-        <BottomSheet open onClose={onClose} title={s ? s.name : "שיעור"} className="sm:max-w-lg">
+        <BottomSheet open onClose={onClose} title={s ? s.name : tx("שיעור")} className="sm:max-w-lg">
             {missing ? (
                 <p className="px-5 py-8 text-sm text-slate-600 text-center">{missing}</p>
             ) : !s ? (
-                <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 text-indigo-500 animate-spin" aria-label="טוען" /></div>
+                <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 text-indigo-500 animate-spin" aria-label={tx("טוען")} /></div>
             ) : (
                 <div className="px-5 py-4 space-y-4 overflow-y-auto min-h-0">
                     <div className="space-y-1.5 text-sm">
                         <p className="font-semibold text-slate-900 tabular-nums">
-                            יום {DAY_LONG[new Date(`${ilDay(s.starts_at)}T12:00:00Z`).getUTCDay()]} {ilDate(s.starts_at)}, <span dir="ltr">{ilTime(s.starts_at)}–{ilTime(s.ends_at)}</span>
+                            {tx("יום")} {DAY_LONG[new Date(`${ilDay(s.starts_at)}T12:00:00Z`).getUTCDay()]} {ilDate(s.starts_at)}, <span dir="ltr">{ilTime(s.starts_at)}–{ilTime(s.ends_at)}</span>
                         </p>
-                        {s.room_name && <p className="flex items-center gap-2 text-slate-600"><DoorOpen className="w-4 h-4" aria-hidden />חדר: {s.room_name}</p>}
+                        {s.room_name && <p className="flex items-center gap-2 text-slate-600"><DoorOpen className="w-4 h-4" aria-hidden />{tx("חדר: ")}{s.room_name}</p>}
                         {s.instructor_name && <p className="flex items-center gap-2 text-slate-600"><UserRound className="w-4 h-4" aria-hidden />{terms.staff}: {s.instructor_name}</p>}
-                        {s.is_course && <p className="flex items-center gap-2 text-slate-600"><GraduationCap className="w-4 h-4" aria-hidden />חלק מקורס</p>}
-                        {s.detached && s.status === "scheduled" && <p className="text-xs text-slate-500">השיעור הזה שונה בנפרד — שינויים בשיעור הקבוע לא חלים עליו.</p>}
+                        {s.is_course && <p className="flex items-center gap-2 text-slate-600"><GraduationCap className="w-4 h-4" aria-hidden />{tx("חלק מקורס")}</p>}
+                        {s.detached && s.status === "scheduled" && <p className="text-xs text-slate-500">{tx("השיעור הזה שונה בנפרד — שינויים בשיעור הקבוע לא חלים עליו.")}</p>}
                         {s.status !== "scheduled" && s.status !== "done" && (
                             <p className="text-sm text-rose-700 bg-rose-50 rounded-xl px-3 py-2">
-                                השיעור בוטל{s.cancel_reason ? `: ${s.cancel_reason}` : "."}
+                                {tx("השיעור בוטל")}{s.cancel_reason ? `: ${s.cancel_reason}` : "."}
                             </p>
                         )}
                     </div>
@@ -207,18 +208,18 @@ export function SessionSheet({ id, rooms, staff, terms, role, userId, onClose, o
                                 <div className="flex flex-wrap gap-2 pt-1">
                                     <button type="button" onClick={() => setMode("change")}
                                         className="inline-flex items-center gap-1.5 min-h-11 px-4 rounded-xl border border-slate-200 text-sm font-semibold text-slate-700 hover:border-indigo-400">
-                                        <PencilLine className="w-4 h-4" aria-hidden /> שינוי השיעור
+                                        <PencilLine className="w-4 h-4" aria-hidden /> {tx("שינוי השיעור")}
                                     </button>
                                     <button type="button" onClick={() => setMode("cancel")}
                                         className="inline-flex items-center gap-1.5 min-h-11 px-4 rounded-xl border border-rose-200 text-sm font-semibold text-rose-700 hover:bg-rose-50">
-                                        <Ban className="w-4 h-4" aria-hidden /> ביטול השיעור
+                                        <Ban className="w-4 h-4" aria-hidden /> {tx("ביטול השיעור")}
                                     </button>
                                 </div>
                             )}
                         </>
                     )}
-                    {mode === "change" && <ChangeForm s={s} rooms={rooms} staff={staff} terms={terms} onBack={() => setMode("view")} onDone={() => done("השיעור עודכן")} />}
-                    {mode === "cancel" && <CancelForm s={s} terms={terms} onBack={() => setMode("view")} onDone={() => done("השיעור בוטל")} />}
+                    {mode === "change" && <ChangeForm s={s} rooms={rooms} staff={staff} terms={terms} onBack={() => setMode("view")} onDone={() => done(tx("השיעור עודכן"))} />}
+                    {mode === "cancel" && <CancelForm s={s} terms={terms} onBack={() => setMode("view")} onDone={() => done(tx("השיעור בוטל"))} />}
                 </div>
             )}
         </BottomSheet>
@@ -232,9 +233,9 @@ export function DryRunNotice({ r, terms, action }: { r: DryRun; terms: Terms; ac
     if (r.clashes.room.length) {
         return (
             <div role="alert" className="rounded-xl bg-rose-50 border border-rose-200 px-3 py-2 text-sm text-rose-800">
-                <p className="font-semibold">החדר תפוס באותה שעה:</p>
+                <p className="font-semibold">{tx("החדר תפוס באותה שעה:")}</p>
                 <ul className="mt-1 space-y-0.5">{r.clashes.room.slice(0, 4).map(c => <li key={c.starts_at}>{clashLine(c)}</li>)}</ul>
-                {r.clashes.room.length > 4 && <p className="mt-1">ועוד {r.clashes.room.length - 4}</p>}
+                {r.clashes.room.length > 4 && <p className="mt-1">{tx("ועוד ")}{r.clashes.room.length - 4}</p>}
             </div>
         );
     }
@@ -242,14 +243,14 @@ export function DryRunNotice({ r, terms, action }: { r: DryRun; terms: Terms; ac
         <>
             {r.clashes.instructor.length > 0 && (
                 <div className="rounded-xl bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-900">
-                    <p className="flex items-center gap-1.5 font-semibold"><TriangleAlert className="w-4 h-4" aria-hidden />חפיפה ל{terms.staff}:</p>
+                    <p className="flex items-center gap-1.5 font-semibold"><TriangleAlert className="w-4 h-4" aria-hidden />{tx("חפיפה ל")}{terms.staff}:</p>
                     <ul className="mt-1 space-y-0.5">{r.clashes.instructor.slice(0, 4).map(c => <li key={c.kind + c.starts_at}>{clashLine(c)}</li>)}</ul>
-                    {r.clashes.instructor.length > 4 && <p className="mt-1">ועוד {r.clashes.instructor.length - 4}</p>}
+                    {r.clashes.instructor.length > 4 && <p className="mt-1">{tx("ועוד ")}{r.clashes.instructor.length - 4}</p>}
                 </div>
             )}
             {r.booked.clients > 0 && action && (
                 <p className="rounded-xl bg-indigo-50 border border-indigo-200 px-3 py-2 text-sm text-indigo-900">
-                    {r.booked.clients === 1 ? `${terms.client} אחד/ת רשום/ה` : `${r.booked.clients} ${terms.client_plural} רשומים`} — {action}
+                    {r.booked.clients === 1 ? tx("{0} אחד/ת רשום/ה", { 0: terms.client }) : tx("{0} {1} רשומים", { 0: r.booked.clients, 1: terms.client_plural })} — {action}
                 </p>
             )}
         </>
@@ -282,7 +283,7 @@ function ChangeForm({ s, rooms, staff, terms, onBack, onDone }: {
             await apiFetch(`/api/classes/sessions/${s.id}`, { method: "PATCH", body: body({ confirm_clashes: true }) });
             onDone();
         } catch (e) {
-            toast.error(e instanceof Error ? e.message : "השמירה נכשלה");
+            toast.error(e instanceof Error ? e.message : tx("השמירה נכשלה"));
         } finally {
             setBusy(false);
         }
@@ -291,41 +292,41 @@ function ChangeForm({ s, rooms, staff, terms, onBack, onDone }: {
     return (
         <div className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
-                <label className="text-xs font-semibold text-slate-600">תאריך
-                    <PickerBox type="date" label="תאריך השיעור" value={f.day} onChange={v => set({ day: v })} className={cn(`${field} mt-1`, "text-start")} />
+                <label className="text-xs font-semibold text-slate-600">{tx("תאריך")}
+                    <PickerBox type="date" label={tx("תאריך השיעור")} value={f.day} onChange={v => set({ day: v })} className={cn(`${field} mt-1`, "text-start")} />
                 </label>
-                <label className="text-xs font-semibold text-slate-600">שעה
+                <label className="text-xs font-semibold text-slate-600">{tx("שעה")}
                     <input type="time" value={f.start_time} onChange={e => set({ start_time: e.target.value })} className={`${field} mt-1`} dir="ltr" />
                 </label>
-                <label className="text-xs font-semibold text-slate-600">משך (דקות)
+                <label className="text-xs font-semibold text-slate-600">{tx("משך (דקות)")}
                     <input type="number" min={5} max={600} value={f.duration_minutes} onChange={e => set({ duration_minutes: Number(e.target.value) })} className={`${field} mt-1 tabular-nums`} dir="ltr" />
                 </label>
-                <label className="text-xs font-semibold text-slate-600">מקומות
+                <label className="text-xs font-semibold text-slate-600">{tx("מקומות")}
                     <input type="number" min={Math.max(1, s.booked)} max={500} value={f.capacity} onChange={e => set({ capacity: Number(e.target.value) })} className={`${field} mt-1 tabular-nums`} dir="ltr" />
                 </label>
                 {rooms.length > 0 && (
-                    <label className="text-xs font-semibold text-slate-600">חדר
+                    <label className="text-xs font-semibold text-slate-600">{tx("חדר")}
                         <select value={f.room_id} onChange={e => set({ room_id: e.target.value })} className={`${field} mt-1`}>
-                            <option value="">בלי חדר</option>
+                            <option value="">{tx("בלי חדר")}</option>
                             {rooms.filter(r => r.is_active || r.id === s.room_id).map(r => <option key={r.id} value={r.id}>{r.name} ({r.capacity})</option>)}
                         </select>
                     </label>
                 )}
                 <label className="text-xs font-semibold text-slate-600">{terms.staff}
                     <select value={f.instructor_id} onChange={e => set({ instructor_id: e.target.value })} className={`${field} mt-1`}>
-                        <option value="">בלי שיבוץ</option>
+                        <option value="">{tx("בלי שיבוץ")}</option>
                         {staff.map(u => <option key={u.id} value={u.id}>{staffName(u)}</option>)}
                     </select>
                 </label>
             </div>
-            {check && <DryRunNotice r={check} terms={terms} action="יקבלו הודעה על השינוי." />}
+            {check && <DryRunNotice r={check} terms={terms} action={tx("יקבלו הודעה על השינוי.")} />}
             <div className="flex flex-wrap gap-2">
                 <button type="button" onClick={submit} disabled={busy || !!check?.clashes.room.length}
                     className="inline-flex items-center gap-2 min-h-11 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white text-sm font-bold">
                     {busy && <Loader2 className="w-4 h-4 animate-spin" aria-hidden />}
-                    {check ? (check.booked.clients ? "לשמור ולשלוח הודעה" : "לשמור בכל זאת") : "שמירה"}
+                    {check ? (check.booked.clients ? tx("לשמור ולשלוח הודעה") : tx("לשמור בכל זאת")) : tx("שמירה")}
                 </button>
-                <button type="button" onClick={onBack} className="min-h-11 px-4 rounded-xl text-sm text-slate-600 hover:text-slate-900">חזרה</button>
+                <button type="button" onClick={onBack} className="min-h-11 px-4 rounded-xl text-sm text-slate-600 hover:text-slate-900">{tx("חזרה")}</button>
             </div>
         </div>
     );
@@ -340,7 +341,7 @@ function CancelForm({ s, terms, onBack, onDone }: { s: ClassSession; terms: Term
             await apiFetch(`/api/classes/sessions/${s.id}/cancel`, { method: "POST", body: JSON.stringify({ reason }) });
             onDone();
         } catch (e) {
-            toast.error(e instanceof Error ? e.message : "הביטול נכשל");
+            toast.error(e instanceof Error ? e.message : tx("הביטול נכשל"));
         } finally {
             setBusy(false);
         }
@@ -349,10 +350,10 @@ function CancelForm({ s, terms, onBack, onDone }: { s: ClassSession; terms: Term
         <div className="space-y-3">
             <p className="text-sm text-slate-700">
                 {s.booked > 0
-                    ? `${s.booked === 1 ? `${terms.client} אחד/ת רשום/ה` : `${s.booked} ${terms.client_plural} רשומים`} — כולם יקבלו הודעה שהשיעור בוטל.`
-                    : "אין רשומים לשיעור הזה."}
+                    ? tx("{0} — כולם יקבלו הודעה שהשיעור בוטל.", { 0: s.booked === 1 ? tx("{0} אחד/ת רשום/ה", { 0: terms.client }) : tx("{0} {1} רשומים", { 0: s.booked, 1: terms.client_plural }) })
+                    : tx("אין רשומים לשיעור הזה.")}
             </p>
-            <label className="block text-xs font-semibold text-slate-600">סיבה (לא חובה — מצורפת להודעה)
+            <label className="block text-xs font-semibold text-slate-600">{tx("סיבה (לא חובה — מצורפת להודעה)")}
                 <textarea value={reason} onChange={e => setReason(e.target.value)} maxLength={300} rows={2}
                     className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
             </label>
@@ -360,9 +361,9 @@ function CancelForm({ s, terms, onBack, onDone }: { s: ClassSession; terms: Term
                 <button type="button" onClick={cancel} disabled={busy}
                     className="inline-flex items-center gap-2 min-h-11 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 disabled:opacity-40 text-white text-sm font-bold">
                     {busy && <Loader2 className="w-4 h-4 animate-spin" aria-hidden />}
-                    לבטל את השיעור
+                    {tx("לבטל את השיעור")}
                 </button>
-                <button type="button" onClick={onBack} className="min-h-11 px-4 rounded-xl text-sm text-slate-600 hover:text-slate-900">חזרה</button>
+                <button type="button" onClick={onBack} className="min-h-11 px-4 rounded-xl text-sm text-slate-600 hover:text-slate-900">{tx("חזרה")}</button>
             </div>
         </div>
     );

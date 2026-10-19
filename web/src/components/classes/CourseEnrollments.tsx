@@ -9,6 +9,7 @@ import { type CourseView, type CourseEnrollment, ilTime, shekels } from "@/lib/c
 import ClientSearch, { type FoundClient } from "@/components/classes/ClientSearch";
 import PayForm from "@/components/classes/PayForm";
 
+import { tx } from "@/lib/i18n";
 // A course inside one of its sessions: registration for the whole course (one price for all the sessions),
 // who is registered and what they paid, cancelling a registration (the refund the owner's rule gives), recording
 // a payment or a refund, and the course's own waitlist. The server decides everything — this asks and shows.
@@ -39,7 +40,7 @@ export default function CourseEnrollments({ templateId, terms, perms, onChanged 
             onChanged();
             return next;
         } catch (e) {
-            toast.error(e instanceof Error ? e.message : "הפעולה נכשלה");
+            toast.error(e instanceof Error ? e.message : tx("הפעולה נכשלה"));
             return null;
         } finally {
             setBusy(false);
@@ -56,12 +57,12 @@ export default function CourseEnrollments({ templateId, terms, perms, onChanged 
         <section className="rounded-2xl border border-violet-200 bg-violet-50/40 p-3 space-y-3" aria-labelledby="course-title">
             <div>
                 <h3 id="course-title" className="flex items-center gap-2 text-sm font-bold text-slate-800">
-                    <GraduationCap className="w-4 h-4 text-violet-700" aria-hidden /> קורס · הרשמה לכל המפגשים
+                    <GraduationCap className="w-4 h-4 text-violet-700" aria-hidden /> {tx("קורס · הרשמה לכל המפגשים")}
                 </h3>
                 <p className="text-xs text-slate-600 mt-1">
-                    {c.sessions_total} מפגשים · נשארו {c.sessions_left} · רשומים {c.enrolled}/{c.capacity}
-                    {c.covered_by_membership ? " · במנוי" : c.price_cents != null ? ` · ${shekels(c.price_cents)} לקורס` : " · אין מחיר לקורס"}
-                    {!c.covered_by_membership && c.price_now_cents != null && c.price_now_cents !== c.price_cents ? ` (הצטרפות עכשיו: ${shekels(c.price_now_cents)})` : ""}
+                    {c.sessions_total}{tx(" מפגשים · נשארו ")}{c.sessions_left}{tx(" · רשומים ")}{c.enrolled}/{c.capacity}
+                    {c.covered_by_membership ? tx(" · במנוי") : c.price_cents != null ? tx(" · {0} לקורס", { 0: shekels(c.price_cents) }) : tx(" · אין מחיר לקורס")}
+                    {!c.covered_by_membership && c.price_now_cents != null && c.price_now_cents !== c.price_cents ? tx(" (הצטרפות עכשיו: {0})", { 0: shekels(c.price_now_cents) }) : ""}
                 </p>
             </div>
 
@@ -74,17 +75,17 @@ export default function CourseEnrollments({ templateId, terms, perms, onChanged 
                                 <div className="min-w-0 flex-1">
                                     <p className="text-sm text-slate-900 truncate">{e.full_name}</p>
                                     <p className="text-[11px] text-slate-500 mt-0.5">
-                                        {e.price_cents ? `${shekels(e.price_cents)} · ` : ""}{e.sessions_total} מפגשים
-                                        {e.paid_cents > 0 && <span className="text-emerald-700"> · שולם {shekels(e.paid_cents)}</span>}
-                                        {due > 0 && <span className="text-amber-800"> · יתרה {shekels(due)}</span>}
+                                        {e.price_cents ? `${shekels(e.price_cents)} · ` : ""}{e.sessions_total} {tx("מפגשים")}
+                                        {e.paid_cents > 0 && <span className="text-emerald-700">{tx(" · שולם ")}{shekels(e.paid_cents)}</span>}
+                                        {due > 0 && <span className="text-amber-800">{tx(" · יתרה ")}{shekels(due)}</span>}
                                     </p>
                                 </div>
                                 {perms.book && due > 0 && (
                                     <button type="button" disabled={busy} onClick={() => setPanel({ kind: "pay", e })}
-                                        className="min-h-9 px-2 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shrink-0">תשלום</button>
+                                        className="min-h-9 px-2 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shrink-0">{tx("תשלום")}</button>
                                 )}
                                 {perms.book && (
-                                    <button type="button" disabled={busy} onClick={() => setPanel({ kind: "cancel", e })} aria-label={`ביטול ההרשמה של ${e.full_name} לקורס`}
+                                    <button type="button" disabled={busy} onClick={() => setPanel({ kind: "cancel", e })} aria-label={tx("ביטול ההרשמה של {0} לקורס", { 0: e.full_name })}
                                         className="w-9 h-9 flex items-center justify-center rounded-lg text-slate-400 hover:text-rose-700 shrink-0">
                                         <X className="w-4 h-4" aria-hidden />
                                     </button>
@@ -97,17 +98,17 @@ export default function CourseEnrollments({ templateId, terms, perms, onChanged 
 
             {panel?.kind === "pay" && (
                 <div className="space-y-1">
-                    <p className="text-xs font-semibold text-slate-600">תשלום על הקורס: {panel.e.full_name}</p>
+                    <p className="text-xs font-semibold text-slate-600">{tx("תשלום על הקורס: ")}{panel.e.full_name}</p>
                     <PayForm defaultAmountCents={Math.max(0, panel.e.price_cents - panel.e.paid_cents + panel.e.refunded_cents)} busy={busy} clientId={panel.e.client_id}
                         onCancel={() => setPanel(null)}
-                        onPay={async p => { if (await run(`/api/classes/enrollments/${panel.e.id}/payments`, p, "התשלום נרשם")) setPanel(null); }} />
+                        onPay={async p => { if (await run(`/api/classes/enrollments/${panel.e.id}/payments`, p, tx("התשלום נרשם"))) setPanel(null); }} />
                 </div>
             )}
 
             {panel?.kind === "cancel" && (
                 <CancelEnrollment e={panel.e} busy={busy} onBack={() => setPanel(null)}
                     onConfirm={async reason => {
-                        const next = await run(`/api/classes/enrollments/${panel.e.id}/cancel`, { reason }, `ההרשמה של ${panel.e.full_name} לקורס בוטלה`);
+                        const next = await run(`/api/classes/enrollments/${panel.e.id}/cancel`, { reason }, tx("ההרשמה של {0} לקורס בוטלה", { 0: panel.e.full_name }));
                         if (!next) return;
                         const after = next.enrollments.find(x => x.id === panel.e.id);
                         const due = next.result?.refund_due_cents;
@@ -120,24 +121,24 @@ export default function CourseEnrollments({ templateId, terms, perms, onChanged 
             {panel?.kind === "refund" && (
                 <div className="space-y-1">
                     <p className="text-xs font-semibold text-slate-600">
-                        החזר על הקורס: {panel.e.full_name}
-                        {panel.e.refund_due_cents != null ? ` · לפי הכלל: ${shekels(panel.e.refund_due_cents)}` : " · הסכום לפי החלטתך"}
+                        {tx("החזר על הקורס:")} {panel.e.full_name}
+                        {panel.e.refund_due_cents != null ? tx(" · לפי הכלל: {0}", { 0: shekels(panel.e.refund_due_cents) }) : tx(" · הסכום לפי החלטתך")}
                     </p>
                     <PayForm refund defaultAmountCents={panel.e.refund_due_cents ?? panel.e.paid_cents - panel.e.refunded_cents} busy={busy}
                         onCancel={() => setPanel(null)}
                         onPay={async p => {
-                            if (await run(`/api/classes/enrollments/${panel.e.id}/refund`, { amount_cents: p.amount_cents, method: p.method }, "ההחזר נרשם")) setPanel(null);
+                            if (await run(`/api/classes/enrollments/${panel.e.id}/refund`, { amount_cents: p.amount_cents, method: p.method }, tx("ההחזר נרשם"))) setPanel(null);
                         }} />
                 </div>
             )}
 
             {perms.refund && gone.length > 0 && !panel && (
                 <div className="text-xs text-slate-600 space-y-1">
-                    <p className="font-semibold">בוטלו — שולם ולא הוחזר:</p>
+                    <p className="font-semibold">{tx("בוטלו — שולם ולא הוחזר:")}</p>
                     {gone.map(e => (
                         <button key={e.id} type="button" onClick={() => setPanel({ kind: "refund", e })}
                             className="block text-indigo-700 hover:text-indigo-900 underline-offset-2 hover:underline">
-                            {e.full_name} · {shekels(e.paid_cents - e.refunded_cents)} — רישום החזר
+                            {e.full_name} · {shekels(e.paid_cents - e.refunded_cents)} {tx("— רישום החזר")}
                         </button>
                     ))}
                 </div>
@@ -145,7 +146,7 @@ export default function CourseEnrollments({ templateId, terms, perms, onChanged 
 
             {line.length > 0 && (
                 <div className="space-y-1.5">
-                    <p className="flex items-center gap-1.5 text-xs font-semibold text-slate-500"><Hourglass className="w-3.5 h-3.5" aria-hidden /> רשימת המתנה לקורס ({line.length})</p>
+                    <p className="flex items-center gap-1.5 text-xs font-semibold text-slate-500"><Hourglass className="w-3.5 h-3.5" aria-hidden />{tx(" רשימת המתנה לקורס (")}{line.length})</p>
                     <ol className="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white">
                         {line.map((e, i) => (
                             <li key={e.id} className="px-3 py-2 flex items-center gap-2 min-h-11">
@@ -153,18 +154,18 @@ export default function CourseEnrollments({ templateId, terms, perms, onChanged 
                                 <div className="min-w-0 flex-1">
                                     <p className="text-sm text-slate-900 truncate">{e.full_name}</p>
                                     {e.status === "offered" && e.offer_expires_at && (
-                                        <p className="text-[11px] font-semibold text-amber-800">הוצע מקום — מחכה לאישור עד <span dir="ltr">{ilTime(e.offer_expires_at)}</span></p>
+                                        <p className="text-[11px] font-semibold text-amber-800">{tx("הוצע מקום — מחכה לאישור עד ")}<span dir="ltr">{ilTime(e.offer_expires_at)}</span></p>
                                     )}
                                 </div>
                                 {perms.book && e.status === "offered" && (
-                                    <button type="button" disabled={busy} onClick={() => run(`/api/classes/enrollments/${e.id}/take`, undefined, `${e.full_name} נרשם/ה לקורס`)}
+                                    <button type="button" disabled={busy} onClick={() => run(`/api/classes/enrollments/${e.id}/take`, undefined, tx("{0} נרשם/ה לקורס", { 0: e.full_name }))}
                                         className="inline-flex items-center gap-1 min-h-9 px-2 rounded-lg text-xs font-semibold bg-emerald-600 text-white">
-                                        <Check className="w-3.5 h-3.5" aria-hidden /> לרשום
+                                        <Check className="w-3.5 h-3.5" aria-hidden /> {tx("לרשום")}
                                     </button>
                                 )}
                                 {perms.book && (
-                                    <button type="button" disabled={busy} aria-label={`להוציא את ${e.full_name} מרשימת ההמתנה`}
-                                        onClick={() => run(`/api/classes/enrollments/${e.id}/leave`, undefined, "הוצא/ה מרשימת ההמתנה")}
+                                    <button type="button" disabled={busy} aria-label={tx("להוציא את {0} מרשימת ההמתנה", { 0: e.full_name })}
+                                        onClick={() => run(`/api/classes/enrollments/${e.id}/leave`, undefined, tx("הוצא/ה מרשימת ההמתנה"))}
                                         className="w-9 h-9 flex items-center justify-center rounded-lg text-slate-400 hover:text-rose-700">
                                         <X className="w-4 h-4" aria-hidden />
                                     </button>
@@ -179,15 +180,15 @@ export default function CourseEnrollments({ templateId, terms, perms, onChanged 
                 <AddToCourse c={c} terms={terms} canPrice={perms.override} busy={busy} onClose={() => setAdding(false)}
                     onEnroll={async (client, price) => {
                         if (await run(`/api/classes/courses/${templateId}/enrollments`, { client_id: client.id, ...(price != null ? { price_cents: price } : {}) },
-                            `${client.full_name} נרשם/ה לקורס`)) setAdding(false);
+                            tx("{0} נרשם/ה לקורס", { 0: client.full_name }))) setAdding(false);
                     }}
                     onWait={async client => {
-                        if (await run(`/api/classes/courses/${templateId}/waitlist`, { client_id: client.id }, `${client.full_name} ברשימת ההמתנה לקורס`)) setAdding(false);
+                        if (await run(`/api/classes/courses/${templateId}/waitlist`, { client_id: client.id }, tx("{0} ברשימת ההמתנה לקורס", { 0: client.full_name }))) setAdding(false);
                     }} />
             ) : (
                 <button type="button" onClick={() => setAdding(true)}
                     className="inline-flex items-center gap-1.5 min-h-11 px-3 rounded-xl border border-dashed border-violet-300 text-sm font-semibold text-violet-800 hover:border-violet-500">
-                    <UserPlus className="w-4 h-4" aria-hidden /> {full ? "הקורס מלא — רשימת המתנה" : "הרשמה לקורס"}
+                    <UserPlus className="w-4 h-4" aria-hidden /> {full ? tx("הקורס מלא — רשימת המתנה") : tx("הרשמה לקורס")}
                 </button>
             ))}
         </section>
@@ -199,15 +200,15 @@ function CancelEnrollment({ e, busy, onBack, onConfirm }: { e: CourseEnrollment;
     return (
         <div className="rounded-xl border border-rose-200 bg-rose-50/60 p-3 space-y-2">
             <p className="text-sm text-slate-800">
-                לבטל את ההרשמה של {e.full_name} לקורס? המפגשים שעוד לא התקיימו יבוטלו ותישלח הודעה.
-                {e.refund_due_cents != null ? ` לפי הכלל מגיע החזר של ${shekels(e.refund_due_cents)}.` : ""}
+                {tx("לבטל את ההרשמה של")} {e.full_name} {tx("לקורס? המפגשים שעוד לא התקיימו יבוטלו ותישלח הודעה.")}
+                {e.refund_due_cents != null ? tx(" לפי הכלל מגיע החזר של {0}.", { 0: shekels(e.refund_due_cents) }) : ""}
             </p>
-            <input value={reason} onChange={x => setReason(x.target.value)} maxLength={300} placeholder="סיבה (לא חובה)"
+            <input value={reason} onChange={x => setReason(x.target.value)} maxLength={300} placeholder={tx("סיבה (לא חובה)")}
                 className="w-full rounded-xl border border-slate-200 px-3 min-h-11 text-sm bg-white" />
             <div className="flex gap-2">
                 <button type="button" onClick={() => onConfirm(reason)} disabled={busy}
-                    className="min-h-11 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-sm font-bold disabled:opacity-40">לבטל את ההרשמה</button>
-                <button type="button" onClick={onBack} className="min-h-11 px-3 rounded-xl text-sm text-slate-600">חזרה</button>
+                    className="min-h-11 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-sm font-bold disabled:opacity-40">{tx("לבטל את ההרשמה")}</button>
+                <button type="button" onClick={onBack} className="min-h-11 px-3 rounded-xl text-sm text-slate-600">{tx("חזרה")}</button>
             </div>
         </div>
     );
@@ -226,14 +227,14 @@ function AddToCourse({ c, terms, canPrice, busy, onClose, onEnroll, onWait }: {
             <div className="flex items-start gap-2">
                 <div className="flex-1">
                     {picked ? <p className="text-sm font-semibold text-slate-900 min-h-11 flex items-center">{picked.full_name}</p>
-                        : <ClientSearch terms={terms} busy={busy} onPick={setPicked} note={id => (inCourse.has(id) ? "בקורס" : null)} />}
+                        : <ClientSearch terms={terms} busy={busy} onPick={setPicked} note={id => (inCourse.has(id) ? tx("בקורס") : null)} />}
                 </div>
-                <button type="button" onClick={onClose} aria-label="סגירה" className="w-11 h-11 flex items-center justify-center text-slate-500"><X className="w-4 h-4" aria-hidden /></button>
+                <button type="button" onClick={onClose} aria-label={tx("סגירה")} className="w-11 h-11 flex items-center justify-center text-slate-500"><X className="w-4 h-4" aria-hidden /></button>
             </div>
             {picked && (
                 <div className="flex flex-wrap items-end gap-2">
                     {!full && canPrice && !c.covered_by_membership && (
-                        <label className="text-xs text-slate-600">מחיר אחר (₪, לא חובה)
+                        <label className="text-xs text-slate-600">{tx("מחיר אחר (₪, לא חובה)")}
                             <input type="number" min={0} dir="ltr" value={price} placeholder={c.price_now_cents != null ? String(c.price_now_cents / 100) : ""}
                                 onChange={e => setPrice(e.target.value === "" ? "" : Number(e.target.value))}
                                 className="block mt-1 w-28 min-h-10 rounded-lg border border-slate-200 text-center tabular-nums" />
@@ -242,15 +243,15 @@ function AddToCourse({ c, terms, canPrice, busy, onClose, onEnroll, onWait }: {
                     {full ? (
                         c.waitlist_enabled ? (
                             <button type="button" disabled={busy} onClick={() => onWait(picked)}
-                                className="min-h-11 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold disabled:opacity-40">הוספה לרשימת ההמתנה</button>
-                        ) : <p className="text-sm text-slate-500">הקורס מלא.</p>
+                                className="min-h-11 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold disabled:opacity-40">{tx("הוספה לרשימת ההמתנה")}</button>
+                        ) : <p className="text-sm text-slate-500">{tx("הקורס מלא.")}</p>
                     ) : (
                         <button type="button" disabled={busy} onClick={() => onEnroll(picked, price === "" ? null : Math.round(price * 100))}
                             className="inline-flex items-center gap-2 min-h-11 px-4 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-sm font-bold disabled:opacity-40">
-                            {busy && <Loader2 className="w-4 h-4 animate-spin" aria-hidden />} הרשמה לכל המפגשים
+                            {busy && <Loader2 className="w-4 h-4 animate-spin" aria-hidden />} {tx("הרשמה לכל המפגשים")}
                         </button>
                     )}
-                    <button type="button" onClick={() => setPicked(null)} className="min-h-11 px-3 text-sm text-slate-600">{terms.client} אחר/ת</button>
+                    <button type="button" onClick={() => setPicked(null)} className="min-h-11 px-3 text-sm text-slate-600">{terms.client}{tx(" אחר/ת")}</button>
                 </div>
             )}
         </div>

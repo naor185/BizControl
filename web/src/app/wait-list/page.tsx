@@ -5,6 +5,7 @@ import RequireAuth from "@/components/RequireAuth";
 import { apiFetch } from "@/lib/api";
 import { toast } from "@/lib/toast";
 
+import { tx } from "@/lib/i18n";
 interface WaitEntry {
     id: string;
     client_name?: string;
@@ -45,14 +46,14 @@ export default function WaitListPage() {
     useEffect(() => { load(); }, [load]);
 
     const add = async () => {
-        if (!form.client_name || !form.client_phone) { toast.error("שם ומספר טלפון חובה"); return; }
+        if (!form.client_name || !form.client_phone) { toast.error(tx("שם ומספר טלפון חובה")); return; }
         setSaving(true);
         try {
             await apiFetch("/api/wait-list", { method: "POST", body: JSON.stringify(form) });
             setForm({ client_name: "", client_phone: "", service_id: "", notes: "" });
             setShowAdd(false);
             load();
-            toast.success("נוסף לרשימת ההמתנה");
+            toast.success(tx("נוסף לרשימת ההמתנה"));
         } catch (e: any) { toast.error(e.message); }
         finally { setSaving(false); }
     };
@@ -62,7 +63,7 @@ export default function WaitListPage() {
         try {
             await apiFetch(`/api/wait-list/${id}/notify`, { method: "POST" });
             load();
-            toast.success("הודעה נשלחה!");
+            toast.success(tx("הודעה נשלחה!"));
         } catch (e: any) { toast.error(e.message); }
         finally { setNotifying(null); }
     };
@@ -73,7 +74,7 @@ export default function WaitListPage() {
     };
 
     const remove = async (id: string) => {
-        if (!confirm("להסיר מהרשימה?")) return;
+        if (!confirm(tx("להסיר מהרשימה?"))) return;
         await apiFetch(`/api/wait-list/${id}`, { method: "DELETE" });
         load();
     };
@@ -87,27 +88,27 @@ export default function WaitListPage() {
         canceled:  "#64748b",
     };
     const statusLabel: Record<string, string> = {
-        waiting:   "⏳ ממתין",
-        notified:  "📨 הודע",
-        confirmed: "✅ אושר",
-        canceled:  "❌ בוטל",
+        waiting:   tx("⏳ ממתין"),
+        notified:  tx("📨 הודע"),
+        confirmed: tx("✅ אושר"),
+        canceled:  tx("❌ בוטל"),
     };
 
     return (
         <RequireAuth>
-            <AppShell title="רשימת המתנה">
-                <div dir="rtl" style={{ minHeight: "100vh", background: "linear-gradient(135deg,#0f0c29,#302b63,#24243e)", padding: "2rem", color: "#fff", fontFamily: "sans-serif" }}>
+            <AppShell title={tx("רשימת המתנה")}>
+                <div style={{ minHeight: "100vh", background: "linear-gradient(135deg,#0f0c29,#302b63,#24243e)", padding: "2rem", color: "#fff", fontFamily: "sans-serif" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem", flexWrap: "wrap", gap: "1rem" }}>
                         <div>
                             <h1 style={{ fontSize: "1.8rem", fontWeight: 800, background: "linear-gradient(135deg,#a78bfa,#60a5fa)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", margin: 0 }}>
-                                ⏳ רשימת המתנה
+                                {tx("⏳ רשימת המתנה")}
                             </h1>
                             <p style={{ color: "#94a3b8", fontSize: "0.9rem", marginTop: "0.3rem" }}>
-                                {entries.length} ממתינים · מקבלים הודעה אוטומטית כשתור מתפנה
+                                {entries.length} {tx("ממתינים · מקבלים הודעה אוטומטית כשתור מתפנה")}
                             </p>
                         </div>
                         <button onClick={() => setShowAdd(!showAdd)} style={{ background: "linear-gradient(135deg,#7c3aed,#4c1d95)", border: "none", borderRadius: 12, color: "#fff", padding: "0.7rem 1.4rem", fontWeight: 700, cursor: "pointer" }}>
-                            ➕ הוסף לרשימה
+                            {tx("➕ הוסף לרשימה")}
                         </button>
                     </div>
 
@@ -115,41 +116,41 @@ export default function WaitListPage() {
                         <div style={{ background: "rgba(255,255,255,.06)", border: "1px solid rgba(167,139,250,.3)", borderRadius: 16, padding: "1.5rem", marginBottom: "2rem" }}>
                             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1rem" }}>
                                 <div>
-                                    <label style={lStyle}>שם לקוח *</label>
-                                    <input value={form.client_name} onChange={e => setForm(f => ({ ...f, client_name: e.target.value }))} style={iStyle} placeholder="ישראל ישראלי" />
+                                    <label style={lStyle}>{tx("שם לקוח *")}</label>
+                                    <input value={form.client_name} onChange={e => setForm(f => ({ ...f, client_name: e.target.value }))} style={iStyle} placeholder={tx("ישראל ישראלי")} />
                                 </div>
                                 <div>
-                                    <label style={lStyle}>טלפון *</label>
+                                    <label style={lStyle}>{tx("טלפון *")}</label>
                                     <input value={form.client_phone} onChange={e => setForm(f => ({ ...f, client_phone: e.target.value }))} style={iStyle} placeholder="050-0000000" />
                                 </div>
                                 <div>
-                                    <label style={lStyle}>שירות מבוקש</label>
+                                    <label style={lStyle}>{tx("שירות מבוקש")}</label>
                                     <select value={form.service_id} onChange={e => setForm(f => ({ ...f, service_id: e.target.value }))} style={iStyle}>
-                                        <option value="" style={OPTION_STYLE}>כל שירות</option>
+                                        <option value="" style={OPTION_STYLE}>{tx("כל שירות")}</option>
                                         {services.map(s => <option key={s.id} value={s.id} style={OPTION_STYLE}>{s.name}</option>)}
                                     </select>
                                 </div>
                                 <div>
-                                    <label style={lStyle}>הערות</label>
-                                    <input value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} style={iStyle} placeholder="גמישות בזמנים..." />
+                                    <label style={lStyle}>{tx("הערות")}</label>
+                                    <input value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} style={iStyle} placeholder={tx("גמישות בזמנים...")} />
                                 </div>
                             </div>
                             <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end" }}>
-                                <button onClick={() => setShowAdd(false)} style={{ background: "rgba(255,255,255,.1)", border: "1px solid rgba(255,255,255,.2)", borderRadius: 10, color: "#fff", padding: "0.6rem 1.2rem", cursor: "pointer" }}>ביטול</button>
+                                <button onClick={() => setShowAdd(false)} style={{ background: "rgba(255,255,255,.1)", border: "1px solid rgba(255,255,255,.2)", borderRadius: 10, color: "#fff", padding: "0.6rem 1.2rem", cursor: "pointer" }}>{tx("ביטול")}</button>
                                 <button onClick={add} disabled={saving} style={{ background: "linear-gradient(135deg,#7c3aed,#4c1d95)", border: "none", borderRadius: 10, color: "#fff", padding: "0.6rem 1.4rem", fontWeight: 600, cursor: "pointer" }}>
-                                    {saving ? "שומר..." : "➕ הוסף"}
+                                    {saving ? tx("שומר...") : tx("➕ הוסף")}
                                 </button>
                             </div>
                         </div>
                     )}
 
                     {loading ? (
-                        <div style={{ textAlign: "center", padding: "4rem", color: "#64748b" }}>⏳ טוען...</div>
+                        <div style={{ textAlign: "center", padding: "4rem", color: "#64748b" }}>{tx("⏳ טוען...")}</div>
                     ) : entries.length === 0 ? (
                         <div style={{ textAlign: "center", padding: "4rem", background: "rgba(255,255,255,.04)", borderRadius: 20, border: "1px solid rgba(255,255,255,.08)" }}>
                             <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>⏳</div>
-                            <div style={{ color: "#94a3b8" }}>רשימת ההמתנה ריקה</div>
-                            <div style={{ color: "#64748b", fontSize: "0.85rem", marginTop: "0.25rem" }}>כשתור מבוטל — הלקוחות ברשימה מקבלים הודעה אוטומטית</div>
+                            <div style={{ color: "#94a3b8" }}>{tx("רשימת ההמתנה ריקה")}</div>
+                            <div style={{ color: "#64748b", fontSize: "0.85rem", marginTop: "0.25rem" }}>{tx("כשתור מבוטל — הלקוחות ברשימה מקבלים הודעה אוטומטית")}</div>
                         </div>
                     ) : (
                         <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
@@ -169,12 +170,12 @@ export default function WaitListPage() {
                                             </span>
                                             {entry.status === "waiting" && (
                                                 <button onClick={() => notify(entry.id)} disabled={notifying === entry.id} style={{ background: "rgba(96,165,250,.15)", border: "none", borderRadius: 8, color: "#60a5fa", padding: "0.3rem 0.8rem", cursor: "pointer", fontSize: "0.8rem" }}>
-                                                    {notifying === entry.id ? "..." : "📨 הודע"}
+                                                    {notifying === entry.id ? "..." : tx("📨 הודע")}
                                                 </button>
                                             )}
                                             {entry.status === "notified" && (
                                                 <button onClick={() => confirm(entry.id)} style={{ background: "rgba(74,222,128,.15)", border: "none", borderRadius: 8, color: "#4ade80", padding: "0.3rem 0.8rem", cursor: "pointer", fontSize: "0.8rem" }}>
-                                                    ✅ אשר
+                                                    {tx("✅ אשר")}
                                                 </button>
                                             )}
                                             <button onClick={() => remove(entry.id)} style={{ background: "rgba(239,68,68,.15)", border: "none", borderRadius: 8, color: "#f87171", padding: "0.3rem 0.6rem", cursor: "pointer", fontSize: "0.8rem" }}>🗑️</button>

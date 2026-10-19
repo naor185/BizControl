@@ -8,6 +8,7 @@ import { apiFetch } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import { type MembershipDetail, fullDate, ilDate, ilDay, shekels } from "@/lib/classes";
 
+import { tx } from "@/lib/i18n";
 // Changing a membership: freeze (with a return date), back from a freeze, stop at the end of the period,
 // undo the stop, cancel now — only what its status allows (the server checks the same) — and its change
 // log. Owner / manager only.
@@ -15,8 +16,8 @@ import { type MembershipDetail, fullDate, ilDate, ilDay, shekels } from "@/lib/c
 type Mode = null | "freeze" | "stop" | "cancel";
 
 const ACTION: Record<string, string> = {
-    sold: "נמכר", freeze: "הקפאה", unfreeze: "חזרה מהקפאה", freeze_start: "ההקפאה התחילה", start: "התחיל",
-    stop: "נעצר בסוף התקופה", unstop: "העצירה בוטלה", cancel: "בוטל", expire: "הסתיים",
+    sold: tx("נמכר"), freeze: tx("הקפאה"), unfreeze: tx("חזרה מהקפאה"), freeze_start: tx("ההקפאה התחילה"), start: tx("התחיל"),
+    stop: tx("נעצר בסוף התקופה"), unstop: tx("העצירה בוטלה"), cancel: tx("בוטל"), expire: tx("הסתיים"),
 };
 const today = () => ilDay(new Date().toISOString());      // the date in Israel
 const field = "block mt-1 w-full min-h-10 rounded-lg border border-slate-200 bg-white px-2 text-sm";
@@ -24,8 +25,8 @@ const field = "block mt-1 w-full min-h-10 rounded-lg border border-slate-200 bg-
 export function freezeLine(m: Pick<MembershipDetail, "freeze_from" | "freeze_until">): string | null {
     if (!m.freeze_from || !m.freeze_until || m.freeze_until <= today()) return null;
     return m.freeze_from > today()
-        ? `הקפאה מתוכננת: ${fullDate(m.freeze_from)} – חוזר ב-${fullDate(m.freeze_until)}`
-        : `מוקפא · חוזר לפעילות ב-${fullDate(m.freeze_until)}`;
+        ? tx("הקפאה מתוכננת: {0} – חוזר ב-{1}", { 0: fullDate(m.freeze_from), 1: fullDate(m.freeze_until) })
+        : tx("מוקפא · חוזר לפעילות ב-{0}", { 0: fullDate(m.freeze_until) });
 }
 
 export default function MembershipChanges({ m, canChange, onDone }: { m: MembershipDetail; canChange: boolean; onDone: (m: MembershipDetail) => void }) {
@@ -45,7 +46,7 @@ export default function MembershipChanges({ m, canChange, onDone }: { m: Members
             setMode(null);
             setReason("");
         } catch (e) {
-            toast.error(e instanceof Error ? e.message : "הפעולה נכשלה");
+            toast.error(e instanceof Error ? e.message : tx("הפעולה נכשלה"));
         } finally {
             setBusy(false);
         }
@@ -54,9 +55,9 @@ export default function MembershipChanges({ m, canChange, onDone }: { m: Members
     const btn = "inline-flex items-center gap-1.5 min-h-10 px-3 rounded-xl border border-slate-200 text-sm font-semibold text-slate-700 hover:border-indigo-400 disabled:opacity-40";
     const f = m.freeze;
     const rules = [
-        f.max_days ? `עד ${f.max_days} ימים בסך הכול (נוצלו ${f.used_days})` : null,
-        f.min_days ? `לפחות ${f.min_days} ימים` : null,
-        f.max_count ? `עד ${f.max_count} הקפאות (נוצלו ${f.count})` : null,
+        f.max_days ? tx("עד {0} ימים בסך הכול (נוצלו {1})", { 0: f.max_days, 1: f.used_days }) : null,
+        f.min_days ? tx("לפחות {0} ימים", { 0: f.min_days }) : null,
+        f.max_count ? tx("עד {0} הקפאות (נוצלו {1})", { 0: f.max_count, 1: f.count }) : null,
     ].filter(Boolean).join(" · ");
 
     return (
@@ -64,25 +65,25 @@ export default function MembershipChanges({ m, canChange, onDone }: { m: Members
             {canChange && mode === null && (
                 <div className="flex flex-wrap gap-2">
                     {m.status === "active" && !hasFreeze && f.allowed && (
-                        <button type="button" className={btn} onClick={() => setMode("freeze")}><Snowflake className="w-4 h-4" aria-hidden />הקפאה</button>
+                        <button type="button" className={btn} onClick={() => setMode("freeze")}><Snowflake className="w-4 h-4" aria-hidden />{tx("הקפאה")}</button>
                     )}
                     {hasFreeze && (m.status === "frozen" || m.status === "active") && (
                         <button type="button" className={btn} disabled={busy}
-                            onClick={() => post("unfreeze", {}, m.status === "frozen" ? "המנוי חזר לפעילות" : "ההקפאה המתוכננת בוטלה")}>
-                            <Sun className="w-4 h-4" aria-hidden />{m.status === "frozen" ? "חזרה מהקפאה עכשיו" : "ביטול ההקפאה המתוכננת"}
+                            onClick={() => post("unfreeze", {}, m.status === "frozen" ? tx("המנוי חזר לפעילות") : tx("ההקפאה המתוכננת בוטלה"))}>
+                            <Sun className="w-4 h-4" aria-hidden />{m.status === "frozen" ? tx("חזרה מהקפאה עכשיו") : tx("ביטול ההקפאה המתוכננת")}
                         </button>
                     )}
                     {m.status === "active" && (
-                        <button type="button" className={btn} onClick={() => setMode("stop")}><CirclePause className="w-4 h-4" aria-hidden />עצירה בסוף התקופה</button>
+                        <button type="button" className={btn} onClick={() => setMode("stop")}><CirclePause className="w-4 h-4" aria-hidden />{tx("עצירה בסוף התקופה")}</button>
                     )}
                     {m.status === "ending" && (
-                        <button type="button" className={btn} disabled={busy} onClick={() => post("unstop", {}, "העצירה בוטלה — המנוי פעיל")}>
-                            <CirclePlay className="w-4 h-4" aria-hidden />ביטול העצירה
+                        <button type="button" className={btn} disabled={busy} onClick={() => post("unstop", {}, tx("העצירה בוטלה — המנוי פעיל"))}>
+                            <CirclePlay className="w-4 h-4" aria-hidden />{tx("ביטול העצירה")}
                         </button>
                     )}
                     {["active", "frozen", "ending", "pending"].includes(m.status) && (
                         <button type="button" className={`${btn} text-rose-700 border-rose-200 hover:border-rose-400`} onClick={() => setMode("cancel")}>
-                            <Ban className="w-4 h-4" aria-hidden />ביטול המנוי
+                            <Ban className="w-4 h-4" aria-hidden />{tx("ביטול המנוי")}
                         </button>
                     )}
                 </div>
@@ -91,31 +92,30 @@ export default function MembershipChanges({ m, canChange, onDone }: { m: Members
             {mode === "freeze" && (
                 <div className="rounded-xl border border-slate-200 p-3 space-y-2">
                     <div className="grid grid-cols-2 gap-2">
-                        <label className="text-xs text-slate-600">מתחילה ב-
-                            <PickerBox type="date" label="מתאריך" value={from} onChange={v => setFrom(v)} min={today()} className={cn(field, "text-start")} />
+                        <label className="text-xs text-slate-600">{tx("מתחילה ב-")}
+                            <PickerBox type="date" label={tx("מתאריך")} value={from} onChange={v => setFrom(v)} min={today()} className={cn(field, "text-start")} />
                         </label>
-                        <label className="text-xs text-slate-600">חוזר לפעילות ב-
-                            <PickerBox type="date" label="עד תאריך" value={until} onChange={v => setUntil(v)} min={from} className={cn(field, "text-start")} />
+                        <label className="text-xs text-slate-600">{tx("חוזר לפעילות ב-")}
+                            <PickerBox type="date" label={tx("עד תאריך")} value={until} onChange={v => setUntil(v)} min={from} className={cn(field, "text-start")} />
                         </label>
-                        <label className="text-xs text-slate-600">סיבה
-                            <input value={reason} onChange={e => setReason(e.target.value)} maxLength={300} placeholder="למשל: חופשה" className={field} />
+                        <label className="text-xs text-slate-600">{tx("סיבה")}
+                            <input value={reason} onChange={e => setReason(e.target.value)} maxLength={300} placeholder={tx("למשל: חופשה")} className={field} />
                         </label>
-                        <label className="text-xs text-slate-600">עמלת הקפאה (₪)
+                        <label className="text-xs text-slate-600">{tx("עמלת הקפאה (₪)")}
                             <input type="number" min={0} value={fee} onChange={e => setFee(e.target.value === "" ? "" : Number(e.target.value))} className={`${field} tabular-nums`} dir="ltr" />
                         </label>
                     </div>
                     {rules && <p className="text-xs text-slate-500">{rules}</p>}
                     <p className="text-xs text-slate-500">
-                        סוף המנוי יידחה בימי ההקפאה. הרשמות בתקופה הזו יבוטלו{m.kind === "punch" ? " והכניסות יחזרו" : ""}, ותישלח הודעה ל{m.client_name}.
-                        העמלה נרשמת במנוי — לא נגבית.
+                        {tx("סוף המנוי יידחה בימי ההקפאה. הרשמות בתקופה הזו יבוטלו")}{m.kind === "punch" ? tx(" והכניסות יחזרו") : ""}{tx(", ותישלח הודעה ל")}{m.client_name}{tx(". העמלה נרשמת במנוי — לא נגבית.")}
                     </p>
                     <div className="flex gap-2">
                         <button type="button" disabled={busy || !until}
-                            onClick={() => post("freeze", { from_on: from, until_on: until, reason: reason.trim() || null, fee_cents: fee === "" ? 0 : Math.round(fee * 100) }, "המנוי הוקפא")}
+                            onClick={() => post("freeze", { from_on: from, until_on: until, reason: reason.trim() || null, fee_cents: fee === "" ? 0 : Math.round(fee * 100) }, tx("המנוי הוקפא"))}
                             className="inline-flex items-center gap-2 min-h-10 px-4 rounded-xl bg-indigo-600 text-white text-sm font-bold disabled:opacity-40">
-                            {busy && <Loader2 className="w-4 h-4 animate-spin" aria-hidden />}הקפאה
+                            {busy && <Loader2 className="w-4 h-4 animate-spin" aria-hidden />}{tx("הקפאה")}
                         </button>
-                        <button type="button" onClick={() => setMode(null)} className="min-h-10 px-3 text-sm text-slate-600">ביטול</button>
+                        <button type="button" onClick={() => setMode(null)} className="min-h-10 px-3 text-sm text-slate-600">{tx("ביטול")}</button>
                     </div>
                 </div>
             )}
@@ -124,34 +124,34 @@ export default function MembershipChanges({ m, canChange, onDone }: { m: Members
                 <div className={`rounded-xl border p-3 space-y-2 ${mode === "cancel" ? "border-rose-200 bg-rose-50/50" : "border-slate-200"}`}>
                     <p className="text-sm text-slate-800">
                         {mode === "stop"
-                            ? `המנוי ימשיך עד ${m.ends_on ? fullDate(m.ends_on) : "סוף הכניסות"} ואז יסתיים בלי חידוש. ההרשמות נשארות.`
-                            : `המנוי יסתיים היום.${m.coming_bookings ? ` ${m.coming_bookings === 1 ? "הרשמה עתידית אחת תבוטל" : `${m.coming_bookings} הרשמות עתידיות יבוטלו`}${m.kind === "punch" ? " והכניסות יחזרו" : ""}.` : ""} אין החזר כספי אוטומטי.`}
+                            ? tx("המנוי ימשיך עד {0} ואז יסתיים בלי חידוש. ההרשמות נשארות.", { 0: m.ends_on ? fullDate(m.ends_on) : tx("סוף הכניסות") })
+                            : tx("המנוי יסתיים היום.{0} אין החזר כספי אוטומטי.", { 0: m.coming_bookings ? ` ${m.coming_bookings === 1 ? tx("הרשמה עתידית אחת תבוטל") : tx("{0} הרשמות עתידיות יבוטלו", { 0: m.coming_bookings })}${m.kind === "punch" ? tx(" והכניסות יחזרו") : ""}.` : "" })}
                     </p>
-                    <label className="block text-xs text-slate-600">סיבה (לא חובה)
+                    <label className="block text-xs text-slate-600">{tx("סיבה (לא חובה)")}
                         <input value={reason} onChange={e => setReason(e.target.value)} maxLength={300} className={field} />
                     </label>
                     <div className="flex gap-2">
                         <button type="button" disabled={busy}
-                            onClick={() => post(mode, { reason: reason.trim() || null }, mode === "stop" ? "המנוי ייעצר בסוף התקופה" : "המנוי בוטל")}
+                            onClick={() => post(mode, { reason: reason.trim() || null }, mode === "stop" ? tx("המנוי ייעצר בסוף התקופה") : tx("המנוי בוטל"))}
                             className={`inline-flex items-center gap-2 min-h-10 px-4 rounded-xl text-white text-sm font-bold disabled:opacity-40 ${mode === "cancel" ? "bg-rose-600" : "bg-indigo-600"}`}>
-                            {busy && <Loader2 className="w-4 h-4 animate-spin" aria-hidden />}{mode === "stop" ? "עצירה בסוף התקופה" : "לבטל את המנוי"}
+                            {busy && <Loader2 className="w-4 h-4 animate-spin" aria-hidden />}{mode === "stop" ? tx("עצירה בסוף התקופה") : tx("לבטל את המנוי")}
                         </button>
-                        <button type="button" onClick={() => setMode(null)} className="min-h-10 px-3 text-sm text-slate-600">חזרה</button>
+                        <button type="button" onClick={() => setMode(null)} className="min-h-10 px-3 text-sm text-slate-600">{tx("חזרה")}</button>
                     </div>
                 </div>
             )}
 
             {m.events.length > 0 && (
                 <div>
-                    <p className="text-xs font-semibold text-slate-500 mb-1">היסטוריית המנוי</p>
+                    <p className="text-xs font-semibold text-slate-500 mb-1">{tx("היסטוריית המנוי")}</p>
                     <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200">
                         {[...m.events].reverse().map((e, i) => (
                             <li key={i} className="px-3 py-2 flex items-start justify-between gap-2 text-sm">
                                 <span className="text-slate-800">
                                     {ACTION[e.action] ?? e.action}
-                                    {e.action === "freeze" && e.effective_on ? ` מ-${fullDate(e.effective_on)}, ${e.days} ימים` : ""}
-                                    {e.action === "unfreeze" && e.days ? ` (הוחזרו ${-e.days} ימים)` : ""}
-                                    {e.fee_cents ? ` · עמלה ${shekels(e.fee_cents)}` : ""}
+                                    {e.action === "freeze" && e.effective_on ? tx(" מ-{0}, {1} ימים", { 0: fullDate(e.effective_on), 1: e.days }) : ""}
+                                    {e.action === "unfreeze" && e.days ? tx(" (הוחזרו {0} ימים)", { 0: -e.days }) : ""}
+                                    {e.fee_cents ? tx(" · עמלה {0}", { 0: shekels(e.fee_cents) }) : ""}
                                     {e.reason ? ` · ${e.reason}` : ""}
                                     {e.by ? <span className="text-slate-500"> · {e.by}</span> : null}
                                 </span>

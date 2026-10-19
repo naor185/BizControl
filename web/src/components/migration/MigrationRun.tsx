@@ -11,11 +11,12 @@ import PreviewStep from "./PreviewStep";
 import { StatusBadge } from "./MigrationHome";
 import { type MigrationDetail, type MigrationRowOut, type RollbackStats, fmtDateTime } from "./types";
 
+import { tx, intl } from "@/lib/i18n";
 const STEPS = [
-    { key: "draft", label: "מיפוי שדות" },
-    { key: "preview", label: "תצוגה מקדימה" },
-    { key: "importing", label: "ייבוא" },
-    { key: "done", label: "סיכום" },
+    { key: "draft", label: tx("מיפוי שדות") },
+    { key: "preview", label: tx("תצוגה מקדימה") },
+    { key: "importing", label: tx("ייבוא") },
+    { key: "done", label: tx("סיכום") },
 ];
 
 function stepOf(status: string, remapping: boolean): number {
@@ -35,7 +36,7 @@ function Progress({ label, done, total }: { label: string; done: number; total: 
             <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
                 <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: "var(--primary, #0f172a)" }} />
             </div>
-            <div className="text-xs text-slate-500 tabular-nums">{done.toLocaleString("he-IL")} מתוך {total.toLocaleString("he-IL")} · אפשר לסגור את המסך, התהליך ממשיך ברקע</div>
+            <div className="text-xs text-slate-500 tabular-nums">{done.toLocaleString(intl())}{tx(" מתוך ")}{total.toLocaleString(intl())}{tx(" · אפשר לסגור את המסך, התהליך ממשיך ברקע")}</div>
         </div>
     );
 }
@@ -47,7 +48,7 @@ function Report({ m, onUpdated }: { m: MigrationDetail; onUpdated: (m: Migration
     const [confirming, setConfirming] = useState(false);
     // After a rollback the rows say "rolled back"; the tiles keep showing what the import itself did.
     const r = m.status === "rolled_back" && m.summary?.result ? m.summary.result : m.counts.result;
-    const noun = m.entity_type === "services" ? "שירותים" : "לקוחות";
+    const noun = m.entity_type === "services" ? tx("שירותים") : tx("לקוחות");
     const rollback = m.summary?.rollback as RollbackStats | undefined;
 
     useEffect(() => {
@@ -64,9 +65,9 @@ function Report({ m, onUpdated }: { m: MigrationDetail; onUpdated: (m: Migration
         try {
             const res = await apiFetch<{ migration: MigrationDetail }>(`/api/migrations/${m.id}/rollback`, { method: "POST" });
             onUpdated(res.migration);
-            toast.success("הייבוא בוטל");
+            toast.success(tx("הייבוא בוטל"));
         } catch (e) {
-            toast.error(e instanceof Error ? e.message : "הביטול נכשל");
+            toast.error(e instanceof Error ? e.message : tx("הביטול נכשל"));
         } finally {
             setBusy(false);
             setConfirming(false);
@@ -78,18 +79,18 @@ function Report({ m, onUpdated }: { m: MigrationDetail; onUpdated: (m: Migration
         try {
             onUpdated(await apiFetch<MigrationDetail>(`/api/migrations/${m.id}/resume`, { method: "POST" }));
         } catch (e) {
-            toast.error(e instanceof Error ? e.message : "ההמשך נכשל");
+            toast.error(e instanceof Error ? e.message : tx("ההמשך נכשל"));
         } finally {
             setBusy(false);
         }
     }
 
     const tiles = [
-        { label: `${noun} חדשים נוצרו`, value: r.created || 0, cls: "text-emerald-700" },
-        { label: "קיימים הושלמו", value: r.updated || 0, cls: "text-sky-700" },
-        { label: "קיימים בלי שינוי", value: r.unchanged || 0, cls: "text-slate-600" },
-        { label: "דולגו", value: r.skipped || 0, cls: "text-slate-500" },
-        { label: "נכשלו", value: r.failed || 0, cls: "text-rose-700" },
+        { label: tx("{0} חדשים נוצרו", { 0: noun }), value: r.created || 0, cls: "text-emerald-700" },
+        { label: tx("קיימים הושלמו"), value: r.updated || 0, cls: "text-sky-700" },
+        { label: tx("קיימים בלי שינוי"), value: r.unchanged || 0, cls: "text-slate-600" },
+        { label: tx("דולגו"), value: r.skipped || 0, cls: "text-slate-500" },
+        { label: tx("נכשלו"), value: r.failed || 0, cls: "text-rose-700" },
     ];
 
     return (
@@ -98,11 +99,11 @@ function Report({ m, onUpdated }: { m: MigrationDetail; onUpdated: (m: Migration
                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 flex gap-3">
                     <RotateCcw className="h-5 w-5 shrink-0" />
                     <div>
-                        <div className="font-semibold">הייבוא בוטל ב-{fmtDateTime(m.rolled_back_at)}</div>
+                        <div className="font-semibold">{tx("הייבוא בוטל ב-")}{fmtDateTime(m.rolled_back_at)}</div>
                         {rollback && (
                             <div className="mt-1">
-                                {rollback.deleted} {noun} שנוצרו בייבוא נמחקו · {rollback.restored_fields} פרטים שהושלמו הוחזרו למה שהיה
-                                {rollback.kept_used + rollback.kept_edited > 0 && <> · {rollback.kept_used + rollback.kept_edited} נשארו (רשימה למטה)</>}
+                                {rollback.deleted} {noun}{tx(" שנוצרו בייבוא נמחקו · ")}{rollback.restored_fields} {tx("פרטים שהושלמו הוחזרו למה שהיה")}
+                                {rollback.kept_used + rollback.kept_edited > 0 && <> · {rollback.kept_used + rollback.kept_edited}{tx(" נשארו (רשימה למטה)")}</>}
                             </div>
                         )}
                     </div>
@@ -111,10 +112,10 @@ function Report({ m, onUpdated }: { m: MigrationDetail; onUpdated: (m: Migration
                 <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 flex gap-3">
                     <XCircle className="h-5 w-5 shrink-0" />
                     <div>
-                        <div className="font-semibold">הייבוא נעצר</div>
+                        <div className="font-semibold">{tx("הייבוא נעצר")}</div>
                         {m.error && <div className="mt-0.5">{m.error}</div>}
                         <button onClick={resume} disabled={busy} className="mt-2 px-4 py-1.5 rounded-lg bg-white border border-rose-200 font-semibold">
-                            המשך מאיפה שנעצר
+                            {tx("המשך מאיפה שנעצר")}
                         </button>
                     </div>
                 </div>
@@ -122,8 +123,8 @@ function Report({ m, onUpdated }: { m: MigrationDetail; onUpdated: (m: Migration
                 <div className={`rounded-xl border p-4 text-sm flex gap-3 ${m.status === "partial" ? "border-amber-200 bg-amber-50 text-amber-900" : "border-emerald-200 bg-emerald-50 text-emerald-900"}`}>
                     {m.status === "partial" ? <AlertTriangle className="h-5 w-5 shrink-0" /> : <CheckCircle2 className="h-5 w-5 shrink-0" />}
                     <div>
-                        <div className="font-semibold">{m.status === "partial" ? "הייבוא הסתיים, חלק מהשורות נכשלו" : "הייבוא הסתיים"} ב-{fmtDateTime(m.completed_at)}</div>
-                        {m.entity_type === "clients" && <div className="mt-0.5">ללקוחות לא נשלחו הודעות.</div>}
+                        <div className="font-semibold">{m.status === "partial" ? tx("הייבוא הסתיים, חלק מהשורות נכשלו") : tx("הייבוא הסתיים")}{tx(" ב-")}{fmtDateTime(m.completed_at)}</div>
+                        {m.entity_type === "clients" && <div className="mt-0.5">{tx("ללקוחות לא נשלחו הודעות.")}</div>}
                     </div>
                 </div>
             )}
@@ -131,7 +132,7 @@ function Report({ m, onUpdated }: { m: MigrationDetail; onUpdated: (m: Migration
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
                 {tiles.map(t => (
                     <div key={t.label} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
-                        <div className={`text-2xl font-extrabold tabular-nums ${t.cls}`}>{t.value.toLocaleString("he-IL")}</div>
+                        <div className={`text-2xl font-extrabold tabular-nums ${t.cls}`}>{t.value.toLocaleString(intl())}</div>
                         <div className="text-xs text-slate-500 mt-0.5">{t.label}</div>
                     </div>
                 ))}
@@ -139,13 +140,13 @@ function Report({ m, onUpdated }: { m: MigrationDetail; onUpdated: (m: Migration
 
             {failed.length > 0 && (
                 <section className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-                    <h2 className="px-5 py-3 border-b border-slate-100 font-bold text-slate-800 text-sm">שורות שנכשלו</h2>
+                    <h2 className="px-5 py-3 border-b border-slate-100 font-bold text-slate-800 text-sm">{tx("שורות שנכשלו")}</h2>
                     <ul className="divide-y divide-slate-100 text-sm">
                         {failed.map(x => (
                             <li key={x.id} className="px-5 py-2.5">
-                                <span className="text-slate-400 tabular-nums ml-2">שורה {x.row_number}</span>
+                                <span className="text-slate-400 tabular-nums me-2">{tx("שורה ")}{x.row_number}</span>
                                 <span className="font-semibold text-slate-800">{String(x.data?.full_name ?? x.data?.name ?? "")}</span>
-                                <span className="text-rose-700 mr-2">{x.error}</span>
+                                <span className="text-rose-700 ms-2">{x.error}</span>
                             </li>
                         ))}
                     </ul>
@@ -154,12 +155,12 @@ function Report({ m, onUpdated }: { m: MigrationDetail; onUpdated: (m: Migration
 
             {kept.length > 0 && (
                 <section className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-                    <h2 className="px-5 py-3 border-b border-slate-100 font-bold text-slate-800 text-sm">נשארו במערכת אחרי הביטול</h2>
+                    <h2 className="px-5 py-3 border-b border-slate-100 font-bold text-slate-800 text-sm">{tx("נשארו במערכת אחרי הביטול")}</h2>
                     <ul className="divide-y divide-slate-100 text-sm">
                         {kept.map(x => (
                             <li key={x.id} className="px-5 py-2.5">
                                 <span className="font-semibold text-slate-800">{String(x.data?.full_name ?? x.data?.name ?? "")}</span>
-                                <span className="text-slate-500 mr-2">{x.error}</span>
+                                <span className="text-slate-500 ms-2">{x.error}</span>
                             </li>
                         ))}
                     </ul>
@@ -168,20 +169,20 @@ function Report({ m, onUpdated }: { m: MigrationDetail; onUpdated: (m: Migration
 
             {(m.status === "completed" || m.status === "partial" || m.status === "failed") && (
                 <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 text-sm space-y-3">
-                    <div className="font-bold text-slate-800">ביטול הייבוא</div>
+                    <div className="font-bold text-slate-800">{tx("ביטול הייבוא")}</div>
                     <p className="text-slate-600">
-                        מוחק את ה{noun} שהייבוא יצר ומחזיר פרטים שהוא השלים. {noun} שנעשה בהם שימוש מאז (תור, תשלום, הודעה) או שנערכו — נשארים, ויופיעו ברשימה. שום דבר שהיה אצלך לפני הייבוא לא נמחק.
+                        {tx("מוחק את ה")}{noun}{tx(" שהייבוא יצר ומחזיר פרטים שהוא השלים. ")}{noun} {tx("שנעשה בהם שימוש מאז (תור, תשלום, הודעה) או שנערכו — נשארים, ויופיעו ברשימה. שום דבר שהיה אצלך לפני הייבוא לא נמחק.")}
                     </p>
                     {confirming ? (
                         <div className="flex flex-wrap gap-2">
                             <button onClick={doRollback} disabled={busy} className="px-4 py-2 rounded-xl bg-rose-600 text-white font-bold flex items-center gap-2">
-                                {busy && <Loader2 className="h-4 w-4 animate-spin" />} כן, לבטל את הייבוא
+                                {busy && <Loader2 className="h-4 w-4 animate-spin" />} {tx("כן, לבטל את הייבוא")}
                             </button>
-                            <button onClick={() => setConfirming(false)} disabled={busy} className="px-4 py-2 rounded-xl border border-slate-200">לא</button>
+                            <button onClick={() => setConfirming(false)} disabled={busy} className="px-4 py-2 rounded-xl border border-slate-200">{tx("לא")}</button>
                         </div>
                     ) : (
                         <button onClick={() => setConfirming(true)} className="px-4 py-2 rounded-xl border border-rose-200 text-rose-700 font-semibold flex items-center gap-2">
-                            <RotateCcw className="h-4 w-4" /> בטל את הייבוא
+                            <RotateCcw className="h-4 w-4" /> {tx("בטל את הייבוא")}
                         </button>
                     )}
                 </div>
@@ -201,7 +202,7 @@ export default function MigrationRun({ id }: { id: string }) {
         try {
             setM(await apiFetch<MigrationDetail>(`/api/migrations/${id}`));
         } catch (e) {
-            setError(e instanceof Error ? e.message : "הייבוא לא נמצא");
+            setError(e instanceof Error ? e.message : tx("הייבוא לא נמצא"));
         }
     }, [id]);
 
@@ -209,7 +210,7 @@ export default function MigrationRun({ id }: { id: string }) {
         let alive = true;
         apiFetch<MigrationDetail>(`/api/migrations/${id}`)
             .then(x => { if (alive) setM(x); })
-            .catch(e => { if (alive) setError(e instanceof Error ? e.message : "הייבוא לא נמצא"); });
+            .catch(e => { if (alive) setError(e instanceof Error ? e.message : tx("הייבוא לא נמצא")); });
         return () => { alive = false; };
     }, [id]);
 
@@ -225,7 +226,7 @@ export default function MigrationRun({ id }: { id: string }) {
             await apiFetch(`/api/migrations/${id}`, { method: "DELETE" });
             router.push("/migration");
         } catch (e) {
-            toast.error(e instanceof Error ? e.message : "המחיקה נכשלה");
+            toast.error(e instanceof Error ? e.message : tx("המחיקה נכשלה"));
         }
     }
 
@@ -237,19 +238,19 @@ export default function MigrationRun({ id }: { id: string }) {
     const doneImport = (m.counts.result.created || 0) + (m.counts.result.updated || 0) + (m.counts.result.unchanged || 0) + (m.counts.result.failed || 0);
 
     return (
-        <div className="max-w-5xl mx-auto space-y-5" dir="rtl">
+        <div className="max-w-5xl mx-auto space-y-5">
             <div className="flex flex-wrap items-center gap-3">
                 <Link href="/migration" className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900">
-                    <ArrowRight className="h-4 w-4" /> כל הייבואים
+                    <ArrowRight className="ltr:-scale-x-100 h-4 w-4" /> {tx("כל הייבואים")}
                 </Link>
                 <span className="text-slate-300">|</span>
-                <span className="font-bold text-slate-800">{m.entity_label}</span>
+                <span className="font-bold text-slate-800">{tx(m.entity_label)}</span>
                 <span className="text-sm text-slate-500 truncate max-w-[16rem]">{m.file_name}</span>
                 <StatusBadge status={m.status} />
                 <span className="text-xs text-slate-400 font-mono" dir="ltr">{m.code}</span>
                 {!m.started_at && m.status !== "scanning" && (
-                    <button onClick={discard} className="mr-auto inline-flex items-center gap-1 text-sm text-slate-500 hover:text-rose-700">
-                        <Trash2 className="h-4 w-4" /> מחק ייבוא זה
+                    <button onClick={discard} className="ms-auto inline-flex items-center gap-1 text-sm text-slate-500 hover:text-rose-700">
+                        <Trash2 className="h-4 w-4" /> {tx("מחק ייבוא זה")}
                     </button>
                 )}
             </div>
@@ -265,14 +266,14 @@ export default function MigrationRun({ id }: { id: string }) {
             {(m.status === "draft" || remapping) && m.status !== "scanning" && (
                 <MappingStep m={m} onSaved={x => { setRemapping(false); setM(x); }} />
             )}
-            {m.status === "scanning" && <Progress label="סורק ובודק כפילויות…" done={m.counts.scanned} total={m.counts.total} />}
+            {m.status === "scanning" && <Progress label={tx("סורק ובודק כפילויות…")} done={m.counts.scanned} total={m.counts.total} />}
             {m.status === "preview" && !remapping && (
                 <PreviewStep m={m} onChanged={refresh} onConfirmed={setM} onRemap={() => setRemapping(true)} />
             )}
-            {m.status === "importing" && <Progress label="מייבא…" done={doneImport} total={toImport} />}
+            {m.status === "importing" && <Progress label={tx("מייבא…")} done={doneImport} total={toImport} />}
             {["completed", "partial", "failed", "rolled_back"].includes(m.status) && !remapping && (
                 m.status === "failed" && !m.started_at
-                    ? <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">{m.error || "הסריקה נעצרה"} <button onClick={() => setRemapping(true)} className="underline mr-2">חזרה למיפוי</button></div>
+                    ? <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">{m.error || tx("הסריקה נעצרה")} <button onClick={() => setRemapping(true)} className="underline ms-2">{tx("חזרה למיפוי")}</button></div>
                     : <Report m={m} onUpdated={setM} />
             )}
         </div>

@@ -7,6 +7,7 @@ import RequireAuth from "@/components/RequireAuth";
 import AppShell from "@/components/AppShell";
 import { apiFetch } from "@/lib/api";
 
+import { tx, intl } from "@/lib/i18n";
 type Call = {
     id: string;
     direction: "inbound" | "outbound";
@@ -29,9 +30,9 @@ type Call = {
 };
 
 const STATUS_META: Record<Call["status"], { label: string; color: string }> = {
-    answered:  { label: "נענתה",     color: "bg-emerald-50 text-emerald-700" },
-    missed:    { label: "לא נענתה",  color: "bg-red-50 text-red-600" },
-    voicemail: { label: "תא קולי",   color: "bg-amber-50 text-amber-700" },
+    answered:  { label: tx("נענתה"),     color: "bg-emerald-50 text-emerald-700" },
+    missed:    { label: tx("לא נענתה"),  color: "bg-red-50 text-red-600" },
+    voicemail: { label: tx("תא קולי"),   color: "bg-amber-50 text-amber-700" },
 };
 
 const EMPTY_FORM = {
@@ -54,10 +55,10 @@ function fmtTime(iso: string) {
     const d = new Date(iso);
     const now = new Date();
     const diffDays = Math.floor((now.getTime() - d.getTime()) / 86400000);
-    const time = d.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
+    const time = d.toLocaleTimeString(intl(), { hour: "2-digit", minute: "2-digit" });
     if (diffDays === 0) return time;
-    if (diffDays === 1) return `אתמול · ${time}`;
-    return `${d.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit" })} · ${time}`;
+    if (diffDays === 1) return tx("אתמול · {0}", { 0: time });
+    return `${d.toLocaleDateString(intl(), { day: "2-digit", month: "2-digit" })} · ${time}`;
 }
 
 function waLink(phone: string) {
@@ -85,7 +86,7 @@ export default function CallsPage() {
             const data = await apiFetch<Call[]>(`/api/calls?${params.toString()}`);
             setCalls(data);
         } catch {
-            toast.error("שגיאה בטעינת שיחות");
+            toast.error(tx("שגיאה בטעינת שיחות"));
         } finally {
             setLoading(false);
         }
@@ -94,7 +95,7 @@ export default function CallsPage() {
     useEffect(() => { load(); }, [load]);
 
     const submitLog = async () => {
-        if (!form.phone.trim()) { toast.error("נדרש מספר טלפון"); return; }
+        if (!form.phone.trim()) { toast.error(tx("נדרש מספר טלפון")); return; }
         setSaving(true);
         try {
             await apiFetch("/api/calls", {
@@ -108,12 +109,12 @@ export default function CallsPage() {
                     quoted_price_cents: form.quoted_price ? Math.round(parseFloat(form.quoted_price) * 100) : null,
                 }),
             });
-            toast.success("השיחה נרשמה");
+            toast.success(tx("השיחה נרשמה"));
             setShowLogModal(false);
             setForm(EMPTY_FORM);
             load();
         } catch {
-            toast.error("שגיאה בשמירת השיחה");
+            toast.error(tx("שגיאה בשמירת השיחה"));
         } finally {
             setSaving(false);
         }
@@ -124,14 +125,14 @@ export default function CallsPage() {
             const res = await apiFetch<{ client_id: string }>(`/api/calls/${call.id}/create-appointment`, { method: "POST" });
             router.push(`/calendar?client=${res.client_id}`);
         } catch {
-            toast.error("שגיאה ביצירת תור");
+            toast.error(tx("שגיאה ביצירת תור"));
         }
     };
 
     return (
         <RequireAuth>
-            <AppShell title="שיחות">
-                <div className="max-w-4xl mx-auto space-y-4" dir="rtl">
+            <AppShell title={tx("שיחות")}>
+                <div className="max-w-4xl mx-auto space-y-4">
                     {/* Filters + new log button */}
                     <div className="flex flex-wrap items-center gap-2">
                         <select
@@ -139,36 +140,36 @@ export default function CallsPage() {
                             onChange={e => setDirectionFilter(e.target.value as typeof directionFilter)}
                             className="border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white"
                         >
-                            <option value="">כל הכיוונים</option>
-                            <option value="inbound">נכנסות</option>
-                            <option value="outbound">יוצאות</option>
+                            <option value="">{tx("כל הכיוונים")}</option>
+                            <option value="inbound">{tx("נכנסות")}</option>
+                            <option value="outbound">{tx("יוצאות")}</option>
                         </select>
                         <select
                             value={statusFilter}
                             onChange={e => setStatusFilter(e.target.value as typeof statusFilter)}
                             className="border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white"
                         >
-                            <option value="">כל הסטטוסים</option>
-                            <option value="answered">נענתה</option>
-                            <option value="missed">לא נענתה</option>
-                            <option value="voicemail">תא קולי</option>
+                            <option value="">{tx("כל הסטטוסים")}</option>
+                            <option value="answered">{tx("נענתה")}</option>
+                            <option value="missed">{tx("לא נענתה")}</option>
+                            <option value="voicemail">{tx("תא קולי")}</option>
                         </select>
                         <div className="flex-1" />
                         <button
                             onClick={() => setShowLogModal(true)}
                             className="bg-slate-900 text-white rounded-xl px-4 py-2 text-sm font-semibold hover:bg-slate-800 transition-colors"
                         >
-                            + לוג שיחה
+                            {tx("+ לוג שיחה")}
                         </button>
                     </div>
 
                     {/* List */}
                     {loading ? (
-                        <div className="text-center text-slate-400 py-12">טוען...</div>
+                        <div className="text-center text-slate-400 py-12">{tx("טוען...")}</div>
                     ) : calls.length === 0 ? (
                         <div className="text-center text-slate-400 py-16 bg-white rounded-2xl border border-slate-100">
                             <div className="text-3xl mb-2">📞</div>
-                            אין שיחות רשומות עדיין
+                            {tx("אין שיחות רשומות עדיין")}
                         </div>
                     ) : (
                         <div className="space-y-2">
@@ -191,13 +192,13 @@ export default function CallsPage() {
                                                         {meta.label}
                                                     </span>
                                                     {!call.client_id && (
-                                                        <span className="text-xs text-slate-400">לקוח לא מזוהה</span>
+                                                        <span className="text-xs text-slate-400">{tx("לקוח לא מזוהה")}</span>
                                                     )}
                                                 </div>
                                                 <div className="text-xs text-slate-400 mt-0.5">
                                                     {fmtTime(call.started_at)} · {fmtDuration(call.duration_seconds)}
                                                     {call.answered_by_name ? ` · ${call.answered_by_name}` : ""}
-                                                    {call.quoted_price_cents ? ` · הוצע ₪${(call.quoted_price_cents / 100).toFixed(0)}` : ""}
+                                                    {call.quoted_price_cents ? tx(" · הוצע ₪{0}", { 0: (call.quoted_price_cents / 100).toFixed(0) }) : ""}
                                                 </div>
                                                 {call.notes && (
                                                     <div className="text-sm text-slate-600 mt-1 truncate">{call.notes}</div>
@@ -209,14 +210,14 @@ export default function CallsPage() {
                                                     target="_blank"
                                                     rel="noreferrer"
                                                     className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-emerald-50 text-emerald-600"
-                                                    title="שלח וואטסאפ"
+                                                    title={tx("שלח וואטסאפ")}
                                                 >
                                                     📱
                                                 </a>
                                                 <button
                                                     onClick={() => createAppointment(call)}
                                                     className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-sky-50 text-sky-600"
-                                                    title="צור תור"
+                                                    title={tx("צור תור")}
                                                 >
                                                     📅
                                                 </button>
@@ -224,7 +225,7 @@ export default function CallsPage() {
                                                     <button
                                                         onClick={() => setExpandedId(expanded ? null : call.id)}
                                                         className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-500"
-                                                        title="הקלטה, תמלול וסיכום AI"
+                                                        title={tx("הקלטה, תמלול וסיכום AI")}
                                                     >
                                                         {expanded ? "▲" : "▼"}
                                                     </button>
@@ -239,18 +240,18 @@ export default function CallsPage() {
                                                 )}
                                                 {summary && (
                                                     <div className="bg-violet-50 border border-violet-100 rounded-xl p-3 text-sm space-y-1">
-                                                        <div className="font-semibold text-violet-800 mb-1">🤖 סיכום AI</div>
-                                                        {typeof summary.intent === "string" && <div><b>ביקש:</b> {summary.intent}</div>}
-                                                        {typeof summary.offered === "string" && <div><b>הוצע:</b> {summary.offered}</div>}
-                                                        {typeof summary.quoted_price_ils === "number" && <div><b>מחיר שהוצע:</b> ₪{summary.quoted_price_ils}</div>}
-                                                        {typeof summary.objections === "string" && summary.objections && <div><b>התנגדויות:</b> {summary.objections}</div>}
-                                                        {typeof summary.closing_likelihood === "string" && <div><b>סיכוי לסגירה:</b> {summary.closing_likelihood}</div>}
-                                                        {typeof summary.next_step === "string" && <div><b>המלצה להמשך:</b> {summary.next_step}</div>}
+                                                        <div className="font-semibold text-violet-800 mb-1">{tx("🤖 סיכום AI")}</div>
+                                                        {typeof summary.intent === "string" && <div><b>{tx("ביקש:")}</b> {summary.intent}</div>}
+                                                        {typeof summary.offered === "string" && <div><b>{tx("הוצע:")}</b> {summary.offered}</div>}
+                                                        {typeof summary.quoted_price_ils === "number" && <div><b>{tx("מחיר שהוצע:")}</b> ₪{summary.quoted_price_ils}</div>}
+                                                        {typeof summary.objections === "string" && summary.objections && <div><b>{tx("התנגדויות:")}</b> {summary.objections}</div>}
+                                                        {typeof summary.closing_likelihood === "string" && <div><b>{tx("סיכוי לסגירה:")}</b> {summary.closing_likelihood}</div>}
+                                                        {typeof summary.next_step === "string" && <div><b>{tx("המלצה להמשך:")}</b> {summary.next_step}</div>}
                                                     </div>
                                                 )}
                                                 {call.transcript && (
                                                     <details className="text-sm text-slate-600">
-                                                        <summary className="cursor-pointer font-medium text-slate-700">תמלול מלא</summary>
+                                                        <summary className="cursor-pointer font-medium text-slate-700">{tx("תמלול מלא")}</summary>
                                                         <p className="mt-2 whitespace-pre-wrap leading-relaxed">{call.transcript}</p>
                                                     </details>
                                                 )}
@@ -264,9 +265,9 @@ export default function CallsPage() {
                 </div>
 
                 {showLogModal && (
-                    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4" dir="rtl">
+                    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
                         <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
-                            <h2 className="text-lg font-bold text-slate-900">לוג שיחה</h2>
+                            <h2 className="text-lg font-bold text-slate-900">{tx("לוג שיחה")}</h2>
 
                             <div className="flex gap-2">
                                 {(["inbound", "outbound"] as const).map(d => (
@@ -279,13 +280,13 @@ export default function CallsPage() {
                                                 : "bg-white text-slate-600 border-slate-200"
                                         }`}
                                     >
-                                        {d === "inbound" ? "📥 נכנסת" : "📤 יוצאת"}
+                                        {d === "inbound" ? tx("📥 נכנסת") : tx("📤 יוצאת")}
                                     </button>
                                 ))}
                             </div>
 
                             <div>
-                                <label className="text-xs font-semibold text-slate-500 mb-1 block">מספר טלפון</label>
+                                <label className="text-xs font-semibold text-slate-500 mb-1 block">{tx("מספר טלפון")}</label>
                                 <input
                                     value={form.phone}
                                     onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
@@ -296,7 +297,7 @@ export default function CallsPage() {
 
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
-                                    <label className="text-xs font-semibold text-slate-500 mb-1 block">משך (דקות)</label>
+                                    <label className="text-xs font-semibold text-slate-500 mb-1 block">{tx("משך (דקות)")}</label>
                                     <input
                                         type="number"
                                         value={form.duration_minutes}
@@ -306,21 +307,21 @@ export default function CallsPage() {
                                     />
                                 </div>
                                 <div>
-                                    <label className="text-xs font-semibold text-slate-500 mb-1 block">סטטוס</label>
+                                    <label className="text-xs font-semibold text-slate-500 mb-1 block">{tx("סטטוס")}</label>
                                     <select
                                         value={form.status}
                                         onChange={e => setForm(f => ({ ...f, status: e.target.value as Call["status"] }))}
                                         className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm"
                                     >
-                                        <option value="answered">נענתה</option>
-                                        <option value="missed">לא נענתה</option>
-                                        <option value="voicemail">תא קולי</option>
+                                        <option value="answered">{tx("נענתה")}</option>
+                                        <option value="missed">{tx("לא נענתה")}</option>
+                                        <option value="voicemail">{tx("תא קולי")}</option>
                                     </select>
                                 </div>
                             </div>
 
                             <div>
-                                <label className="text-xs font-semibold text-slate-500 mb-1 block">מחיר שהוצע (₪, אופציונלי)</label>
+                                <label className="text-xs font-semibold text-slate-500 mb-1 block">{tx("מחיר שהוצע (₪, אופציונלי)")}</label>
                                 <input
                                     type="number"
                                     value={form.quoted_price}
@@ -331,12 +332,12 @@ export default function CallsPage() {
                             </div>
 
                             <div>
-                                <label className="text-xs font-semibold text-slate-500 mb-1 block">הערות</label>
+                                <label className="text-xs font-semibold text-slate-500 mb-1 block">{tx("הערות")}</label>
                                 <textarea
                                     value={form.notes}
                                     onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
                                     rows={3}
-                                    placeholder="מה הלקוח ביקש, מה סוכם..."
+                                    placeholder={tx("מה הלקוח ביקש, מה סוכם...")}
                                     className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm resize-none"
                                 />
                             </div>
@@ -346,14 +347,14 @@ export default function CallsPage() {
                                     onClick={() => { setShowLogModal(false); setForm(EMPTY_FORM); }}
                                     className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-semibold"
                                 >
-                                    ביטול
+                                    {tx("ביטול")}
                                 </button>
                                 <button
                                     onClick={submitLog}
                                     disabled={saving}
                                     className="flex-1 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-semibold disabled:opacity-50"
                                 >
-                                    {saving ? "שומר..." : "שמור שיחה"}
+                                    {saving ? tx("שומר...") : tx("שמור שיחה")}
                                 </button>
                             </div>
                         </div>

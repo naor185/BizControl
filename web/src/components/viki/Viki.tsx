@@ -7,6 +7,7 @@
 // who asked the system for less motion.
 import { useId } from "react";
 
+import { tx } from "@/lib/i18n";
 export type VikiPose = "idle" | "wave" | "talk";
 
 export default function Viki({ size = 120, crop = "full", pose = "idle", still = false, className = "" }: {
@@ -23,7 +24,7 @@ export default function Viki({ size = 120, crop = "full", pose = "idle", still =
             viewBox={head ? "26 8 68 68" : "0 0 120 170"}
             width={head ? size : Math.round(size * 120 / 170)} height={size}
             className={`viki viki--${pose} ${still ? "viki--still" : ""} ${className}`}
-            role="img" aria-label="ויקי"
+            role="img" aria-label={tx("ויקי")}
         >
             <defs>
                 <linearGradient id={`${id}h`} x1="0" y1="0" x2="1" y2="0">

@@ -123,7 +123,10 @@ function process1(file, write) {
         // ── JSX text ──
         if (ts.isJsxText(node) && HEB.test(node.text) && !inHebrewDocument(node)) {
             const raw = node.getFullText(sf);
-            const ent = t => t.replace(/&quot;/g, '"').replace(/&apos;|&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+            const ent = t => t.replace(/&quot;/g, '"').replace(/&apos;|&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+                .replace(/&ldquo;/g, "“").replace(/&rdquo;/g, "”").replace(/&lsquo;/g, "‘").replace(/&rsquo;/g, "’")
+                .replace(/&nbsp;/g, " ").replace(/&mdash;/g, "—").replace(/&ndash;/g, "–").replace(/&hellip;/g, "…")
+                .replace(/&amp;/g, "&");
             let lead = "", key = raw, trail = "";
             if (raw.includes("\n")) {            // JSX drops whitespace with a line break, and joins the lines with a space
                 const m = /^(\s*)[\s\S]*?(\s*)$/.exec(raw);

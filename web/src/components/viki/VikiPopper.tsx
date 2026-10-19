@@ -14,6 +14,7 @@ import { apiFetch } from "@/lib/api";
 import Viki, { type VikiPose } from "./Viki";
 import { PREFS_EVENT, lastPop, markPopped, markSeen, popupsOn, seen, setSpeaking } from "./vikiPrefs";
 
+import { tx } from "@/lib/i18n";
 type Moment = { key: string; text: string; action: { label: string; href: string } | null };
 type Suggestion = Moment & { tone: "warn" | "tip" | "good" };
 
@@ -92,17 +93,17 @@ export default function VikiPopper() {
 
     if (!on || !shown) return null;
     return (
-        <div className={`fixed z-[1080] left-2 md:left-6 flex items-end gap-1 viki-pop-in ${lift
+        <div className={`fixed z-[1080] end-2 md:end-6 flex items-end gap-1 viki-pop-in ${lift
             ? "bottom-[calc(112px+env(safe-area-inset-bottom,0px))] md:bottom-12"
             : "bottom-[calc(76px+env(safe-area-inset-bottom,0px))] md:bottom-6"}`}
-            dir="rtl" role="status" aria-live="polite">
+            role="status" aria-live="polite">
             <div className="relative mb-16 max-w-[min(270px,calc(100vw-140px))] bg-white rounded-2xl shadow-2xl border border-slate-200 p-3.5">
-                <button type="button" onClick={() => setShown(null)} aria-label="סגירה"
-                    className="absolute top-1.5 left-1.5 w-7 h-7 flex items-center justify-center rounded-full text-slate-400 hover:bg-slate-100">
+                <button type="button" onClick={() => setShown(null)} aria-label={tx("סגירה")}
+                    className="absolute top-1.5 end-1.5 w-7 h-7 flex items-center justify-center rounded-full text-slate-400 hover:bg-slate-100">
                     <X className="w-4 h-4" aria-hidden />
                 </button>
-                <div className="text-xs font-black text-sky-700 mb-1">ויקי</div>
-                <p className="text-sm text-slate-700 leading-relaxed pl-5">{shown.text}</p>
+                <div className="text-xs font-black text-sky-700 mb-1">{tx("ויקי")}</div>
+                <p className="text-sm text-slate-700 leading-relaxed pe-5">{shown.text}</p>
                 <div className="mt-2.5 flex items-center gap-2">
                     {shown.action && (
                         <Link href={shown.action.href} onClick={e => { followSection(e, shown.action!.href, pathname); setShown(null); }}
@@ -111,11 +112,11 @@ export default function VikiPopper() {
                         </Link>
                     )}
                     <button type="button" onClick={() => setShown(null)} className="min-h-9 px-3 rounded-lg text-xs font-semibold text-slate-500 hover:bg-slate-100">
-                        אחר כך
+                        {tx("אחר כך")}
                     </button>
                 </div>
                 {/* the bubble's tail, toward her */}
-                <span aria-hidden className="absolute -left-2 bottom-5 w-4 h-4 bg-white border-l border-b border-slate-200 rotate-45" />
+                <span aria-hidden className="absolute -end-2 bottom-5 w-4 h-4 bg-white border-e border-b border-slate-200 rotate-45" />
             </div>
             <Viki size={128} pose={pose} className="shrink-0 drop-shadow-xl" />
         </div>

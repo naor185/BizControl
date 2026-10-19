@@ -7,6 +7,7 @@ import AppShell from "@/components/AppShell";
 import { getProducts, deleteProduct, Product, apiFetch } from "@/lib/api";
 import ProductModal from "@/components/ProductModal";
 
+import { tx, intl } from "@/lib/i18n";
 export default function ProductsPage() {
     const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
@@ -27,7 +28,7 @@ export default function ProductsPage() {
             setSalesHistory(salesData);
         } catch (err: any) {
             console.error(err);
-            toast.error("שגיאה בטעינת מוצרים:\n" + (err?.message || String(err)));
+            toast.error(tx("שגיאה בטעינת מוצרים:\n") + (err?.message || String(err)));
         } finally {
             setLoading(false);
         }
@@ -38,12 +39,12 @@ export default function ProductsPage() {
     }, []);
 
     const handleDelete = async (id: string) => {
-        if (!confirm("בטוח שברצונך למחוק מוצר זה מהקטלוג?")) return;
+        if (!confirm(tx("בטוח שברצונך למחוק מוצר זה מהקטלוג?"))) return;
         try {
             await deleteProduct(id);
             fetchProducts();
         } catch (err) {
-            toast.error("שגיאה במחיקת מוצר");
+            toast.error(tx("שגיאה במחיקת מוצר"));
         }
     };
 
@@ -54,18 +55,18 @@ export default function ProductsPage() {
 
     return (
         <RequireAuth>
-            <AppShell title="ניהול מוצרים ומלאי">
+            <AppShell title={tx("ניהול מוצרים ומלאי")}>
                 <div className="space-y-8">
                     {/* Header Actions */}
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div className="relative flex-1 max-w-md">
-                            <span className="absolute inset-y-0 right-4 flex items-center text-slate-400">🔍</span>
+                            <span className="absolute inset-y-0 start-4 flex items-center text-slate-400">🔍</span>
                             <input
                                 type="text"
-                                placeholder="חפש מוצר או קטגוריה..."
+                                placeholder={tx("חפש מוצר או קטגוריה...")}
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
-                                className="w-full pr-12 pl-4 py-3 bg-white border border-slate-100 rounded-2xl shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-medium"
+                                className="w-full ps-12 pe-4 py-3 bg-white border border-slate-100 rounded-2xl shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-medium"
                             />
                         </div>
                         <div className="flex gap-2">
@@ -73,7 +74,7 @@ export default function ProductsPage() {
                                 onClick={() => setShowHistory(!showHistory)}
                                 className={`px-6 py-3 rounded-2xl font-bold transition-all flex items-center gap-2 ${showHistory ? 'bg-slate-200 text-slate-700' : 'bg-white border border-slate-200 text-slate-600 shadow-sm hover:bg-slate-50'}`}
                             >
-                                <span>{showHistory ? "חזור לקטלוג" : "היסטוריית מכירות"}</span>
+                                <span>{showHistory ? tx("חזור לקטלוג") : tx("היסטוריית מכירות")}</span>
                                 <span>📊</span>
                             </button>
                             <button
@@ -83,7 +84,7 @@ export default function ProductsPage() {
                                 }}
                                 className="px-6 py-3 bg-zinc-900 text-white rounded-2xl font-bold shadow-lg hover:bg-zinc-800 transition-all flex items-center gap-2"
                             >
-                                <span>הוספת מוצר חדש</span>
+                                <span>{tx("הוספת מוצר חדש")}</span>
                                 <span>+</span>
                             </button>
                         </div>
@@ -92,32 +93,32 @@ export default function ProductsPage() {
                     {showHistory ? (
                         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
                             <div className="bg-slate-900 p-6 text-white">
-                                <h3 className="text-xl font-bold">היסטוריית מכירות מוצרים</h3>
-                                <p className="text-slate-400 text-sm mt-1">פירוט עסקאות ומכירת ציוד נלווה</p>
+                                <h3 className="text-xl font-bold">{tx("היסטוריית מכירות מוצרים")}</h3>
+                                <p className="text-slate-400 text-sm mt-1">{tx("פירוט עסקאות ומכירת ציוד נלווה")}</p>
                             </div>
                             <div className="overflow-x-auto">
-                                <table className="w-full text-right" dir="rtl">
+                                <table className="w-full text-start">
                                     <thead>
                                         <tr className="bg-slate-50 border-b border-slate-100">
-                                            <th className="px-6 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">תאריך</th>
-                                            <th className="px-6 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">מוצר</th>
-                                            <th className="px-6 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">כמות</th>
-                                            <th className="px-6 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">נמכר ע״י</th>
-                                            <th className="px-6 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">סה״כ</th>
+                                            <th className="px-6 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">{tx("תאריך")}</th>
+                                            <th className="px-6 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">{tx("מוצר")}</th>
+                                            <th className="px-6 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">{tx("כמות")}</th>
+                                            <th className="px-6 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">{tx("נמכר ע״י")}</th>
+                                            <th className="px-6 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">{tx("סה״כ")}</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-50">
                                         {salesHistory.length === 0 ? (
                                             <tr>
-                                                <td colSpan={5} className="px-6 py-12 text-center text-slate-400">אין עדיין היסטוריית מכירות</td>
+                                                <td colSpan={5} className="px-6 py-12 text-center text-slate-400">{tx("אין עדיין היסטוריית מכירות")}</td>
                                             </tr>
                                         ) : (
                                             salesHistory.map((s) => (
                                                 <tr key={s.id} className="hover:bg-slate-50/50 transition-colors">
-                                                    <td className="px-6 py-4 text-sm font-medium text-slate-500">{new Date(s.created_at).toLocaleDateString('he-IL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</td>
+                                                    <td className="px-6 py-4 text-sm font-medium text-slate-500">{new Date(s.created_at).toLocaleDateString(intl(), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</td>
                                                     <td className="px-6 py-4 text-sm font-bold text-slate-800">{s.product_name}</td>
                                                     <td className="px-6 py-4 text-sm font-bold text-slate-600">{s.quantity}</td>
-                                                    <td className="px-6 py-4 text-sm font-medium text-indigo-600">{s.sold_by_name || "מערכת"}</td>
+                                                    <td className="px-6 py-4 text-sm font-medium text-indigo-600">{s.sold_by_name || tx("מערכת")}</td>
                                                     <td className="px-6 py-4 text-sm font-black text-slate-900" dir="ltr">₪{(s.total_price_cents / 100).toLocaleString()}</td>
                                                 </tr>
                                             ))
@@ -135,8 +136,8 @@ export default function ProductsPage() {
                     ) : filtered.length === 0 ? (
                         <div className="text-center py-24 bg-white rounded-3xl border border-dashed border-slate-200">
                             <div className="text-4xl mb-4">📦</div>
-                            <h3 className="text-xl font-bold text-slate-800">הקטלוג ריק</h3>
-                            <p className="text-slate-400 mt-2">הוסף מוצרים כמו תכשיטים, קרמים או ציוד נלווה כדי להתחיל לנהל מלאי</p>
+                            <h3 className="text-xl font-bold text-slate-800">{tx("הקטלוג ריק")}</h3>
+                            <p className="text-slate-400 mt-2">{tx("הוסף מוצרים כמו תכשיטים, קרמים או ציוד נלווה כדי להתחיל לנהל מלאי")}</p>
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -149,11 +150,11 @@ export default function ProductsPage() {
                                         ) : (
                                             <div className="w-full h-full flex items-center justify-center text-4xl text-slate-300">📦</div>
                                         )}
-                                        <div className="absolute top-2 left-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <div className="absolute top-2 end-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                             <button type="button" onClick={() => { setEditingProduct(p); setIsModalOpen(true); }} className="p-1.5 bg-white/90 text-indigo-600 rounded-xl hover:bg-white shadow-sm text-sm">✏️</button>
                                             <button type="button" onClick={() => handleDelete(p.id)} className="p-1.5 bg-white/90 text-rose-600 rounded-xl hover:bg-white shadow-sm text-sm">✕</button>
                                         </div>
-                                        <span className="absolute top-2 right-2 px-2 py-0.5 bg-white/90 text-slate-500 text-[10px] font-black rounded-full">{p.category || "ללא קטגוריה"}</span>
+                                        <span className="absolute top-2 start-2 px-2 py-0.5 bg-white/90 text-slate-500 text-[10px] font-black rounded-full">{p.category || tx("ללא קטגוריה")}</span>
                                     </div>
 
                                     <div className="p-4 flex flex-col flex-1">
@@ -162,7 +163,7 @@ export default function ProductsPage() {
                                         <div className="pt-3 border-t border-slate-50 flex items-center justify-between">
                                             <div className="text-xl font-black text-slate-900" dir="ltr">₪{p.price.toLocaleString()}</div>
                                             <div className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${p.stock_quantity > 0 ? 'text-emerald-600 bg-emerald-50' : 'text-rose-600 bg-rose-50'}`}>
-                                                {p.stock_quantity > 0 ? `במלאי: ${p.stock_quantity}` : 'אזל מהמלאי'}
+                                                {p.stock_quantity > 0 ? tx("במלאי: {0}", { 0: p.stock_quantity }) : tx("אזל מהמלאי")}
                                             </div>
                                         </div>
                                     </div>

@@ -9,19 +9,20 @@ import { toast } from "@/lib/toast";
 import { type ClassTemplate, type MembershipKind, type MembershipType, shekels } from "@/lib/classes";
 import { FamilyOptions, familyForm, familyLine, familyPayload } from "@/components/classes/FamilyMembers";
 
+import { tx } from "@/lib/i18n";
 // What the business sells: unlimited for a period, a weekly limit for a period, or a punch card. Editing
 // a type does not change memberships already sold (each keeps the rules it was sold with).
 
 const KINDS: { value: MembershipKind; label: string; hint: string }[] = [
-    { value: "unlimited", label: "ללא הגבלה", hint: "כניסות בלי הגבלה לתקופה" },
-    { value: "weekly", label: "מגבלה שבועית", hint: "מספר כניסות קבוע בכל שבוע, לתקופה" },
-    { value: "punch", label: "כרטיסייה", hint: "מספר כניסות, בתוקף עד מספר ימים" },
+    { value: "unlimited", label: tx("ללא הגבלה"), hint: tx("כניסות בלי הגבלה לתקופה") },
+    { value: "weekly", label: tx("מגבלה שבועית"), hint: tx("מספר כניסות קבוע בכל שבוע, לתקופה") },
+    { value: "punch", label: tx("כרטיסייה"), hint: tx("מספר כניסות, בתוקף עד מספר ימים") },
 ];
 
 export function describeType(t: Pick<MembershipType, "kind" | "entries" | "duration_days" | "price_cents">): string {
     const parts = [
-        t.kind === "punch" ? `${t.entries} כניסות` : t.kind === "weekly" ? `${t.entries} בשבוע` : "ללא הגבלה",
-        t.duration_days ? `${t.duration_days} ימים` : "ללא תאריך סיום",
+        t.kind === "punch" ? tx("{0} כניסות", { 0: t.entries }) : t.kind === "weekly" ? tx("{0} בשבוע", { 0: t.entries }) : tx("ללא הגבלה"),
+        t.duration_days ? tx("{0} ימים", { 0: t.duration_days }) : tx("ללא תאריך סיום"),
         t.price_cents ? shekels(t.price_cents) : null,
     ];
     return parts.filter(Boolean).join(" · ");
@@ -43,12 +44,12 @@ export default function MembershipTypes({ canConfigure }: { canConfigure: boolea
             {canConfigure && (
                 <button type="button" onClick={() => setEditing("new")}
                     className="inline-flex items-center gap-2 min-h-11 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold">
-                    <Plus className="w-4 h-4" aria-hidden /> סוג מנוי חדש
+                    <Plus className="w-4 h-4" aria-hidden /> {tx("סוג מנוי חדש")}
                 </button>
             )}
-            {types === null ? <Loader2 className="w-6 h-6 text-indigo-500 animate-spin" aria-label="טוען" /> : types.length === 0 ? (
+            {types === null ? <Loader2 className="w-6 h-6 text-indigo-500 animate-spin" aria-label={tx("טוען")} /> : types.length === 0 ? (
                 <p className="text-sm text-slate-500 bg-white border border-slate-200 rounded-2xl px-5 py-8 text-center">
-                    עוד אין סוגי מנוי. למשל: חודשי ללא הגבלה, פעמיים בשבוע, כרטיסייה של 10 כניסות.
+                    {tx("עוד אין סוגי מנוי. למשל: חודשי ללא הגבלה, פעמיים בשבוע, כרטיסייה של 10 כניסות.")}
                 </p>
             ) : (
                 <ul className="grid gap-3 md:grid-cols-2">
@@ -59,11 +60,11 @@ export default function MembershipTypes({ canConfigure }: { canConfigure: boolea
                                 <p className="text-xs text-indigo-800 mt-0.5">{t.kind_label}</p>
                                 <p className="text-sm text-slate-600 mt-1 tabular-nums">{describeType(t)}</p>
                                 {familyLine(t) && <p className="text-xs text-violet-800 mt-0.5">{familyLine(t)}</p>}
-                                {!t.covers_all && <p className="text-xs text-slate-500 mt-0.5">רק שיעורים נבחרים ({t.covered_templates.length})</p>}
-                                {!t.is_active && <p className="text-xs text-slate-500 mt-0.5">לא נמכר כרגע</p>}
+                                {!t.covers_all && <p className="text-xs text-slate-500 mt-0.5">{tx("רק שיעורים נבחרים (")}{t.covered_templates.length})</p>}
+                                {!t.is_active && <p className="text-xs text-slate-500 mt-0.5">{tx("לא נמכר כרגע")}</p>}
                             </div>
                             {canConfigure && (
-                                <button type="button" onClick={() => setEditing(t)} aria-label={`עריכת ${t.name}`}
+                                <button type="button" onClick={() => setEditing(t)} aria-label={tx("עריכת {0}", { 0: t.name })}
                                     className="w-11 h-11 flex items-center justify-center rounded-xl text-slate-500 hover:text-indigo-700 shrink-0">
                                     <PencilLine className="w-4 h-4" aria-hidden />
                                 </button>
@@ -112,33 +113,33 @@ function TypeSheet({ t, templates, onClose, onSaved }: { t: MembershipType | nul
                     ...familyPayload(fam),
                 }),
             });
-            toast.success(t ? "סוג המנוי עודכן — מנויים שכבר נמכרו לא משתנים" : "סוג המנוי נוסף");
+            toast.success(t ? tx("סוג המנוי עודכן — מנויים שכבר נמכרו לא משתנים") : tx("סוג המנוי נוסף"));
             onSaved();
         } catch (e) {
-            toast.error(e instanceof Error ? e.message : "השמירה נכשלה");
+            toast.error(e instanceof Error ? e.message : tx("השמירה נכשלה"));
         } finally {
             setBusy(false);
         }
     };
 
     return (
-        <BottomSheet open onClose={onClose} title={t ? `עריכה: ${t.name}` : "סוג מנוי חדש"} className="sm:max-w-lg"
+        <BottomSheet open onClose={onClose} title={t ? tx("עריכה: {0}", { 0: t.name }) : tx("סוג מנוי חדש")} className="sm:max-w-lg"
             footer={
                 <button type="button" onClick={save} disabled={busy || !f.name.trim()}
                     className="w-full inline-flex items-center justify-center gap-2 min-h-11 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white text-sm font-bold">
-                    {busy && <Loader2 className="w-4 h-4 animate-spin" aria-hidden />} שמירה
+                    {busy && <Loader2 className="w-4 h-4 animate-spin" aria-hidden />} {tx("שמירה")}
                 </button>
             }>
             <div className="px-5 py-4 space-y-4 overflow-y-auto min-h-0">
-                <label className={label}>שם
-                    <input value={f.name} onChange={e => set({ name: e.target.value })} maxLength={120} placeholder="כרטיסייה 10" className={`${field} mt-1`} />
+                <label className={label}>{tx("שם")}
+                    <input value={f.name} onChange={e => set({ name: e.target.value })} maxLength={120} placeholder={tx("כרטיסייה 10")} className={`${field} mt-1`} />
                 </label>
                 <fieldset>
-                    <legend className={label}>סוג</legend>
+                    <legend className={label}>{tx("סוג")}</legend>
                     <div className="mt-1 grid gap-2">
                         {KINDS.map(k => (
                             <button key={k.value} type="button" role="radio" aria-checked={f.kind === k.value} onClick={() => set({ kind: k.value })}
-                                className={`text-right rounded-xl border px-3 py-2 ${f.kind === k.value ? "border-indigo-500 bg-indigo-50" : "border-slate-200"}`}>
+                                className={`text-start rounded-xl border px-3 py-2 ${f.kind === k.value ? "border-indigo-500 bg-indigo-50" : "border-slate-200"}`}>
                                 <span className={`block text-sm font-semibold ${f.kind === k.value ? "text-indigo-800" : "text-slate-800"}`}>{k.label}</span>
                                 <span className="block text-xs text-slate-500">{k.hint}</span>
                             </button>
@@ -147,27 +148,27 @@ function TypeSheet({ t, templates, onClose, onSaved }: { t: MembershipType | nul
                 </fieldset>
                 <div className="grid grid-cols-3 gap-3">
                     {f.kind !== "unlimited" && (
-                        <label className={label}>{f.kind === "punch" ? "כניסות" : "כניסות בשבוע"}
+                        <label className={label}>{f.kind === "punch" ? tx("כניסות") : tx("כניסות בשבוע")}
                             <input type="number" min={1} max={f.kind === "weekly" ? 14 : 500} value={f.entries} dir="ltr"
                                 onChange={e => set({ entries: e.target.value === "" ? "" : Number(e.target.value) })} className={`${field} mt-1 tabular-nums`} />
                         </label>
                     )}
-                    <label className={label}>תוקף (ימים){f.kind === "punch" ? " — לא חובה" : ""}
+                    <label className={label}>{tx("תוקף (ימים)")}{f.kind === "punch" ? tx(" — לא חובה") : ""}
                         <input type="number" min={1} max={3650} value={f.duration_days} dir="ltr"
                             onChange={e => set({ duration_days: e.target.value === "" ? "" : Number(e.target.value) })} className={`${field} mt-1 tabular-nums`} />
                     </label>
-                    <label className={label}>מחיר (₪)
+                    <label className={label}>{tx("מחיר (₪)")}
                         <input type="number" min={0} value={f.price} dir="ltr"
                             onChange={e => set({ price: e.target.value === "" ? "" : Number(e.target.value) })} className={`${field} mt-1 tabular-nums`} />
                     </label>
                 </div>
                 <fieldset>
-                    <legend className={label}>אילו שיעורים</legend>
+                    <legend className={label}>{tx("אילו שיעורים")}</legend>
                     <div className="mt-1 flex gap-2">
                         {[true, false].map(all => (
                             <button key={String(all)} type="button" role="radio" aria-checked={f.covers_all === all} onClick={() => set({ covers_all: all })}
                                 className={`flex-1 min-h-11 rounded-xl border px-3 text-sm ${f.covers_all === all ? "border-indigo-500 bg-indigo-50 text-indigo-800 font-semibold" : "border-slate-200 text-slate-700"}`}>
-                                {all ? "כל השיעורים" : "רק שיעורים נבחרים"}
+                                {all ? tx("כל השיעורים") : tx("רק שיעורים נבחרים")}
                             </button>
                         ))}
                     </div>
@@ -180,44 +181,44 @@ function TypeSheet({ t, templates, onClose, onSaved }: { t: MembershipType | nul
                                     {tp.name}
                                 </label>
                             ))}
-                            {templates.length === 0 && <p className="text-xs text-slate-500">עוד אין שיעורים קבועים.</p>}
+                            {templates.length === 0 && <p className="text-xs text-slate-500">{tx("עוד אין שיעורים קבועים.")}</p>}
                         </div>
                     )}
                 </fieldset>
                 <FamilyOptions f={fam} kind={f.kind} set={p => setFam(v => ({ ...v, ...p }))} />
                 <fieldset className="rounded-xl border border-slate-200 p-3 space-y-2">
-                    <legend className="px-1 text-xs font-semibold text-slate-600">הקפאה</legend>
+                    <legend className="px-1 text-xs font-semibold text-slate-600">{tx("הקפאה")}</legend>
                     <label className="flex items-center gap-2 text-sm text-slate-800">
-                        <input type="checkbox" checked={f.freeze_allowed} onChange={e => set({ freeze_allowed: e.target.checked })} /> מותר להקפיא
+                        <input type="checkbox" checked={f.freeze_allowed} onChange={e => set({ freeze_allowed: e.target.checked })} /> {tx("מותר להקפיא")}
                     </label>
                     {f.freeze_allowed && (
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                            {([["freeze_max_days", "ימים בסך הכול"], ["freeze_min_days", "לפחות (ימים)"], ["freeze_max_count", "מספר הקפאות"], ["freeze_fee", "עמלה (₪)"]] as const).map(([k, text]) => (
+                            {([["freeze_max_days", tx("ימים בסך הכול")], ["freeze_min_days", tx("לפחות (ימים)")], ["freeze_max_count", tx("מספר הקפאות")], ["freeze_fee", tx("עמלה (₪)")]] as const).map(([k, text]) => (
                                 <label key={k} className="text-xs text-slate-600">{text}
-                                    <input type="number" min={k === "freeze_fee" ? 0 : 1} value={f[k]} placeholder={k === "freeze_fee" ? "0" : "ללא"} dir="ltr"
+                                    <input type="number" min={k === "freeze_fee" ? 0 : 1} value={f[k]} placeholder={k === "freeze_fee" ? "0" : tx("ללא")} dir="ltr"
                                         onChange={e => set({ [k]: e.target.value === "" ? "" : Number(e.target.value) } as Partial<typeof f>)}
                                         className="block mt-1 w-full min-h-10 rounded-lg border border-slate-200 text-center tabular-nums" />
                                 </label>
                             ))}
                         </div>
                     )}
-                    <p className="text-xs text-slate-500">תאריך חזרה חובה בכל הקפאה. העמלה נרשמת במנוי — לא נגבית.</p>
+                    <p className="text-xs text-slate-500">{tx("תאריך חזרה חובה בכל הקפאה. העמלה נרשמת במנוי — לא נגבית.")}</p>
                 </fieldset>
                 <label className="flex items-center gap-2 text-sm text-slate-800">
                     <input type="checkbox" checked={f.is_active} onChange={e => set({ is_active: e.target.checked })} />
-                    נמכר עכשיו
+                    {tx("נמכר עכשיו")}
                 </label>
                 {t && (
                     <div className="rounded-xl border border-slate-200">
                         <button type="button" onClick={() => setRulesOpen(o => !o)} aria-expanded={rulesOpen}
                             className="w-full flex items-center justify-between gap-2 px-3 min-h-11 text-sm font-semibold text-slate-700">
-                            <span className="flex items-center gap-2"><Settings2 className="w-4 h-4" aria-hidden />ביטול מאוחר ואי-הגעה למנוי הזה</span>
+                            <span className="flex items-center gap-2"><Settings2 className="w-4 h-4" aria-hidden />{tx("ביטול מאוחר ואי-הגעה למנוי הזה")}</span>
                             <ChevronDown className={`w-4 h-4 transition-transform ${rulesOpen ? "rotate-180" : ""}`} aria-hidden />
                         </button>
                         {rulesOpen && (
                             <div className="border-t border-slate-100 p-3">
                                 <PenaltyRules scopeType="membership_type" scopeId={t.id} canEdit
-                                    emptyNote="אין כללים למנוי הזה — חלים הכללים של העסק (או של השיעור, אם יש לו)." />
+                                    emptyNote={tx("אין כללים למנוי הזה — חלים הכללים של העסק (או של השיעור, אם יש לו).")} />
                             </div>
                         )}
                     </div>

@@ -5,6 +5,7 @@ import { Crown, Repeat, UserMinus, type LucideIcon } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from "recharts";
 import { apiFetch } from "@/lib/api";
 
+import { tx, intl } from "@/lib/i18n";
 interface ClientAnalytics {
     kpis: { retention_rate_pct: number; ltv_ils: number; churn_count: number };
     retention_trend: { month: string; new: number; returning: number; total: number; retention_pct: number }[];
@@ -20,9 +21,9 @@ interface ConsultationConversion {
 type ConsultPeriod = "week" | "month" | "2months";
 
 const PERIODS: { key: ConsultPeriod; label: string }[] = [
-    { key: "week", label: "שבוע" },
-    { key: "month", label: "חודש" },
-    { key: "2months", label: "חודשיים" },
+    { key: "week", label: tx("שבוע") },
+    { key: "month", label: tx("חודש") },
+    { key: "2months", label: tx("חודשיים") },
 ];
 
 function KpiCard({ icon: Icon, value, title, sub }: { icon: LucideIcon; value: string; title: string; sub: string }) {
@@ -68,31 +69,31 @@ export default function ClientAnalyticsTab() {
             </div>
         );
     }
-    if (!data) return <div className="text-center text-slate-400 py-16">שגיאה בטעינת הנתונים</div>;
+    if (!data) return <div className="text-center text-slate-400 py-16">{tx("שגיאה בטעינת הנתונים")}</div>;
 
     return (
         <div className="space-y-6 pb-10">
             <section>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <KpiCard icon={Repeat} value={`${data.kpis.retention_rate_pct}%`} title="שיעור שימור" sub="לקוחות שחזרו לתור נוסף ב-90 הימים האחרונים" />
-                    <KpiCard icon={Crown} value={`₪${data.kpis.ltv_ils.toLocaleString("he-IL")}`} title="ערך ממוצע ללקוח" sub="סך התשלומים הממוצע של לקוח, כל הזמנים" />
-                    <KpiCard icon={UserMinus} value={String(data.kpis.churn_count)} title="לקוחות שנעלמו" sub="לא הגיעו לתור יותר מ-60 יום" />
+                    <KpiCard icon={Repeat} value={`${data.kpis.retention_rate_pct}%`} title={tx("שיעור שימור")} sub={tx("לקוחות שחזרו לתור נוסף ב-90 הימים האחרונים")} />
+                    <KpiCard icon={Crown} value={`₪${data.kpis.ltv_ils.toLocaleString(intl())}`} title={tx("ערך ממוצע ללקוח")} sub={tx("סך התשלומים הממוצע של לקוח, כל הזמנים")} />
+                    <KpiCard icon={UserMinus} value={String(data.kpis.churn_count)} title={tx("לקוחות שנעלמו")} sub={tx("לא הגיעו לתור יותר מ-60 יום")} />
                 </div>
             </section>
 
             <section className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-                <h3 className="font-bold text-slate-800 mb-1">לקוחות חדשים מול חוזרים</h3>
-                <p className="text-xs text-slate-400 mb-4">חדש = הלקוח הגיע לתור הראשון שלו אי פעם באותו חודש. 6 חודשים אחרונים.</p>
+                <h3 className="font-bold text-slate-800 mb-1">{tx("לקוחות חדשים מול חוזרים")}</h3>
+                <p className="text-xs text-slate-400 mb-4">{tx("חדש = הלקוח הגיע לתור הראשון שלו אי פעם באותו חודש. 6 חודשים אחרונים.")}</p>
                 <ResponsiveContainer width="100%" height={220}>
                     <BarChart data={data.retention_trend} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                         <XAxis dataKey="month" tick={{ fontSize: 12, fill: "#94a3b8" }} />
                         <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} allowDecimals={false} />
                         <Tooltip
-                            formatter={(v, name) => [Number(v), name === "new" ? "חדשים" : "חוזרים"]}
+                            formatter={(v, name) => [Number(v), name === "new" ? tx("חדשים") : tx("חוזרים")]}
                             contentStyle={{ borderRadius: 10, fontSize: 12 }}
                         />
-                        <Legend formatter={v => (v === "new" ? "חדשים" : "חוזרים")} />
+                        <Legend formatter={v => (v === "new" ? tx("חדשים") : tx("חוזרים"))} />
                         <Bar dataKey="returning" stackId="a" fill="var(--primary)" name="returning" />
                         <Bar dataKey="new" stackId="a" fill="var(--primary-200)" radius={[6, 6, 0, 0]} name="new" />
                     </BarChart>
@@ -102,7 +103,7 @@ export default function ClientAnalyticsTab() {
                         <div key={r.month} className="text-center">
                             <div className="text-xs text-slate-400">{r.month}</div>
                             <div className="text-sm font-bold text-slate-700">{r.retention_pct}%</div>
-                            <div className="text-[10px] text-slate-400">חוזרים</div>
+                            <div className="text-[10px] text-slate-400">{tx("חוזרים")}</div>
                         </div>
                     ))}
                 </div>
@@ -110,7 +111,7 @@ export default function ClientAnalyticsTab() {
 
             <section className={`bg-white rounded-2xl border border-slate-100 shadow-sm p-6 transition-opacity ${convLoading ? "opacity-50" : ""}`}>
                 <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-                    <h3 className="font-bold text-slate-800">אחוזי המרה — יעוצים לתורים</h3>
+                    <h3 className="font-bold text-slate-800">{tx("אחוזי המרה — יעוצים לתורים")}</h3>
                     <div className="flex bg-slate-50 border border-slate-200 rounded-xl overflow-hidden text-xs">
                         {PERIODS.map(p => (
                             <button
@@ -124,20 +125,20 @@ export default function ClientAnalyticsTab() {
                     </div>
                 </div>
                 {!conv ? (
-                    <div className="text-center text-slate-400 text-sm py-8">{convLoading ? "טוען..." : "שגיאה בטעינת הנתונים"}</div>
+                    <div className="text-center text-slate-400 text-sm py-8">{convLoading ? tx("טוען...") : tx("שגיאה בטעינת הנתונים")}</div>
                 ) : conv.total_consultations === 0 ? (
-                    <div className="text-center text-slate-400 text-sm py-8">אין פגישות יעוץ בתקופה שנבחרה</div>
+                    <div className="text-center text-slate-400 text-sm py-8">{tx("אין פגישות יעוץ בתקופה שנבחרה")}</div>
                 ) : (
                     <>
                         <div className="flex items-center gap-6 mb-4">
                             <div className="text-center">
                                 <div className="text-4xl font-bold text-slate-900">{conv.conversion_rate}%</div>
-                                <div className="text-xs text-slate-400 mt-1">אחוז המרה</div>
+                                <div className="text-xs text-slate-400 mt-1">{tx("אחוז המרה")}</div>
                             </div>
                             <div className="flex-1 space-y-3">
                                 {[
-                                    { label: "קבעו תור אחרי יעוץ", value: conv.converted, color: "bg-slate-900" },
-                                    { label: "לא קבעו עדיין", value: conv.not_converted, color: "bg-slate-200" },
+                                    { label: tx("קבעו תור אחרי יעוץ"), value: conv.converted, color: "bg-slate-900" },
+                                    { label: tx("לא קבעו עדיין"), value: conv.not_converted, color: "bg-slate-200" },
                                 ].map(item => {
                                     const pct = Math.round((item.value / conv.total_consultations) * 100);
                                     return (
@@ -155,7 +156,7 @@ export default function ClientAnalyticsTab() {
                             </div>
                         </div>
                         <div className="text-xs text-slate-400 border-t border-slate-100 pt-3">
-                            סה״כ {conv.total_consultations} פגישות יעוץ נרשמו בתקופה שנבחרה
+                            {tx("סה״כ")} {conv.total_consultations} {tx("פגישות יעוץ נרשמו בתקופה שנבחרה")}
                         </div>
                     </>
                 )}

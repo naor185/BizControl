@@ -56,7 +56,6 @@ function ToastItem({
     return (
         <div
             className={`animate-toast-in relative flex gap-3 items-start px-4 py-3 rounded-2xl border shadow-xl ${cfg.bg} ${cfg.borderColor} cursor-pointer max-w-xs w-full`}
-            dir="rtl"
             onClick={() => {
                 if (notif.action_url) window.location.href = notif.action_url;
                 onDismiss();
@@ -122,7 +121,7 @@ export default function ToastContainer() {
     if (toasts.length === 0) return null;
 
     return (
-        <div className="fixed bottom-20 left-4 z-[200] flex flex-col-reverse gap-2 md:bottom-4">
+        <div className="fixed bottom-20 end-4 z-[200] flex flex-col-reverse gap-2 md:bottom-4">
             {toasts.map(n => (
                 <ToastItem key={n.id} notif={n} onDismiss={() => dismiss(n.id)} />
             ))}

@@ -11,6 +11,7 @@ import CheckinCode from "@/components/classes/CheckinCode";
 import { apiFetch, getCurrentUserRole } from "@/lib/api";
 import { useTerms } from "@/lib/useTerms";
 
+import { tx } from "@/lib/i18n";
 // Classes & memberships settings: the owner's rules and the class/membership messages. Behind the
 // "classes" module; a rule or message whose module is off (e.g. the waitlist) is not shown.
 const EDITORS = new Set(["owner", "admin", "superadmin"]);
@@ -36,7 +37,7 @@ function ClassSettings() {
                 setPolicies(p); setEvents(e); setModules(m);
                 setCanEdit(EDITORS.has(getCurrentUserRole() ?? ""));   // the server checks too (classes.configure)
             })
-            .catch(e => setError(e instanceof Error ? e.message : "טעינה נכשלה"));
+            .catch(e => setError(e instanceof Error ? e.message : tx("טעינה נכשלה")));
     }, []);
 
     const moduleOn = (id: string) => !modules || modules[id] !== false;
@@ -46,29 +47,29 @@ function ClassSettings() {
         return (
             <div className="max-w-xl mx-auto mt-10 bg-white rounded-2xl border border-slate-200 p-6 text-center">
                 <Info className="w-8 h-8 text-indigo-500 mx-auto mb-3" aria-hidden />
-                <p className="font-bold text-slate-800">{off ? "שיעורים קבוצתיים לא פעילים בעסק" : "לא הצלחנו לטעון את ההגדרות"}</p>
-                <p className="text-sm text-slate-500 mt-1">{off ? "להפעלה — פנו לתמיכה של BizControl." : error}</p>
+                <p className="font-bold text-slate-800">{off ? tx("שיעורים קבוצתיים לא פעילים בעסק") : tx("לא הצלחנו לטעון את ההגדרות")}</p>
+                <p className="text-sm text-slate-500 mt-1">{off ? tx("להפעלה — פנו לתמיכה של BizControl.") : error}</p>
             </div>
         );
     }
     if (!policies || !events) {
         return (
             <div className="flex justify-center py-20">
-                <Loader2 className="w-7 h-7 text-indigo-500 animate-spin" aria-label="טוען" />
+                <Loader2 className="w-7 h-7 text-indigo-500 animate-spin" aria-label={tx("טוען")} />
             </div>
         );
     }
 
     const tabs: { id: Tab; label: string; icon: typeof SlidersHorizontal }[] = [
-        { id: "rules", label: "כללים", icon: SlidersHorizontal },
-        { id: "messages", label: "הודעות", icon: MessageSquare },
-        ...(canEdit ? [{ id: "checkin" as Tab, label: "צ׳ק-אין", icon: QrCode }] : []),
+        { id: "rules", label: tx("כללים"), icon: SlidersHorizontal },
+        { id: "messages", label: tx("הודעות"), icon: MessageSquare },
+        ...(canEdit ? [{ id: "checkin" as Tab, label: tx("צ׳ק-אין"), icon: QrCode }] : []),
     ];
 
     return (
         <div className="max-w-4xl mx-auto px-4 py-6 space-y-5">
             <p className="text-sm text-slate-500 max-w-2xl">
-                הכללים חלים על כל השיעורים בעסק, וההודעות — על כל {terms.client_plural}.
+                {tx("הכללים חלים על כל השיעורים בעסק, וההודעות — על כל")} {terms.client_plural}.
             </p>
 
             <div role="tablist" className="flex gap-1 border-b border-slate-200">
@@ -85,13 +86,13 @@ function ClassSettings() {
                     <ClassPolicies policies={policies.filter(p => moduleOn(p.module))} canEdit={canEdit} onSaved={setPolicies} />
                     <section className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 space-y-3">
                         <div>
-                            <h3 className="text-base font-bold text-slate-800">ביטול מאוחר ואי-הגעה</h3>
+                            <h3 className="text-base font-bold text-slate-800">{tx("ביטול מאוחר ואי-הגעה")}</h3>
                             <p className="text-xs text-slate-500 mt-1">
-                                מה קורה כשמבטלים בתוך חלון הביטול או לא מגיעים. אפשר לקבוע כללים אחרים לשיעור מסוים או לסוג מנוי — מתוך ההגדרות שלהם.
+                                {tx("מה קורה כשמבטלים בתוך חלון הביטול או לא מגיעים. אפשר לקבוע כללים אחרים לשיעור מסוים או לסוג מנוי — מתוך ההגדרות שלהם.")}
                             </p>
                         </div>
                         <PenaltyRules canEdit={canEdit}
-                            emptyNote="אין כללים — ביטול מאוחר ואי-הגעה מנצלים את הכניסה (בכרטיסייה), בלי חיוב." />
+                            emptyNote={tx("אין כללים — ביטול מאוחר ואי-הגעה מנצלים את הכניסה (בכרטיסייה), בלי חיוב.")} />
                     </section>
                 </div>
             ) : tab === "checkin" ? (
@@ -106,7 +107,7 @@ function ClassSettings() {
 export default function ClassSettingsPage() {
     return (
         <RequireAuth>
-            <AppShell title="הגדרות שיעורים ומנויים">
+            <AppShell title={tx("הגדרות שיעורים ומנויים")}>
                 <ClassSettings />
             </AppShell>
         </RequireAuth>

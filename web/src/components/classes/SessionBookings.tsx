@@ -9,6 +9,7 @@ import { type Booking, type BookingStatus, type ClassSession, type SwapOptions, 
 import ClientSearch, { type FoundClient } from "@/components/classes/ClientSearch";
 import PayForm from "@/components/classes/PayForm";
 
+import { tx } from "@/lib/i18n";
 // The class list inside a class: who is booked (and what covers each: a membership, a single entry),
 // adding a client, attendance, cancelling a booking, moving it to another class (the entry and a single
 // entry's payment move with it), and marking a late cancel or a no-show as justified.
@@ -20,9 +21,9 @@ type Eligibility = { required: boolean; membership: string | null; reason: strin
 
 const STATUS: Record<BookingStatus, { label: string; cls: string } | null> = {
     booked: null,
-    attended: { label: "הגיע/ה", cls: "text-emerald-800 bg-emerald-100" },
-    no_show: { label: "לא הגיע/ה", cls: "text-rose-800 bg-rose-100" },
-    late_canceled: { label: "ביטול מאוחר", cls: "text-amber-800 bg-amber-100" },
+    attended: { label: tx("הגיע/ה"), cls: "text-emerald-800 bg-emerald-100" },
+    no_show: { label: tx("לא הגיע/ה"), cls: "text-rose-800 bg-rose-100" },
+    late_canceled: { label: tx("ביטול מאוחר"), cls: "text-amber-800 bg-amber-100" },
 };
 const chip = "text-[11px] font-semibold rounded-full px-1.5";
 
@@ -47,7 +48,7 @@ export default function SessionBookings({ s, terms, perms, onChanged }: {
             onChanged(await apiFetch<ClassSession>(path, { method: "POST", body: body ? JSON.stringify(body) : undefined }));
             return true;
         } catch (e) {
-            toast.error(e instanceof Error ? e.message : "הפעולה נכשלה");
+            toast.error(e instanceof Error ? e.message : tx("הפעולה נכשלה"));
             return false;
         } finally {
             setBusy(null);
@@ -60,9 +61,9 @@ export default function SessionBookings({ s, terms, perms, onChanged }: {
             await apiFetch(`/api/classes/bookings/${b.id}/payments`, { method: "POST", body: JSON.stringify(p) });
             onChanged(await apiFetch<ClassSession>(`/api/classes/sessions/${s.id}`));
             setPaying(null);
-            toast.success("התשלום נרשם");
+            toast.success(tx("התשלום נרשם"));
         } catch (e) {
-            toast.error(e instanceof Error ? e.message : "הפעולה נכשלה");
+            toast.error(e instanceof Error ? e.message : tx("הפעולה נכשלה"));
         } finally {
             setBusy(null);
         }
@@ -75,19 +76,19 @@ export default function SessionBookings({ s, terms, perms, onChanged }: {
         <div className="space-y-2">
             <div className="flex items-center justify-between gap-2">
                 <p className="text-xs font-semibold text-slate-500">
-                    {terms.client_plural} ברשימה <span className="tabular-nums">({s.booked}/{s.capacity})</span>
+                    {terms.client_plural}{tx(" ברשימה ")}<span className="tabular-nums">({s.booked}/{s.capacity})</span>
                 </p>
                 {attendance && list.some(b => b.status === "booked") && (
                     <button type="button" onClick={() => run("all", `/api/classes/sessions/${s.id}/attendance`)} disabled={busy !== null}
                         className="inline-flex items-center gap-1 min-h-9 px-2.5 rounded-lg text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100">
                         {busy === "all" ? <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden /> : <CheckCheck className="w-3.5 h-3.5" aria-hidden />}
-                        כולם הגיעו
+                        {tx("כולם הגיעו")}
                     </button>
                 )}
             </div>
 
             {list.length === 0 ? (
-                <p className="text-sm text-slate-400">אין רשומים</p>
+                <p className="text-sm text-slate-400">{tx("אין רשומים")}</p>
             ) : (
                 <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200">
                     {list.map(b => {
@@ -99,19 +100,19 @@ export default function SessionBookings({ s, terms, perms, onChanged }: {
                                     <p className={`text-sm text-slate-900 truncate ${b.status === "late_canceled" ? "line-through decoration-slate-400" : ""}`}>{b.full_name}</p>
                                     <p className="flex flex-wrap gap-1 mt-0.5">
                                         {st && <span className={`${chip} ${st.cls}`}>{st.label}</span>}
-                                        {b.justified && <span className={`${chip} text-slate-700 bg-slate-100`}>מוצדק</span>}
+                                        {b.justified && <span className={`${chip} text-slate-700 bg-slate-100`}>{tx("מוצדק")}</span>}
                                         {b.membership && <span className={`${chip} text-indigo-800 bg-indigo-50`}>{b.membership}</span>}
-                                        {b.in_course && <span className={`${chip} text-violet-800 bg-violet-50`}>קורס</span>}
-                                        {b.self_checkin && <span className={`${chip} text-emerald-800 bg-emerald-50`}>סרק/ה בכניסה</span>}
+                                        {b.in_course && <span className={`${chip} text-violet-800 bg-violet-50`}>{tx("קורס")}</span>}
+                                        {b.self_checkin && <span className={`${chip} text-emerald-800 bg-emerald-50`}>{tx("סרק/ה בכניסה")}</span>}
                                         {b.drop_in && (
                                             <span className={`${chip} ${b.paid_cents > 0 ? "text-emerald-800 bg-emerald-50" : "text-slate-700 bg-slate-100"}`}>
-                                                כניסה בודדת{b.paid_cents > 0 ? ` · שולם ${shekels(b.paid_cents)}` : ""}
+                                                {tx("כניסה בודדת")}{b.paid_cents > 0 ? tx(" · שולם {0}", { 0: shekels(b.paid_cents) }) : ""}
                                             </span>
                                         )}
-                                        {b.over_capacity && <span className={`${chip} text-slate-700 bg-slate-100`}>מעל המקומות</span>}
+                                        {b.over_capacity && <span className={`${chip} text-slate-700 bg-slate-100`}>{tx("מעל המקומות")}</span>}
                                         {b.fee && (
                                             <span className={`${chip} ${b.fee.status === "pending" ? "text-rose-800 bg-rose-50" : "text-slate-500 bg-slate-100 line-through"}`}>
-                                                חיוב {shekels(b.fee.amount_cents)}{b.fee.status === "waived" ? " · נמחל" : ""}
+                                                {tx("חיוב")} {shekels(b.fee.amount_cents)}{b.fee.status === "waived" ? tx(" · נמחל") : ""}
                                             </span>
                                         )}
                                     </p>
@@ -119,38 +120,38 @@ export default function SessionBookings({ s, terms, perms, onChanged }: {
                                 {perms.book && b.drop_in && b.paid_cents === 0 && b.status !== "late_canceled" && (
                                     <button type="button" onClick={() => setPaying(b)} disabled={busy !== null}
                                         className="min-h-9 px-2 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shrink-0">
-                                        תשלום
+                                        {tx("תשלום")}
                                     </button>
                                 )}
                                 {perms.book && penalized && (
                                     <button type="button" onClick={() => run(b.id, `/api/classes/bookings/${b.id}/justify`)} disabled={busy !== null}
-                                        title="לא ייספר ולא יחויב, והכניסה תחזור"
+                                        title={tx("לא ייספר ולא יחויב, והכניסה תחזור")}
                                         className="inline-flex items-center gap-1 min-h-9 px-2 rounded-lg text-xs font-semibold border border-slate-200 text-slate-600 hover:border-slate-400 shrink-0">
-                                        <ShieldCheck className="w-3.5 h-3.5" aria-hidden /> מוצדק
+                                        <ShieldCheck className="w-3.5 h-3.5" aria-hidden /> {tx("מוצדק")}
                                     </button>
                                 )}
                                 {attendance && b.status !== "late_canceled" && (
-                                    <div className="flex gap-1 shrink-0" role="group" aria-label={`נוכחות: ${b.full_name}`}>
+                                    <div className="flex gap-1 shrink-0" role="group" aria-label={tx("נוכחות: {0}", { 0: b.full_name })}>
                                         {(["attended", "no_show"] as const).map(st2 => (
                                             <button key={st2} type="button" aria-pressed={b.status === st2} disabled={busy !== null}
                                                 onClick={() => markOne(b, st2)}
                                                 className={`min-h-9 px-2 rounded-lg text-xs font-semibold border ${b.status === st2
                                                     ? (st2 === "attended" ? "bg-emerald-600 border-emerald-600 text-white" : "bg-rose-600 border-rose-600 text-white")
                                                     : "border-slate-200 text-slate-600 hover:border-slate-400"}`}>
-                                                {st2 === "attended" ? "הגיע/ה" : "לא הגיע/ה"}
+                                                {st2 === "attended" ? tx("הגיע/ה") : tx("לא הגיע/ה")}
                                             </button>
                                         ))}
                                     </div>
                                 )}
                                 {canMove && b.status === "booked" && (
-                                    <button type="button" onClick={() => { setCancelling(null); setMoving(b); }} aria-label={`העברת ${b.full_name} לשיעור אחר`}
-                                        title="העברה לשיעור אחר"
+                                    <button type="button" onClick={() => { setCancelling(null); setMoving(b); }} aria-label={tx("העברת {0} לשיעור אחר", { 0: b.full_name })}
+                                        title={tx("העברה לשיעור אחר")}
                                         className="w-9 h-9 flex items-center justify-center rounded-lg text-slate-400 hover:text-indigo-700 shrink-0">
                                         <ArrowLeftRight className="w-4 h-4" aria-hidden />
                                     </button>
                                 )}
                                 {perms.book && open && b.status === "booked" && !attendance && (
-                                    <button type="button" onClick={() => { setMoving(null); setCancelling(b); }} aria-label={`ביטול ההרשמה של ${b.full_name}`}
+                                    <button type="button" onClick={() => { setMoving(null); setCancelling(b); }} aria-label={tx("ביטול ההרשמה של {0}", { 0: b.full_name })}
                                         className="w-9 h-9 flex items-center justify-center rounded-lg text-slate-400 hover:text-rose-700 shrink-0">
                                         <X className="w-4 h-4" aria-hidden />
                                     </button>
@@ -163,7 +164,7 @@ export default function SessionBookings({ s, terms, perms, onChanged }: {
 
             {paying && (
                 <div className="space-y-1">
-                    <p className="text-xs font-semibold text-slate-600">תשלום על כניסה בודדת: {paying.full_name}</p>
+                    <p className="text-xs font-semibold text-slate-600">{tx("תשלום על כניסה בודדת: ")}{paying.full_name}</p>
                     <PayForm defaultAmountCents={s.price_cents ?? 0} busy={busy !== null} onCancel={() => setPaying(null)} clientId={paying.client_id}
                         onPay={p => paySingle(paying, p)} />
                 </div>
@@ -180,7 +181,7 @@ export default function SessionBookings({ s, terms, perms, onChanged }: {
                 <MoveBooking b={moving} busy={busy !== null} onBack={() => setMoving(null)}
                     onMove={async (target, label) => {
                         if (await run(moving.id, `/api/classes/bookings/${moving.id}/swap`, { session_id: target })) {
-                            toast.success(`${moving.full_name} הועבר/ה ל${label}`);
+                            toast.success(tx("{0} הועבר/ה ל{1}", { 0: moving.full_name, 1: label }));
                             setMoving(null);
                         }
                     }} />
@@ -193,7 +194,7 @@ export default function SessionBookings({ s, terms, perms, onChanged }: {
             ) : (
                 <button type="button" onClick={() => setAdding(true)}
                     className="inline-flex items-center gap-1.5 min-h-11 px-3 rounded-xl border border-dashed border-slate-300 text-sm font-semibold text-slate-700 hover:border-indigo-400 hover:text-indigo-700">
-                    <UserPlus className="w-4 h-4" aria-hidden /> הוספה לשיעור
+                    <UserPlus className="w-4 h-4" aria-hidden /> {tx("הוספה לשיעור")}
                 </button>
             ))}
         </div>
@@ -204,17 +205,17 @@ function CancelBooking({ b, busy, onBack, onConfirm }: { b: Booking; busy: boole
     const [waive, setWaive] = useState(false);
     return (
         <div className="rounded-xl border border-rose-200 bg-rose-50/60 p-3 space-y-2">
-            <p className="text-sm text-slate-800">לבטל את ההרשמה של {b.full_name}? תישלח הודעה על הביטול.</p>
+            <p className="text-sm text-slate-800">{tx("לבטל את ההרשמה של ")}{b.full_name}{tx("? תישלח הודעה על הביטול.")}</p>
             <label className="flex items-start gap-2 text-sm text-slate-700">
                 <input type="checkbox" checked={waive} onChange={e => setWaive(e.target.checked)} className="mt-1" />
-                <span>בלי שייחשב כביטול מאוחר (למשל סיבה מוצדקת)</span>
+                <span>{tx("בלי שייחשב כביטול מאוחר (למשל סיבה מוצדקת)")}</span>
             </label>
             <div className="flex gap-2">
                 <button type="button" onClick={() => onConfirm(waive)} disabled={busy}
                     className="min-h-11 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-sm font-bold disabled:opacity-40">
-                    לבטל את ההרשמה
+                    {tx("לבטל את ההרשמה")}
                 </button>
-                <button type="button" onClick={onBack} className="min-h-11 px-3 rounded-xl text-sm text-slate-600">חזרה</button>
+                <button type="button" onClick={onBack} className="min-h-11 px-3 rounded-xl text-sm text-slate-600">{tx("חזרה")}</button>
             </div>
         </div>
     );
@@ -242,7 +243,7 @@ function AddClient({ s, terms, canOverride, busy, onClose, onBook, onWait }: {
             setCheck(r);
             if (!full && (!r.required || r.membership) && await onBook(c.id, {})) { setPicked(null); onClose(); }
         } catch (e) {
-            toast.error(e instanceof Error ? e.message : "הבדיקה נכשלה");
+            toast.error(e instanceof Error ? e.message : tx("הבדיקה נכשלה"));
         }
     };
     const book = async (extra: { over_capacity?: boolean; drop_in?: boolean }) => {
@@ -261,41 +262,41 @@ function AddClient({ s, terms, canOverride, busy, onClose, onBook, onWait }: {
                         <p className="text-sm font-semibold text-slate-900 min-h-11 flex items-center">{picked.full_name}</p>
                     ) : (
                         <ClientSearch terms={terms} busy={busy} onPick={pick}
-                            note={id => (inList.has(id) ? "ברשימה" : waiting.has(id) ? "בהמתנה" : null)} />
+                            note={id => (inList.has(id) ? tx("ברשימה") : waiting.has(id) ? tx("בהמתנה") : null)} />
                     )}
                 </div>
-                <button type="button" onClick={onClose} aria-label="סגירה" className="w-11 h-11 flex items-center justify-center text-slate-500">
+                <button type="button" onClick={onClose} aria-label={tx("סגירה")} className="w-11 h-11 flex items-center justify-center text-slate-500">
                     <X className="w-4 h-4" aria-hidden />
                 </button>
             </div>
-            {picked && !check && <Loader2 className="w-4 h-4 text-indigo-500 animate-spin" aria-label="בודק" />}
+            {picked && !check && <Loader2 className="w-4 h-4 text-indigo-500 animate-spin" aria-label={tx("בודק")} />}
             {picked && check && (
                 <div className="space-y-2 text-sm text-slate-800">
-                    {check.membership && <p>מכוסה ע״י: <span className="font-semibold">{check.membership}</span></p>}
+                    {check.membership && <p>{tx("מכוסה ע״י: ")}<span className="font-semibold">{check.membership}</span></p>}
                     {notCovered && <p className="text-amber-900 bg-amber-50 rounded-lg px-2 py-1.5">{check.reason}</p>}
-                    {full && <p>השיעור מלא ({s.booked}/{s.capacity}){canWait ? " — אפשר להוסיף לרשימת ההמתנה." : "."}</p>}
+                    {full && <p>{tx("השיעור מלא (")}{s.booked}/{s.capacity}){canWait ? tx(" — אפשר להוסיף לרשימת ההמתנה.") : "."}</p>}
                     <div className="flex flex-wrap gap-2">
                         {full && canOverride && (
                             <button type="button" disabled={busy} onClick={() => book({ over_capacity: true, drop_in: !!notCovered })}
                                 className="min-h-11 px-4 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-sm font-bold disabled:opacity-40">
-                                לרשום מעל המקומות{notCovered ? " (כניסה בודדת)" : ""}
+                                {tx("לרשום מעל המקומות")}{notCovered ? tx(" (כניסה בודדת)") : ""}
                             </button>
                         )}
                         {!full && notCovered && (
                             <button type="button" disabled={busy} onClick={() => book({ drop_in: true })}
                                 className="min-h-11 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold disabled:opacity-40">
-                                לרשום ככניסה בודדת
+                                {tx("לרשום ככניסה בודדת")}
                             </button>
                         )}
                         {full && canWait && (
                             <button type="button" disabled={busy} onClick={() => waitFor()}
                                 className="min-h-11 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold disabled:opacity-40">
-                                הוספה לרשימת ההמתנה
+                                {tx("הוספה לרשימת ההמתנה")}
                             </button>
                         )}
-                        {full && !canOverride && !canWait && <p className="text-slate-500">רישום מעל המקומות — רק לבעלים או למנהל.</p>}
+                        {full && !canOverride && !canWait && <p className="text-slate-500">{tx("רישום מעל המקומות — רק לבעלים או למנהל.")}</p>}
                         <button type="button" onClick={() => { setPicked(null); setCheck(null); }} className="min-h-11 px-3 text-sm text-slate-600">
-                            {terms.client} אחר/ת
+                            {terms.client} {tx("אחר/ת")}
                         </button>
                     </div>
                 </div>
@@ -313,34 +314,34 @@ function MoveBooking({ b, busy, onBack, onMove }: {
     const [failed, setFailed] = useState<string | null>(null);
     useEffect(() => {
         apiFetch<SwapOptions>(`/api/classes/bookings/${b.id}/swap-options`).then(setOpts)
-            .catch(e => setFailed(e instanceof Error ? e.message : "הטעינה נכשלה"));
+            .catch(e => setFailed(e instanceof Error ? e.message : tx("הטעינה נכשלה")));
     }, [b.id]);
     return (
         <div className="rounded-xl border border-indigo-200 bg-indigo-50/40 p-3 space-y-2">
             <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-semibold text-slate-800">להעביר את {b.full_name} לשיעור:</p>
-                <button type="button" onClick={onBack} aria-label="סגירה" className="w-9 h-9 flex items-center justify-center text-slate-500">
+                <p className="text-sm font-semibold text-slate-800">{tx("להעביר את ")}{b.full_name}{tx(" לשיעור:")}</p>
+                <button type="button" onClick={onBack} aria-label={tx("סגירה")} className="w-9 h-9 flex items-center justify-center text-slate-500">
                     <X className="w-4 h-4" aria-hidden />
                 </button>
             </div>
-            <p className="text-xs text-slate-500">לא נחשב ביטול מאוחר ואין חיוב. הכניסה עוברת לשיעור החדש, ותישלח הודעה.</p>
+            <p className="text-xs text-slate-500">{tx("לא נחשב ביטול מאוחר ואין חיוב. הכניסה עוברת לשיעור החדש, ותישלח הודעה.")}</p>
             {failed && <p className="text-sm text-rose-700">{failed}</p>}
-            {!opts && !failed && <Loader2 className="w-4 h-4 text-indigo-500 animate-spin" aria-label="טוען" />}
+            {!opts && !failed && <Loader2 className="w-4 h-4 text-indigo-500 animate-spin" aria-label={tx("טוען")} />}
             {opts && !opts.allowed && <p className="text-sm text-amber-900">{opts.reason}</p>}
             {opts?.allowed && (opts.sessions.length === 0 ? (
-                <p className="text-sm text-slate-500">אין שיעורים בשבועיים הקרובים.</p>
+                <p className="text-sm text-slate-500">{tx("אין שיעורים בשבועיים הקרובים.")}</p>
             ) : (
                 <ul className="max-h-72 overflow-y-auto divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
                     {opts.sessions.map(o => (
                         <li key={o.id}>
                             <button type="button" disabled={busy || !o.can_swap} onClick={() => onMove(o.id, `${o.name} · ${whenShort(o.starts_at)}`)}
-                                className="w-full text-right px-3 py-2 min-h-12 flex items-center gap-2 hover:bg-indigo-50 disabled:hover:bg-transparent disabled:cursor-not-allowed">
+                                className="w-full text-start px-3 py-2 min-h-12 flex items-center gap-2 hover:bg-indigo-50 disabled:hover:bg-transparent disabled:cursor-not-allowed">
                                 <span className="flex-1 min-w-0">
                                     <span className={`block text-sm font-semibold ${o.can_swap ? "text-slate-900" : "text-slate-400"}`}>{o.name}</span>
                                     <span className="block text-xs text-slate-500">{whenShort(o.starts_at)}</span>
                                 </span>
                                 <span className={`text-[11px] font-semibold shrink-0 ${o.can_swap ? "text-emerald-700" : "text-slate-400"}`}>
-                                    {o.can_swap ? `${o.spots_left} מקומות` : o.why_not}
+                                    {o.can_swap ? tx("{0} מקומות", { 0: o.spots_left }) : o.why_not}
                                 </span>
                             </button>
                         </li>

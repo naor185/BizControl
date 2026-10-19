@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { consumeTopBackHandler } from "@/lib/backButtonStack";
 import { useToast } from "@/components/ui/toast";
 
+import { tx } from "@/lib/i18n";
 // Bridges Android's hardware back button (native-only — no-op in a regular
 // browser tab) to the app: close an open modal/sheet first, else navigate
 // back a level, else — on a root tab page with nothing to go back to —
@@ -45,7 +46,7 @@ export default function BackButtonHandler() {
                         App.exitApp();
                     } else {
                         lastPressRef.current = now;
-                        toastRef.current("לחץ שוב כדי לצאת", "info");
+                        toastRef.current(tx("לחץ שוב כדי לצאת"), "info");
                     }
                 });
                 if (cancelled) { handle.remove(); return; }

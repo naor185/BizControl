@@ -16,6 +16,7 @@ import {
     DAY_SHORT, daysText, endTime, ilDate, ilTime, staffName,
 } from "@/lib/classes";
 
+import { tx } from "@/lib/i18n";
 // Recurring classes: a class every week, or a short course (an end date or a number of sessions). Saving
 // asks the server first (dry_run): a busy room stops the save, a busy instructor is confirmed, and when
 // the change reaches classes people are already booked into, the owner chooses whether those change too
@@ -34,7 +35,7 @@ export default function ClassTemplates({ rooms, staff, services, policies, terms
     const [stopping, setStopping] = useState<ClassTemplate | null>(null);
 
     const load = useCallback(() => apiFetch<ClassTemplate[]>("/api/classes/templates").then(setList)
-        .catch(e => { setList([]); toast.error(e instanceof Error ? e.message : "טעינה נכשלה"); }), []);
+        .catch(e => { setList([]); toast.error(e instanceof Error ? e.message : tx("טעינה נכשלה")); }), []);
     useEffect(() => { load(); }, [load]);
 
     return (
@@ -42,14 +43,14 @@ export default function ClassTemplates({ rooms, staff, services, policies, terms
             {canConfigure && (
                 <button type="button" onClick={() => setEditing("new")}
                     className="inline-flex items-center gap-2 min-h-11 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold">
-                    <Plus className="w-4 h-4" aria-hidden /> שיעור קבוע חדש
+                    <Plus className="w-4 h-4" aria-hidden /> {tx("שיעור קבוע חדש")}
                 </button>
             )}
             {list === null ? (
-                <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 text-indigo-500 animate-spin" aria-label="טוען" /></div>
+                <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 text-indigo-500 animate-spin" aria-label={tx("טוען")} /></div>
             ) : list.length === 0 ? (
                 <p className="text-sm text-slate-500 bg-white border border-slate-200 rounded-2xl px-5 py-8 text-center">
-                    עוד אין שיעורים קבועים. שיעור קבוע חוזר כל שבוע באותם ימים ושעה — או קורס עם מספר מפגשים.
+                    {tx("עוד אין שיעורים קבועים. שיעור קבוע חוזר כל שבוע באותם ימים ושעה — או קורס עם מספר מפגשים.")}
                 </p>
             ) : (
                 <div className="grid gap-3 md:grid-cols-2">
@@ -59,31 +60,31 @@ export default function ClassTemplates({ rooms, staff, services, policies, terms
                                 <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: t.color || "#6366f1" }} aria-hidden />
                                 <span className="truncate">{t.name}</span>
                                 {t.sessions_count === 1 && (
-                                    <span className="text-[11px] font-semibold text-slate-700 bg-slate-100 rounded-full px-2 py-0.5 shrink-0">פעם אחת</span>
+                                    <span className="text-[11px] font-semibold text-slate-700 bg-slate-100 rounded-full px-2 py-0.5 shrink-0">{tx("פעם אחת")}</span>
                                 )}
                                 {t.is_course && (
                                     <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-violet-800 bg-violet-100 rounded-full px-2 py-0.5 shrink-0">
                                         <GraduationCap className="w-3 h-3" aria-hidden />
-                                        {t.sessions_count ? `קורס · ${t.sessions_count} מפגשים` : `קורס · עד ${ilDate(`${t.ends_on}T12:00:00Z`)}`}
+                                        {t.sessions_count ? tx("קורס · {0} מפגשים", { 0: t.sessions_count }) : tx("קורס · עד {0}", { 0: ilDate(`${t.ends_on}T12:00:00Z`) })}
                                     </span>
                                 )}
                             </h3>
                             <p className="text-sm text-slate-700 tabular-nums">{daysText(t.weekdays)} · <span dir="ltr">{t.start_time}–{endTime(t.start_time, t.duration_minutes)}</span></p>
                             <p className="text-sm text-slate-500">
-                                {[t.room_name && `חדר ${t.room_name}`, t.instructor_name, `${t.capacity} מקומות`].filter(Boolean).join(" · ")}
+                                {[t.room_name && tx("חדר {0}", { 0: t.room_name }), t.instructor_name, tx("{0} מקומות", { 0: t.capacity })].filter(Boolean).join(" · ")}
                             </p>
                             <p className="text-xs text-slate-500">
-                                {t.next_session ? `הבא: ${ilDate(t.next_session)} ${ilTime(t.next_session)} · ${t.future_sessions} שיעורים בלוח` : "אין שיעורים עתידיים"}
+                                {t.next_session ? tx("הבא: {0} {1} · {2} שיעורים בלוח", { 0: ilDate(t.next_session), 1: ilTime(t.next_session), 2: t.future_sessions }) : tx("אין שיעורים עתידיים")}
                             </p>
                             {canConfigure && (
                                 <div className="flex gap-2 pt-1 mt-auto">
                                     <button type="button" onClick={() => setEditing(t)}
                                         className="inline-flex items-center gap-1.5 min-h-11 px-3 rounded-xl border border-slate-200 text-sm text-slate-700 hover:border-indigo-400">
-                                        <PencilLine className="w-4 h-4" aria-hidden /> עריכה
+                                        <PencilLine className="w-4 h-4" aria-hidden /> {tx("עריכה")}
                                     </button>
                                     <button type="button" onClick={() => setStopping(t)}
                                         className="inline-flex items-center gap-1.5 min-h-11 px-3 rounded-xl text-sm text-slate-500 hover:text-rose-700">
-                                        <CirclePause className="w-4 h-4" aria-hidden /> הפסקה
+                                        <CirclePause className="w-4 h-4" aria-hidden /> {tx("הפסקה")}
                                     </button>
                                 </div>
                             )}
@@ -159,9 +160,9 @@ export function TemplateSheet({ tpl, preset, rooms, staff, services, policies, t
     };
 
     const once = f.course === "once";
-    const missing = !f.name.trim() ? "שם" : !once && !f.weekdays.length ? "ימים" : !f.start_time ? "שעה"
-        : f.duration_minutes === "" ? "משך" : f.capacity === "" && !f.room_id ? "מקומות"
-        : f.course === "count" && f.sessions_count === "" ? "מספר מפגשים" : f.course === "date" && !f.ends_on ? "תאריך סיום" : null;
+    const missing = !f.name.trim() ? tx("שם") : !once && !f.weekdays.length ? tx("ימים") : !f.start_time ? tx("שעה")
+        : f.duration_minutes === "" ? tx("משך") : f.capacity === "" && !f.room_id ? tx("מקומות")
+        : f.course === "count" && f.sessions_count === "" ? tx("מספר מפגשים") : f.course === "date" && !f.ends_on ? tx("תאריך סיום") : null;
 
     const payload = (extra: object) => JSON.stringify({
         name: f.name.trim(), service_id: f.service_id || null, color: f.color || null,
@@ -183,10 +184,10 @@ export function TemplateSheet({ tpl, preset, rooms, staff, services, policies, t
                 if (r.clashes.room.length || r.clashes.instructor.length || r.booked.sessions) { setCheck(r); return; }
             }
             await apiFetch(url, { method, body: payload({ confirm_clashes: true, apply_to_booked: !!applyToBooked }) });
-            toast.success(tpl ? "השיעור הקבוע עודכן" : "השיעור הקבוע נוצר — הלוח מתמלא");
+            toast.success(tpl ? tx("השיעור הקבוע עודכן") : tx("השיעור הקבוע נוצר — הלוח מתמלא"));
             onSaved();
         } catch (e) {
-            toast.error(e instanceof Error ? e.message : "השמירה נכשלה");
+            toast.error(e instanceof Error ? e.message : tx("השמירה נכשלה"));
         } finally {
             setBusy(false);
         }
@@ -196,44 +197,44 @@ export function TemplateSheet({ tpl, preset, rooms, staff, services, policies, t
     const asksBooked = !!check && !blocked && check.booked.sessions > 0;
 
     return (
-        <BottomSheet open onClose={onClose} title={tpl ? `עריכה: ${tpl.name}` : "שיעור קבוע חדש"} className="sm:max-w-xl"
+        <BottomSheet open onClose={onClose} title={tpl ? tx("עריכה: {0}", { 0: tpl.name }) : tx("שיעור קבוע חדש")} className="sm:max-w-xl"
             footer={
                 <div className="flex flex-wrap gap-2">
                     {asksBooked ? (
                         <>
                             <button type="button" onClick={() => save(true)} disabled={busy}
                                 className="flex-1 min-h-11 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold disabled:opacity-40">
-                                לעדכן גם אותם ולשלוח הודעה
+                                {tx("לעדכן גם אותם ולשלוח הודעה")}
                             </button>
                             <button type="button" onClick={() => save(false)} disabled={busy}
                                 className="flex-1 min-h-11 px-3 rounded-xl border border-slate-200 text-sm font-semibold text-slate-700 disabled:opacity-40">
-                                רק שיעורים בלי רשומים
+                                {tx("רק שיעורים בלי רשומים")}
                             </button>
                         </>
                     ) : (
                         <button type="button" onClick={() => save()} disabled={busy || !!missing || blocked}
                             className="flex-1 inline-flex items-center justify-center gap-2 min-h-11 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white text-sm font-bold">
                             {busy && <Loader2 className="w-4 h-4 animate-spin" aria-hidden />}
-                            {check?.clashes.instructor.length ? "לשמור בכל זאת" : missing ? `חסר: ${missing}` : "שמירה"}
+                            {check?.clashes.instructor.length ? tx("לשמור בכל זאת") : missing ? tx("חסר: {0}", { 0: missing }) : tx("שמירה")}
                         </button>
                     )}
                 </div>
             }>
             <div className="px-5 py-4 space-y-4 overflow-y-auto min-h-0">
                 {services.length > 0 && (
-                    <label className={label}>מבוסס על שירות (מחיר ומשך)
+                    <label className={label}>{tx("מבוסס על שירות (מחיר ומשך)")}
                         <select value={f.service_id} onChange={e => pickService(e.target.value)} className={`${field} mt-1`}>
-                            <option value="">בלי שירות</option>
+                            <option value="">{tx("בלי שירות")}</option>
                             {services.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                         </select>
                     </label>
                 )}
-                <label className={label}>שם השיעור
-                    <input value={f.name} onChange={e => set({ name: e.target.value })} maxLength={160} className={`${field} mt-1`} placeholder="פילאטיס מכשירים" />
+                <label className={label}>{tx("שם השיעור")}
+                    <input value={f.name} onChange={e => set({ name: e.target.value })} maxLength={160} className={`${field} mt-1`} placeholder={tx("פילאטיס מכשירים")} />
                 </label>
 
                 {!once && <fieldset>
-                    <legend className={label}>ימים</legend>
+                    <legend className={label}>{tx("ימים")}</legend>
                     <div className="mt-1 flex flex-wrap gap-1.5">
                         {DAY_SHORT.map((d, i) => {
                             const on = f.weekdays.includes(i);
@@ -249,67 +250,67 @@ export function TemplateSheet({ tpl, preset, rooms, staff, services, policies, t
                 </fieldset>}
 
                 <div className="grid grid-cols-2 gap-3">
-                    <label className={label}>שעת התחלה
+                    <label className={label}>{tx("שעת התחלה")}
                         <input type="time" value={f.start_time} onChange={e => set({ start_time: e.target.value })} className={`${field} mt-1`} dir="ltr" />
                     </label>
-                    <label className={label}>משך (דקות)
+                    <label className={label}>{tx("משך (דקות)")}
                         <input type="number" min={5} max={600} value={f.duration_minutes} className={`${field} mt-1 tabular-nums`} dir="ltr"
                             onChange={e => set({ duration_minutes: e.target.value === "" ? "" : Number(e.target.value) })} />
                     </label>
                     {rooms.length > 0 && (
-                        <label className={label}>חדר
+                        <label className={label}>{tx("חדר")}
                             <select value={f.room_id} onChange={e => pickRoom(e.target.value)} className={`${field} mt-1`}>
-                                <option value="">בלי חדר</option>
+                                <option value="">{tx("בלי חדר")}</option>
                                 {rooms.filter(r => r.is_active).map(r => <option key={r.id} value={r.id}>{r.name} ({r.capacity})</option>)}
                             </select>
                         </label>
                     )}
-                    <label className={label}>מקומות
+                    <label className={label}>{tx("מקומות")}
                         <input type="number" min={1} max={room?.capacity ?? 500} value={f.capacity} className={`${field} mt-1 tabular-nums`} dir="ltr"
                             placeholder={room ? String(room.capacity) : ""}
                             onChange={e => set({ capacity: e.target.value === "" ? "" : Number(e.target.value) })} />
                     </label>
                     <label className={`${label} col-span-2 sm:col-span-1`}>{terms.staff}
                         <select value={f.instructor_id} onChange={e => set({ instructor_id: e.target.value })} className={`${field} mt-1`}>
-                            <option value="">בלי שיבוץ</option>
+                            <option value="">{tx("בלי שיבוץ")}</option>
                             {staff.map(u => <option key={u.id} value={u.id}>{staffName(u)}</option>)}
                         </select>
                     </label>
-                    <label className={`${label} col-span-2 sm:col-span-1`}>{once ? "תאריך" : "מתחיל מתאריך"}
-                        <PickerBox type="date" label="תאריך התחלה" value={f.starts_on} onChange={v => set({ starts_on: v })} className={cn(`${field} mt-1`, "text-start")} />
+                    <label className={`${label} col-span-2 sm:col-span-1`}>{once ? tx("תאריך") : tx("מתחיל מתאריך")}
+                        <PickerBox type="date" label={tx("תאריך התחלה")} value={f.starts_on} onChange={v => set({ starts_on: v })} className={cn(`${field} mt-1`, "text-start")} />
                     </label>
                 </div>
 
                 <fieldset>
-                    <legend className={label}>חוזר</legend>
+                    <legend className={label}>{tx("חוזר")}</legend>
                     <div className="mt-1 grid gap-2 grid-cols-2">
-                        {([["", "כל שבוע, בלי סוף"], ["once", "פעם אחת"], ["count", "קורס: מספר מפגשים"], ["date", "קורס: עד תאריך"]] as const).map(([v, text]) => (
+                        {([["", tx("כל שבוע, בלי סוף")], ["once", tx("פעם אחת")], ["count", tx("קורס: מספר מפגשים")], ["date", tx("קורס: עד תאריך")]] as const).map(([v, text]) => (
                             <button key={v} type="button" role="radio" aria-checked={f.course === v} onClick={() => set({ course: v })}
-                                className={`min-h-11 rounded-xl border px-3 text-sm text-right ${f.course === v ? "border-indigo-500 bg-indigo-50 text-indigo-800 font-semibold" : "border-slate-200 text-slate-700"}`}>
+                                className={`min-h-11 rounded-xl border px-3 text-sm text-start ${f.course === v ? "border-indigo-500 bg-indigo-50 text-indigo-800 font-semibold" : "border-slate-200 text-slate-700"}`}>
                                 {text}
                             </button>
                         ))}
                     </div>
                     {f.course === "count" && (
-                        <input type="number" min={1} max={200} value={f.sessions_count} aria-label="מספר מפגשים" dir="ltr"
+                        <input type="number" min={1} max={200} value={f.sessions_count} aria-label={tx("מספר מפגשים")} dir="ltr"
                             onChange={e => set({ sessions_count: e.target.value === "" ? "" : Number(e.target.value) })}
                             className={`${field} mt-2 w-32 tabular-nums`} placeholder="5" />
                     )}
                     {f.course === "date" && (
-                        <PickerBox type="date" label="תאריך סיום" value={f.ends_on} onChange={v => set({ ends_on: v })} min={f.starts_on} className={cn(`${field} mt-2 w-44`, "text-start")} />
+                        <PickerBox type="date" label={tx("תאריך סיום")} value={f.ends_on} onChange={v => set({ ends_on: v })} min={f.starts_on} className={cn(`${field} mt-2 w-44`, "text-start")} />
                     )}
                     {isCourse && (
-                        <label className={`${label} block mt-3`}>מחיר לקורס כולו (₪)
-                            <input type="number" min={0} value={f.course_price} dir="ltr" placeholder="למשל 640"
+                        <label className={`${label} block mt-3`}>{tx("מחיר לקורס כולו (₪)")}
+                            <input type="number" min={0} value={f.course_price} dir="ltr" placeholder={tx("למשל 640")}
                                 onChange={e => set({ course_price: e.target.value === "" ? "" : Number(e.target.value) })}
                                 className={`${field} mt-1 w-36 tabular-nums`} />
-                            <span className="block text-xs font-normal text-slate-500 mt-1">הרשמה אחת לכל המפגשים. ריק — בלי מחיר קורס (למשל כשהמנוי מכסה אותו).</span>
+                            <span className="block text-xs font-normal text-slate-500 mt-1">{tx("הרשמה אחת לכל המפגשים. ריק — בלי מחיר קורס (למשל כשהמנוי מכסה אותו).")}</span>
                         </label>
                     )}
                 </fieldset>
 
                 <fieldset>
-                    <legend className={label}>צבע ביומן</legend>
+                    <legend className={label}>{tx("צבע ביומן")}</legend>
                     <div className="mt-1 flex flex-wrap gap-2">
                         {[...new Set([f.color, ...COLORS])].filter(Boolean).map(c => (
                             <button key={c} type="button" role="radio" aria-checked={f.color === c} aria-label={c} onClick={() => set({ color: c })}
@@ -322,7 +323,7 @@ export function TemplateSheet({ tpl, preset, rooms, staff, services, policies, t
                     <div className="rounded-xl border border-slate-200">
                         <button type="button" onClick={() => setRulesOpen(o => !o)} aria-expanded={rulesOpen}
                             className="w-full flex items-center justify-between gap-2 px-3 min-h-11 text-sm font-semibold text-slate-700">
-                            <span className="flex items-center gap-2"><Settings2 className="w-4 h-4" aria-hidden />כללים מיוחדים לשיעור הזה</span>
+                            <span className="flex items-center gap-2"><Settings2 className="w-4 h-4" aria-hidden />{tx("כללים מיוחדים לשיעור הזה")}</span>
                             <ChevronDown className={`w-4 h-4 transition-transform ${rulesOpen ? "rotate-180" : ""}`} aria-hidden />
                         </button>
                         {rulesOpen && (
@@ -338,13 +339,13 @@ export function TemplateSheet({ tpl, preset, rooms, staff, services, policies, t
                     <div className="rounded-xl border border-slate-200">
                         <button type="button" onClick={() => setPenaltyOpen(o => !o)} aria-expanded={penaltyOpen}
                             className="w-full flex items-center justify-between gap-2 px-3 min-h-11 text-sm font-semibold text-slate-700">
-                            <span className="flex items-center gap-2"><Settings2 className="w-4 h-4" aria-hidden />ביטול מאוחר ואי-הגעה לשיעור הזה</span>
+                            <span className="flex items-center gap-2"><Settings2 className="w-4 h-4" aria-hidden />{tx("ביטול מאוחר ואי-הגעה לשיעור הזה")}</span>
                             <ChevronDown className={`w-4 h-4 transition-transform ${penaltyOpen ? "rotate-180" : ""}`} aria-hidden />
                         </button>
                         {penaltyOpen && (
                             <div className="border-t border-slate-100 p-3">
                                 <PenaltyRules scopeType="class_template" scopeId={tpl.id} canEdit
-                                    emptyNote="אין כללים לשיעור הזה — חלים הכללים של סוג המנוי או של העסק." />
+                                    emptyNote={tx("אין כללים לשיעור הזה — חלים הכללים של סוג המנוי או של העסק.")} />
                             </div>
                         )}
                     </div>
@@ -355,8 +356,7 @@ export function TemplateSheet({ tpl, preset, rooms, staff, services, policies, t
                         <DryRunNotice r={check} terms={terms} action="" />
                         {asksBooked && (
                             <p className="text-sm text-slate-700">
-                                השינוי נוגע ל-{check.booked.sessions} שיעורים שיש בהם {check.booked.clients} {terms.client_plural} רשומים.
-                                לעדכן גם אותם? אם לא — הם נשארים כמו שהם.
+                                {tx("השינוי נוגע ל-")}{check.booked.sessions}{tx(" שיעורים שיש בהם ")}{check.booked.clients} {terms.client_plural} {tx("רשומים. לעדכן גם אותם? אם לא — הם נשארים כמו שהם.")}
                             </p>
                         )}
                     </div>
@@ -367,7 +367,7 @@ export function TemplateSheet({ tpl, preset, rooms, staff, services, policies, t
 }
 
 function shownValue(p: ClassPolicy, v: ClassPolicy["value"]): string {
-    if (p.kind === "bool") return v ? "פעיל" : "כבוי";
+    if (p.kind === "bool") return v ? tx("פעיל") : tx("כבוי");
     if (p.kind === "choice") return (p.choices.find(c => c.value === v)?.label ?? String(v)).split(" — ")[0];
     return `${v} ${p.unit}`.trim();
 }
@@ -381,8 +381,8 @@ function RuleRow({ p, value, onChange }: { p: ClassPolicy; value: number | boole
                 <select value={own ? "own" : "business"} aria-label={p.label}
                     onChange={e => onChange(e.target.value === "own" ? p.value : null)}
                     className="min-h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-700 max-w-[55%]">
-                    <option value="business">כמו בעסק ({shownValue(p, p.value)})</option>
-                    <option value="own">הגדרה מיוחדת</option>
+                    <option value="business">{tx("כמו בעסק (")}{shownValue(p, p.value)})</option>
+                    <option value="own">{tx("הגדרה מיוחדת")}</option>
                 </select>
             </div>
             {own && p.kind === "int" && (
@@ -396,8 +396,8 @@ function RuleRow({ p, value, onChange }: { p: ClassPolicy; value: number | boole
             {own && p.kind === "bool" && (
                 <select value={value ? "1" : "0"} onChange={e => onChange(e.target.value === "1")} aria-label={p.label}
                     className="min-h-9 rounded-lg border border-slate-200 bg-white px-2 text-sm">
-                    <option value="1">פעיל</option>
-                    <option value="0">כבוי</option>
+                    <option value="1">{tx("פעיל")}</option>
+                    <option value="0">{tx("כבוי")}</option>
                 </select>
             )}
             {own && p.kind === "choice" && (
@@ -417,41 +417,41 @@ function StopSheet({ t, terms, onClose, onDone }: { t: ClassTemplate; terms: Ter
         try {
             const r = await apiFetch<{ removed: number; canceled: number; kept: number; messages: number }>(
                 `/api/classes/templates/${t.id}/stop`, { method: "POST", body: JSON.stringify({ cancel_booked: cancelBooked }) });
-            toast.success(r.kept ? `השיעור הקבוע הופסק. ${r.kept} שיעורים עם רשומים נשארו בלוח.` : "השיעור הקבוע הופסק");
+            toast.success(r.kept ? tx("השיעור הקבוע הופסק. {0} שיעורים עם רשומים נשארו בלוח.", { 0: r.kept }) : tx("השיעור הקבוע הופסק"));
             onDone();
         } catch (e) {
-            toast.error(e instanceof Error ? e.message : "הפעולה נכשלה");
+            toast.error(e instanceof Error ? e.message : tx("הפעולה נכשלה"));
         } finally {
             setBusy(false);
         }
     };
     const withBooked = t.future_booked_sessions;
     return (
-        <BottomSheet open onClose={onClose} title={`הפסקה: ${t.name}`}
+        <BottomSheet open onClose={onClose} title={tx("הפסקה: {0}", { 0: t.name })}
             footer={
                 <div className="flex flex-wrap gap-2">
                     {withBooked > 0 ? (
                         <>
                             <button type="button" onClick={() => stop(true)} disabled={busy}
                                 className="flex-1 min-h-11 px-3 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-sm font-bold disabled:opacity-40">
-                                לבטל אותם ולשלוח הודעה
+                                {tx("לבטל אותם ולשלוח הודעה")}
                             </button>
                             <button type="button" onClick={() => stop(false)} disabled={busy}
                                 className="flex-1 min-h-11 px-3 rounded-xl border border-slate-200 text-sm font-semibold text-slate-700 disabled:opacity-40">
-                                להשאיר אותם בלוח
+                                {tx("להשאיר אותם בלוח")}
                             </button>
                         </>
                     ) : (
                         <button type="button" onClick={() => stop(false)} disabled={busy}
                             className="flex-1 min-h-11 px-3 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-sm font-bold disabled:opacity-40">
-                            להפסיק את השיעור הקבוע
+                            {tx("להפסיק את השיעור הקבוע")}
                         </button>
                     )}
                 </div>
             }>
             <div className="px-5 py-4 text-sm text-slate-700 space-y-2">
-                <p>לא ייווצרו יותר שיעורים. השיעורים העתידיים בלי רשומים יוסרו מהלוח.</p>
-                {withBooked > 0 && <p>ב-{withBooked} שיעורים עתידיים יש {terms.client_plural} רשומים. מה לעשות איתם?</p>}
+                <p>{tx("לא ייווצרו יותר שיעורים. השיעורים העתידיים בלי רשומים יוסרו מהלוח.")}</p>
+                {withBooked > 0 && <p>{tx("ב-")}{withBooked}{tx(" שיעורים עתידיים יש ")}{terms.client_plural}{tx(" רשומים. מה לעשות איתם?")}</p>}
             </div>
         </BottomSheet>
     );

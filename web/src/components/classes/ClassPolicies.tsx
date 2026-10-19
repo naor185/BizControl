@@ -9,6 +9,7 @@ import {
 import { apiFetch } from "@/lib/api";
 import { toast } from "@/lib/toast";
 
+import { tx } from "@/lib/i18n";
 // The business owner's class rules (GET/PATCH /api/classes/settings). The server holds every rule — its
 // label, limits, default and help; this screen only groups them. A rule not in a group still shows,
 // under "עוד", so a new rule on the server never needs a change here to appear.
@@ -23,22 +24,22 @@ export type ClassPolicy = {
 };
 
 const GROUPS: { title: string; icon: LucideIcon; keys: string[] }[] = [
-    { title: "הרשמה", icon: CalendarClock, keys: ["client_booking", "booking_opens_days", "booking_closes_minutes", "weeks_ahead"] },
-    { title: "ביטולים והחלפות", icon: CalendarX2, keys: ["free_cancel_hours", "class_swap"] },
-    { title: "רשימת המתנה", icon: ListOrdered, keys: ["waitlist_max", "waitlist_mode", "waitlist_confirm_minutes"] },
-    { title: "מינימום משתתפים", icon: UsersRound, keys: ["min_participants", "min_check_hours", "auto_cancel_below_min"] },
-    { title: "תזכורות", icon: BellRing, keys: ["reminder_hours"] },
-    { title: "הקפאות", icon: PauseCircle, keys: ["freeze_requests"] },
-    { title: "צ׳ק-אין בכניסה", icon: QrCode, keys: ["checkin_opens_minutes", "checkin_closes_minutes", "checkin_walk_in"] },
-    { title: "קורסים", icon: GraduationCap, keys: ["course_self_enroll", "course_late_join", "course_refund", "course_refund_days",
+    { title: tx("הרשמה"), icon: CalendarClock, keys: ["client_booking", "booking_opens_days", "booking_closes_minutes", "weeks_ahead"] },
+    { title: tx("ביטולים והחלפות"), icon: CalendarX2, keys: ["free_cancel_hours", "class_swap"] },
+    { title: tx("רשימת המתנה"), icon: ListOrdered, keys: ["waitlist_max", "waitlist_mode", "waitlist_confirm_minutes"] },
+    { title: tx("מינימום משתתפים"), icon: UsersRound, keys: ["min_participants", "min_check_hours", "auto_cancel_below_min"] },
+    { title: tx("תזכורות"), icon: BellRing, keys: ["reminder_hours"] },
+    { title: tx("הקפאות"), icon: PauseCircle, keys: ["freeze_requests"] },
+    { title: tx("צ׳ק-אין בכניסה"), icon: QrCode, keys: ["checkin_opens_minutes", "checkin_closes_minutes", "checkin_walk_in"] },
+    { title: tx("קורסים"), icon: GraduationCap, keys: ["course_self_enroll", "course_late_join", "course_refund", "course_refund_days",
         "course_drop_in", "course_covered_by_membership"] },
-    { title: "מועדון לקוחות", icon: Gift, keys: ["club_points_membership_percent", "club_points_entry_percent", "club_points_course_percent"] },
+    { title: tx("מועדון לקוחות"), icon: Gift, keys: ["club_points_membership_percent", "club_points_entry_percent", "club_points_course_percent"] },
 ];
 
 type Draft = Record<string, number | boolean | string>;
 
 function shown(p: ClassPolicy, v: ClassPolicy["value"]): string {
-    if (p.kind === "bool") return v ? "פעיל" : "כבוי";
+    if (p.kind === "bool") return v ? tx("פעיל") : tx("כבוי");
     if (p.kind === "choice") return (p.choices.find(c => c.value === v)?.label ?? String(v)).split(" — ")[0];
     const preset = p.presets?.find(x => x.value === v);
     return preset && !preset.label.includes("%") ? preset.label : `${v} ${p.unit}`.trim();
@@ -46,8 +47,8 @@ function shown(p: ClassPolicy, v: ClassPolicy["value"]): string {
 
 function problem(p: ClassPolicy, v: unknown): string | null {
     if (p.kind !== "int") return null;
-    if (v === "" || typeof v !== "number" || !Number.isInteger(v)) return "מספר שלם";
-    if ((p.min !== null && v < p.min) || (p.max !== null && v > p.max)) return `בין ${p.min} ל-${p.max}`;
+    if (v === "" || typeof v !== "number" || !Number.isInteger(v)) return tx("מספר שלם");
+    if ((p.min !== null && v < p.min) || (p.max !== null && v > p.max)) return tx("בין {0} ל-{1}", { 0: p.min, 1: p.max });
     return null;
 }
 
@@ -64,7 +65,7 @@ export default function ClassPolicies({ policies, canEdit, onSaved }: {
             .map(g => ({ ...g, items: g.keys.map(k => byKey.get(k)).filter((p): p is ClassPolicy => !!p) }))
             .filter(g => g.items.length);
         const rest = policies.filter(p => !placed.has(p.key));
-        if (rest.length) out.push({ title: "עוד", icon: SlidersHorizontal, keys: [], items: rest });
+        if (rest.length) out.push({ title: tx("עוד"), icon: SlidersHorizontal, keys: [], items: rest });
         return out;
     }, [policies]);
 
@@ -78,9 +79,9 @@ export default function ClassPolicies({ policies, canEdit, onSaved }: {
             const next = await apiFetch<ClassPolicy[]>("/api/classes/settings", { method: "PATCH", body: JSON.stringify({ values }) });
             onSaved(next);
             setDraft(Object.fromEntries(next.map(p => [p.key, p.value])));
-            toast.success("ההגדרות נשמרו");
+            toast.success(tx("ההגדרות נשמרו"));
         } catch (e) {
-            toast.error(e instanceof Error ? e.message : "השמירה נכשלה");
+            toast.error(e instanceof Error ? e.message : tx("השמירה נכשלה"));
         } finally {
             setSaving(false);
         }
@@ -90,7 +91,7 @@ export default function ClassPolicies({ policies, canEdit, onSaved }: {
         <div className="space-y-4">
             {!canEdit && (
                 <p className="text-sm text-slate-500 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
-                    אפשר לראות את הכללים. שינוי — רק לבעלים או למנהל.
+                    {tx("אפשר לראות את הכללים. שינוי — רק לבעלים או למנהל.")}
                 </p>
             )}
 
@@ -113,16 +114,16 @@ export default function ClassPolicies({ policies, canEdit, onSaved }: {
                 <div className="fixed inset-x-3 z-40 bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:bottom-4 md:inset-x-auto md:left-1/2 md:-translate-x-1/2 md:w-[min(560px,calc(100%-2rem))]">
                     <div className="flex items-center gap-3 bg-slate-900 text-white rounded-2xl px-4 py-3 shadow-xl">
                         <span className="text-sm flex-1">
-                            {changed.length === 1 ? "שינוי אחד לא נשמר" : `${changed.length} שינויים לא נשמרו`}
+                            {changed.length === 1 ? tx("שינוי אחד לא נשמר") : tx("{0} שינויים לא נשמרו", { 0: changed.length })}
                         </span>
                         <button type="button" onClick={() => setDraft(Object.fromEntries(policies.map(p => [p.key, p.value])))}
                             disabled={saving} className="text-sm text-slate-300 hover:text-white px-3 min-h-11">
-                            ביטול
+                            {tx("ביטול")}
                         </button>
                         <button type="button" onClick={save} disabled={saving || invalid}
                             className="flex items-center gap-2 bg-indigo-500 hover:bg-indigo-400 disabled:opacity-50 text-sm font-bold px-4 rounded-xl min-h-11">
                             {saving && <Loader2 className="w-4 h-4 animate-spin" aria-hidden />}
-                            שמור
+                            {tx("שמור")}
                         </button>
                     </div>
                 </div>
@@ -144,11 +145,11 @@ function PolicyRow({ policy: p, value, disabled, onChange }: {
                 <label id={`${id}-label`} htmlFor={p.kind === "int" ? id : undefined} className="block text-sm font-semibold text-slate-800">{p.label}</label>
                 {p.help && <p className="text-xs text-slate-500 mt-1 leading-relaxed">{p.help}</p>}
                 <p className="text-xs text-slate-400 mt-1 flex items-center gap-2 flex-wrap">
-                    {atDefault ? <span>ברירת המחדל</span> : <span>ברירת המחדל: {shown(p, p.default)}</span>}
+                    {atDefault ? <span>{tx("ברירת המחדל")}</span> : <span>{tx("ברירת המחדל: ")}{shown(p, p.default)}</span>}
                     {!atDefault && !disabled && (
                         <button type="button" onClick={() => onChange(p.default)}
                             className="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-800 font-medium">
-                            <RotateCcw className="w-3 h-3" aria-hidden /> חזרה אליה
+                            <RotateCcw className="w-3 h-3" aria-hidden /> {tx("חזרה אליה")}
                         </button>
                     )}
                 </p>
@@ -158,7 +159,7 @@ function PolicyRow({ policy: p, value, disabled, onChange }: {
                 {p.kind === "int" && (
                     <div>
                         {!!p.presets?.length && (
-                            <div className="flex flex-wrap gap-1.5 mb-2 sm:max-w-80" aria-label={`ערכים מוכנים: ${p.label}`}>
+                            <div className="flex flex-wrap gap-1.5 mb-2 sm:max-w-80" aria-label={tx("ערכים מוכנים: {0}", { 0: p.label })}>
                                 {p.presets.map(x => {
                                     const on = value === x.value;
                                     return (
@@ -195,7 +196,7 @@ function PolicyRow({ policy: p, value, disabled, onChange }: {
                             return (
                                 <button key={c.value} type="button" role="radio" aria-checked={on} disabled={disabled}
                                     onClick={() => onChange(c.value)}
-                                    className={`text-right rounded-xl border px-3 py-2 transition-colors disabled:opacity-60 ${on ? "border-indigo-500 bg-indigo-50" : "border-slate-200 hover:border-slate-300"}`}>
+                                    className={`text-start rounded-xl border px-3 py-2 transition-colors disabled:opacity-60 ${on ? "border-indigo-500 bg-indigo-50" : "border-slate-200 hover:border-slate-300"}`}>
                                     <span className={`block text-sm font-semibold ${on ? "text-indigo-800" : "text-slate-700"}`}>{title}</span>
                                     {detail && <span className="block text-xs text-slate-500 mt-0.5">{detail}</span>}
                                 </button>

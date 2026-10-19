@@ -8,11 +8,12 @@ import {
     type EntriesMode, type FamilyPricing, type MembershipDetail, type MembershipKind, type MembershipType, shekels,
 } from "@/lib/classes";
 
+import { tx } from "@/lib/i18n";
 // A family / shared membership (app/services/membership_family.py) — every choice the owner's: how many
 // people, how entries count, the price for the number of people, who books, adding people later. The server
 // decides and works out the prices; these screens only ask and show.
 
-const choice = (on: boolean) => `text-right rounded-xl border px-3 py-2 text-sm ${on ? "border-indigo-500 bg-indigo-50 text-indigo-800 font-semibold" : "border-slate-200 text-slate-700"}`;
+const choice = (on: boolean) => `text-start rounded-xl border px-3 py-2 text-sm ${on ? "border-indigo-500 bg-indigo-50 text-indigo-800 font-semibold" : "border-slate-200 text-slate-700"}`;
 const small = "block mt-1 w-24 min-h-10 rounded-lg border border-slate-200 text-center tabular-nums";
 
 export type FamilyForm = {
@@ -40,29 +41,29 @@ export function familyPayload(f: FamilyForm) {
 
 export function familyLine(t: Pick<MembershipType, "max_members" | "entries_mode">): string | null {
     if (t.max_members === 1) return null;
-    const who = t.max_members === null ? "משפחתי, בלי הגבלת אנשים" : `משפחתי עד ${t.max_members} אנשים`;
-    return `${who} · ${t.entries_mode === "each" ? "יתרה לכל אחד" : t.entries_mode === "shared_capped" ? "יתרה משותפת עם תקרה לאדם" : "יתרה משותפת"}`;
+    const who = t.max_members === null ? tx("משפחתי, בלי הגבלת אנשים") : tx("משפחתי עד {0} אנשים", { 0: t.max_members });
+    return `${who} · ${t.entries_mode === "each" ? tx("יתרה לכל אחד") : t.entries_mode === "shared_capped" ? tx("יתרה משותפת עם תקרה לאדם") : tx("יתרה משותפת")}`;
 }
 
 const SIZES: { value: number | null; label: string }[] = [
-    { value: 1, label: "אדם אחד (רגיל)" }, { value: 2, label: "2" }, { value: 3, label: "3" }, { value: 4, label: "4" },
-    { value: 5, label: "5" }, { value: null, label: "בלי הגבלה" },
+    { value: 1, label: tx("אדם אחד (רגיל)") }, { value: 2, label: "2" }, { value: 3, label: "3" }, { value: 4, label: "4" },
+    { value: 5, label: "5" }, { value: null, label: tx("בלי הגבלה") },
 ];
 
 /** The type sheet's part: a membership for several people, and the owner's choices for it. */
 export function FamilyOptions({ f, kind, set }: { f: FamilyForm; kind: MembershipKind; set: (p: Partial<FamilyForm>) => void }) {
     const family = f.max_members !== 1;
     const custom = f.max_members !== null && !SIZES.some(x => x.value === f.max_members);
-    const unit = kind === "weekly" ? "בשבוע" : "כניסות";
+    const unit = kind === "weekly" ? tx("בשבוע") : tx("כניסות");
     return (
         <fieldset className="rounded-xl border border-slate-200 p-3 space-y-3">
-            <legend className="px-1 text-xs font-semibold text-slate-600 flex items-center gap-1"><Users className="w-3.5 h-3.5" aria-hidden />כמה אנשים במנוי</legend>
+            <legend className="px-1 text-xs font-semibold text-slate-600 flex items-center gap-1"><Users className="w-3.5 h-3.5" aria-hidden />{tx("כמה אנשים במנוי")}</legend>
             <div className="flex flex-wrap gap-2">
                 {SIZES.map(x => (
                     <button key={String(x.value)} type="button" role="radio" aria-checked={f.max_members === x.value} onClick={() => set({ max_members: x.value })}
                         className={`min-h-10 px-3 ${choice(f.max_members === x.value)}`}>{x.label}</button>
                 ))}
-                <label className="text-xs text-slate-600">אחר
+                <label className="text-xs text-slate-600">{tx("אחר")}
                     <input type="number" min={2} max={100} dir="ltr" value={custom ? f.max_members ?? "" : ""} placeholder="—"
                         onChange={e => e.target.value !== "" && set({ max_members: Math.max(2, Number(e.target.value)) })} className={small} />
                 </label>
@@ -71,59 +72,59 @@ export function FamilyOptions({ f, kind, set }: { f: FamilyForm; kind: Membershi
                 <>
                     {kind !== "unlimited" && (
                         <div>
-                            <p className="text-xs font-semibold text-slate-600 mb-1">איך נספרות הכניסות</p>
+                            <p className="text-xs font-semibold text-slate-600 mb-1">{tx("איך נספרות הכניסות")}</p>
                             <div className="grid gap-2">
-                                {([["shared", "יתרה משותפת לכולם", `כל מי שמגיע מוריד מאותן ${unit}`],
-                                   ["each", "לכל אחד יתרה משלו", `כל אחד מקבל את מספר ה${unit} בנפרד`],
-                                   ["shared_capped", "משותפת, ולכל אחד עד מקסימום", "יתרה אחת לכולם, עם תקרה לכל אחד"]] as const).map(([v, title, hint]) => (
+                                {([["shared", tx("יתרה משותפת לכולם"), tx("כל מי שמגיע מוריד מאותן {0}", { 0: unit })],
+                                   ["each", tx("לכל אחד יתרה משלו"), tx("כל אחד מקבל את מספר ה{0} בנפרד", { 0: unit })],
+                                   ["shared_capped", tx("משותפת, ולכל אחד עד מקסימום"), tx("יתרה אחת לכולם, עם תקרה לכל אחד")]] as const).map(([v, title, hint]) => (
                                     <button key={v} type="button" role="radio" aria-checked={f.entries_mode === v} onClick={() => set({ entries_mode: v })} className={choice(f.entries_mode === v)}>
                                         <span className="block">{title}</span><span className="block text-xs font-normal text-slate-500">{hint}</span>
                                     </button>
                                 ))}
                             </div>
                             {f.entries_mode === "shared_capped" && (
-                                <label className="block mt-2 text-xs text-slate-600">לכל אחד לכל היותר ({unit})
+                                <label className="block mt-2 text-xs text-slate-600">{tx("לכל אחד לכל היותר (")}{unit})
                                     <input type="number" min={1} dir="ltr" value={f.member_cap} onChange={e => set({ member_cap: e.target.value === "" ? "" : Number(e.target.value) })} className={small} />
                                 </label>
                             )}
                         </div>
                     )}
                     <div>
-                        <p className="text-xs font-semibold text-slate-600 mb-1">איך מחושב המחיר</p>
+                        <p className="text-xs font-semibold text-slate-600 mb-1">{tx("איך מחושב המחיר")}</p>
                         <div className="grid gap-2">
-                            {([["fixed", "מחיר קבוע לכל המנוי"], ["per_member", "מחיר לאדם × מספר האנשים"],
-                               ["first_plus_extra", "מחיר לראשון + תוספת לכל נוסף"], ["first_plus_discount", "מחיר לראשון + הנחה לכל נוסף"]] as const).map(([v, title]) => (
+                            {([["fixed", tx("מחיר קבוע לכל המנוי")], ["per_member", tx("מחיר לאדם × מספר האנשים")],
+                               ["first_plus_extra", tx("מחיר לראשון + תוספת לכל נוסף")], ["first_plus_discount", tx("מחיר לראשון + הנחה לכל נוסף")]] as const).map(([v, title]) => (
                                 <button key={v} type="button" role="radio" aria-checked={f.pricing === v} onClick={() => set({ pricing: v })} className={choice(f.pricing === v)}>{title}</button>
                             ))}
                         </div>
                         {f.pricing === "first_plus_extra" && (
-                            <label className="block mt-2 text-xs text-slate-600">תוספת לכל נוסף (₪)
+                            <label className="block mt-2 text-xs text-slate-600">{tx("תוספת לכל נוסף (₪)")}
                                 <input type="number" min={0} dir="ltr" value={f.extra_member} onChange={e => set({ extra_member: e.target.value === "" ? "" : Number(e.target.value) })} className={small} />
                             </label>
                         )}
                         {f.pricing === "first_plus_discount" && (
-                            <label className="block mt-2 text-xs text-slate-600">הנחה לכל נוסף (%)
+                            <label className="block mt-2 text-xs text-slate-600">{tx("הנחה לכל נוסף (%)")}
                                 <input type="number" min={0} max={100} dir="ltr" value={f.extra_member_percent} onChange={e => set({ extra_member_percent: e.target.value === "" ? "" : Math.min(100, Number(e.target.value)) })} className={small} />
                             </label>
                         )}
                     </div>
                     <div>
-                        <p className="text-xs font-semibold text-slate-600 mb-1">מי רושם לשיעורים</p>
+                        <p className="text-xs font-semibold text-slate-600 mb-1">{tx("מי רושם לשיעורים")}</p>
                         <div className="grid gap-2">
-                            {([["each", "כל אחד נרשם בעצמו"], ["holder", "רק בעל/ת המנוי רושם/ת את כולם (למשל הורה לילד)"]] as const).map(([v, title]) => (
+                            {([["each", tx("כל אחד נרשם בעצמו")], ["holder", tx("רק בעל/ת המנוי רושם/ת את כולם (למשל הורה לילד)")]] as const).map(([v, title]) => (
                                 <button key={v} type="button" role="radio" aria-checked={f.booking_by === v} onClick={() => set({ booking_by: v })} className={choice(f.booking_by === v)}>{title}</button>
                             ))}
                         </div>
                     </div>
                     <div>
-                        <p className="text-xs font-semibold text-slate-600 mb-1">הוספת אנשים אחרי המכירה</p>
+                        <p className="text-xs font-semibold text-slate-600 mb-1">{tx("הוספת אנשים אחרי המכירה")}</p>
                         <div className="grid gap-2">
-                            {([["free", "מותר, בלי שינוי מחיר"], ["priced", "מותר, והמחיר מתעדכן לפי החישוב"], ["locked", "אסור — רק בזמן המכירה"]] as const).map(([v, title]) => (
+                            {([["free", tx("מותר, בלי שינוי מחיר")], ["priced", tx("מותר, והמחיר מתעדכן לפי החישוב")], ["locked", tx("אסור — רק בזמן המכירה")]] as const).map(([v, title]) => (
                                 <button key={v} type="button" role="radio" aria-checked={f.members_change === v} onClick={() => set({ members_change: v })} className={choice(f.members_change === v)}>{title}</button>
                             ))}
                         </div>
                     </div>
-                    <p className="text-xs text-slate-500">הקפאה, עצירה וביטול חלים על כל המנוי. מנויים שכבר נמכרו שומרים על הכללים שבהם נמכרו.</p>
+                    <p className="text-xs text-slate-500">{tx("הקפאה, עצירה וביטול חלים על כל המנוי. מנויים שכבר נמכרו שומרים על הכללים שבהם נמכרו.")}</p>
                 </>
             )}
         </fieldset>
@@ -139,24 +140,24 @@ export function SellMembers({ type, holderId, members, setMembers, terms }: {
     const price = type.family_prices[members.length];
     return (
         <fieldset className="rounded-xl border border-slate-200 p-3 space-y-2">
-            <legend className="px-1 text-xs font-semibold text-slate-600">בני המשפחה במנוי{type.max_members ? ` (עד ${type.max_members} כולל בעל/ת המנוי)` : ""}</legend>
+            <legend className="px-1 text-xs font-semibold text-slate-600">{tx("בני המשפחה במנוי")}{type.max_members ? tx(" (עד {0} כולל בעל/ת המנוי)", { 0: type.max_members }) : ""}</legend>
             {members.map(c => (
                 <div key={c.id} className="flex items-center justify-between rounded-lg bg-slate-50 px-3 min-h-10">
                     <span className="text-sm text-slate-800">{c.full_name}</span>
-                    <button type="button" onClick={() => setMembers(members.filter(x => x.id !== c.id))} aria-label={`הסרת ${c.full_name}`} className="w-8 h-8 flex items-center justify-center text-slate-400">
+                    <button type="button" onClick={() => setMembers(members.filter(x => x.id !== c.id))} aria-label={tx("הסרת {0}", { 0: c.full_name })} className="w-8 h-8 flex items-center justify-center text-slate-400">
                         <X className="w-4 h-4" aria-hidden />
                     </button>
                 </div>
             ))}
             {room && (adding ? (
                 <ClientSearch terms={terms} onPick={c => { if (c.id !== holderId && !members.some(x => x.id === c.id)) setMembers([...members, c]); setAdding(false); }}
-                    note={id => (id === holderId ? "בעל/ת המנוי" : members.some(x => x.id === id) ? "כבר במנוי" : null)} />
+                    note={id => (id === holderId ? tx("בעל/ת המנוי") : members.some(x => x.id === id) ? tx("כבר במנוי") : null)} />
             ) : (
                 <button type="button" onClick={() => setAdding(true)} className="inline-flex items-center gap-1.5 min-h-10 px-3 rounded-lg border border-dashed border-slate-300 text-sm text-slate-700">
-                    <UserPlus className="w-4 h-4" aria-hidden /> הוספת בן/בת משפחה
+                    <UserPlus className="w-4 h-4" aria-hidden /> {tx("הוספת בן/בת משפחה")}
                 </button>
             ))}
-            {price !== undefined && <p className="text-xs text-slate-600 tabular-nums">המחיר ל-{members.length + 1} {members.length ? "אנשים" : "אדם"}: {shekels(price)}</p>}
+            {price !== undefined && <p className="text-xs text-slate-600 tabular-nums">{tx("המחיר ל-")}{members.length + 1} {members.length ? tx("אנשים") : tx("אדם")}: {shekels(price)}</p>}
         </fieldset>
     );
 }
@@ -172,34 +173,34 @@ export function MembershipMembers({ m, terms, canAdd, canRemove, busy, onAdd, on
     const locked = m.members_change === "locked";
     return (
         <div className="space-y-2">
-            <p className="flex items-center gap-1.5 text-xs font-semibold text-slate-500"><Users className="w-3.5 h-3.5" aria-hidden />במנוי ({m.members.length}{m.max_members ? ` מתוך ${m.max_members}` : ""})</p>
+            <p className="flex items-center gap-1.5 text-xs font-semibold text-slate-500"><Users className="w-3.5 h-3.5" aria-hidden />{tx("במנוי (")}{m.members.length}{m.max_members ? tx(" מתוך {0}", { 0: m.max_members }) : ""})</p>
             <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200">
                 {m.members.map(p => (
                     <li key={p.client_id} className="px-3 py-2 flex items-center gap-2 min-h-11">
                         <span className="flex-1 min-w-0 text-sm text-slate-900 truncate">{p.full_name}</span>
-                        {p.holder && <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-800 bg-amber-50 rounded-full px-2"><Crown className="w-3 h-3" aria-hidden />בעל/ת המנוי</span>}
-                        {p.used !== null && <span className="text-[11px] text-slate-500 tabular-nums">השתמש/ה ב-{p.used}</span>}
+                        {p.holder && <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-800 bg-amber-50 rounded-full px-2"><Crown className="w-3 h-3" aria-hidden />{tx("בעל/ת המנוי")}</span>}
+                        {p.used !== null && <span className="text-[11px] text-slate-500 tabular-nums">{tx("השתמש/ה ב-")}{p.used}</span>}
                         {canRemove && !locked && !p.holder && (removing === p.client_id ? (
                             <span className="flex items-center gap-1">
                                 <button type="button" disabled={busy} onClick={() => { onRemove(p.client_id, p.full_name); setRemoving(null); }}
-                                    className="min-h-9 px-2 rounded-lg bg-rose-600 text-white text-xs font-bold">להוציא</button>
-                                <button type="button" onClick={() => setRemoving(null)} className="min-h-9 px-2 text-xs text-slate-600">חזרה</button>
+                                    className="min-h-9 px-2 rounded-lg bg-rose-600 text-white text-xs font-bold">{tx("להוציא")}</button>
+                                <button type="button" onClick={() => setRemoving(null)} className="min-h-9 px-2 text-xs text-slate-600">{tx("חזרה")}</button>
                             </span>
                         ) : (
-                            <button type="button" onClick={() => setRemoving(p.client_id)} aria-label={`הוצאת ${p.full_name} מהמנוי`} className="w-9 h-9 flex items-center justify-center rounded-lg text-slate-400 hover:text-rose-700">
+                            <button type="button" onClick={() => setRemoving(p.client_id)} aria-label={tx("הוצאת {0} מהמנוי", { 0: p.full_name })} className="w-9 h-9 flex items-center justify-center rounded-lg text-slate-400 hover:text-rose-700">
                                 <X className="w-4 h-4" aria-hidden />
                             </button>
                         ))}
                     </li>
                 ))}
             </ul>
-            {removing && <p className="text-xs text-slate-500">השיעורים הקרובים שלו/ה במנוי יבוטלו והכניסות יחזרו. המחיר לא משתנה.</p>}
+            {removing && <p className="text-xs text-slate-500">{tx("השיעורים הקרובים שלו/ה במנוי יבוטלו והכניסות יחזרו. המחיר לא משתנה.")}</p>}
             {canAdd && !locked && room && (adding ? (
                 <ClientSearch terms={terms} busy={busy} onPick={c => { onAdd(c.id); setAdding(false); }}
-                    note={id => (m.members.some(x => x.client_id === id) ? "במנוי" : null)} />
+                    note={id => (m.members.some(x => x.client_id === id) ? tx("במנוי") : null)} />
             ) : (
                 <button type="button" onClick={() => setAdding(true)} className="inline-flex items-center gap-1.5 min-h-10 px-3 rounded-lg border border-dashed border-slate-300 text-sm text-slate-700">
-                    <UserPlus className="w-4 h-4" aria-hidden /> הוספת בן/בת משפחה{m.members_change === "priced" ? " (המחיר יתעדכן)" : ""}
+                    <UserPlus className="w-4 h-4" aria-hidden />{tx(" הוספת בן/בת משפחה")}{m.members_change === "priced" ? tx(" (המחיר יתעדכן)") : ""}
                 </button>
             ))}
         </div>

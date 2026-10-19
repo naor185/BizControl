@@ -7,6 +7,7 @@ import RequireAuth from "@/components/RequireAuth";
 import MigrationHome from "@/components/migration/MigrationHome";
 import MigrationRun from "@/components/migration/MigrationRun";
 
+import { tx } from "@/lib/i18n";
 function MigrationContent() {
     const id = useSearchParams().get("id");
     return id ? <MigrationRun key={id} id={id} /> : <MigrationHome />;
@@ -16,7 +17,7 @@ function MigrationContent() {
 export default function MigrationPage() {
     return (
         <RequireAuth>
-            <AppShell title="ייבוא נתונים">
+            <AppShell title={tx("ייבוא נתונים")}>
                 <Suspense fallback={null}>
                     <MigrationContent />
                 </Suspense>
