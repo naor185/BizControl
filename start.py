@@ -2978,6 +2978,31 @@ def ensure_schema():
         """)
         cur.execute("CREATE INDEX IF NOT EXISTS ix_shift_constraints_studio_id ON shift_constraints (studio_id)")
         cur.execute("CREATE INDEX IF NOT EXISTS ix_shift_constraints_user_id ON shift_constraints (user_id)")
+        # workers' requests — swaps and time off (services/staff_requests.py — the workers center's stage 3)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS staff_requests (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                kind VARCHAR(10) NOT NULL,
+                status VARCHAR(20) NOT NULL,
+                shift_id UUID REFERENCES scheduled_shifts(id) ON DELETE SET NULL,
+                target_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+                target_shift_id UUID REFERENCES scheduled_shifts(id) ON DELETE SET NULL,
+                date_from DATE,
+                date_to DATE,
+                note VARCHAR(300),
+                summary VARCHAR(200),
+                decided_by UUID REFERENCES users(id) ON DELETE SET NULL,
+                decided_at TIMESTAMPTZ,
+                decision_note VARCHAR(300),
+                lock_task_ids TEXT,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_staff_requests_studio_id ON staff_requests (studio_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_staff_requests_user_id ON staff_requests (user_id)")
         # what a manager may do — the owner's switches (none set: the defaults)
         cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS manager_permissions TEXT")
         # the invitation to the BizFind app (services/app_invite.py), and the store links on the platform's row

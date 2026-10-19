@@ -63,6 +63,7 @@ SERVICE_TYPES = frozenset({
     "deposit_reported",      # a client says they paid the deposit (services/deposit_report)
     "task_assigned", "task_overdue", "task_done",   # a worker's task (services/team_tasks)
     "schedule_published",                           # a worker's shifts for the week (services/schedule)
+    "swap_request", "swap_answer", "request_decided",   # a worker's requests — swaps, time off (services/staff_requests)
     "viki_summary",                                  # ויקי's weekly / monthly summary, to the owner (services/viki_summary)
     "crm",                   # from BizControl to a business's owner (the superadmin's CRM — services/platform_outreach)
 })

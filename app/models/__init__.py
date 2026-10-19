@@ -41,6 +41,7 @@ from app.models.tutorial_progress import TutorialProgress
 from app.models.viki_dismissal import VikiDismissal
 from app.models.viki_summary import VikiSummary
 from app.models.schedule import ScheduledShift, ScheduleWeek, ShiftConstraint
+from app.models.staff_request import StaffRequest
 
 __all__ = [
     "Base", "Studio", "User", "StudioSettings", "RefreshToken",
@@ -54,5 +55,5 @@ __all__ = [
     "Migration", "MigrationRow", "ExternalRecord", "MigrationEvent",
     "HealthForm", "HealthFormFile", "HealthDeclaration",
     "Task", "TaskCompletion", "TutorialProgress", "VikiDismissal", "VikiSummary",
-    "ScheduledShift", "ScheduleWeek", "ShiftConstraint",
+    "ScheduledShift", "ScheduleWeek", "ShiftConstraint", "StaffRequest",
 ]

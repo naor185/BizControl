@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlarmClock, CircleCheck, Users } from "lucide-react";
+import Link from "next/link";
+import { AlarmClock, CircleCheck, Inbox, Users } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { fmtDuration } from "@/components/team/PresenceNow";
 
@@ -33,6 +34,11 @@ function Card({ title, icon, tone, children, count }: { title: string; icon: Rea
 export default function TodayPanel() {
     const [t, setT] = useState<Today | null>(null);
     const [now, setNow] = useState(() => Date.now());
+    const [waiting, setWaiting] = useState(0);         // requests waiting for a decision (services/staff_requests)
+    useEffect(() => {
+        apiFetch<{ waiting?: { status: string }[] }>("/api/requests")
+            .then(r => setWaiting((r.waiting ?? []).filter(x => x.status === "waiting_owner").length)).catch(() => {});
+    }, []);
 
     useEffect(() => {
         let alive = true;
@@ -45,6 +51,12 @@ export default function TodayPanel() {
     if (!t) return <div className="h-40 bg-white/60 animate-pulse rounded-2xl" />;
     const row = "flex items-center gap-3 px-4 py-2.5";
     return (
+        <div className="space-y-4">
+        {waiting > 0 && (
+            <Link href="/team?tab=requests" className="flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900 font-semibold">
+                <Inbox className="w-5 h-5 shrink-0" aria-hidden /> {waiting === 1 ? "בקשה אחת מחכה לאישור שלך" : `${waiting} בקשות מחכות לאישור שלך`}
+            </Link>
+        )}
         <div className="grid gap-4 md:grid-cols-3">
             <Card title="בעבודה עכשיו" icon={<Users className="w-5 h-5" />} tone="text-emerald-600" count={t.working.length}>
                 {t.working.length === 0 ? <p className="px-4 py-3 text-sm text-slate-500">אף אחד לא במשמרת עכשיו</p> : (
@@ -75,6 +87,7 @@ export default function TodayPanel() {
                         </li>))}</ul>
                 )}
             </Card>
+        </div>
         </div>
     );
 }

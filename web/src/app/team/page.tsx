@@ -1,6 +1,6 @@
 "use client";
 import { toast } from "@/lib/toast";
-import { Briefcase, Crown, User, CircleHelp, CalendarClock, CalendarRange, Users, Wallet } from "lucide-react";
+import { Briefcase, Crown, User, CircleHelp, CalendarClock, CalendarRange, Inbox, Users, Wallet } from "lucide-react";
 import { useTerms } from "@/lib/useTerms";
 
 import { Suspense, useEffect, useState } from "react";
@@ -16,15 +16,18 @@ import ClockCode from "@/components/team/ClockCode";
 import TodayPanel from "@/components/team/TodayPanel";
 import PayrollPanel from "@/components/team/PayrollPanel";
 import SchedulePanel from "@/components/team/SchedulePanel";
+import RequestsPanel from "@/components/team/RequestsPanel";
 
 // The workers center (the owner, 2026-10-19: "one place for everything about the workers"): היום — who is on shift,
 // who hasn't clocked in, who finished; צוות — the team, its roles and pay, the attendance clock's settings;
 // סידור עבודה — the week's shifts and the workers' constraints (stage 2); שעות ושכר — the month's pay and the
-// accountant (for who may see the money). ?tab=today|schedule|team|pay
-type Tab = "today" | "schedule" | "team" | "pay";
+// accountant (for who may see the money); בקשות — swaps and time off to approve (stage 3).
+// ?tab=today|schedule|requests|team|pay
+type Tab = "today" | "schedule" | "requests" | "team" | "pay";
 const TABS: { id: Tab; label: string; icon: typeof Users }[] = [
     { id: "today", label: "היום", icon: CalendarClock },
     { id: "schedule", label: "סידור", icon: CalendarRange },
+    { id: "requests", label: "בקשות", icon: Inbox },
     { id: "team", label: "צוות", icon: Users },
     { id: "pay", label: "שכר", icon: Wallet },
 ];
@@ -127,7 +130,7 @@ function TeamCenter() {
     const [seats, setSeats] = useState<{ used: number; limit: number | null; left: number | null } | null>(null);
     const router = useRouter();
     const asked = useSearchParams().get("tab");
-    const tab: Tab = asked === "team" || asked === "pay" || asked === "schedule" ? asked : "today";
+    const tab: Tab = asked === "team" || asked === "pay" || asked === "schedule" || asked === "requests" ? asked : "today";
     const setTab = (t: Tab) => router.replace(t === "today" ? "/team" : `/team?tab=${t}`, { scroll: false });
     // the money tab: the owner, or a manager allowed money
     const [seesPay, setSeesPay] = useState(() => getCurrentUserRole() === "owner");
@@ -285,13 +288,14 @@ function TeamCenter() {
                         {TABS.filter(t => t.id !== "pay" || seesPay).map(t => (
                             <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)}
                                 className={`flex-1 md:flex-none inline-flex items-center justify-center gap-1.5 min-h-11 px-2.5 md:px-4 whitespace-nowrap rounded-xl text-sm font-bold transition ${tab === t.id ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-50"}`}>
-                                <t.icon className="w-4 h-4" aria-hidden /> {t.label}
+                                <t.icon className="w-4 h-4 hidden sm:block" aria-hidden /> {t.label}
                             </button>
                         ))}
                     </div>
 
                     {tab === "today" && <TodayPanel />}
                     {tab === "schedule" && <SchedulePanel />}
+                    {tab === "requests" && <RequestsPanel />}
                     {tab === "pay" && seesPay && <PayrollPanel />}
 
                     {tab === "team" && <>
