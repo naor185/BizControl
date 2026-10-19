@@ -6,6 +6,7 @@ import { AlarmClock, CircleCheck, Inbox, Users } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { fmtDuration, workedMinutes } from "@/components/team/PresenceNow";
 
+import { intl, tx } from "@/lib/i18n";
 // The "היום" tab of the workers center (the owner, 2026-10-19): who is on shift and for how long, who has a shift or
 // appointments today and hasn't clocked in (late — in red, services/attendance_report.py), and the shifts that ended today — GET /api/staff/today, asked again
 // every half minute.
@@ -16,7 +17,7 @@ type Today = {
     done: { user_id: string; name: string; start: string; end: string; hours: number }[];
 };
 
-const hhmm = (iso: string) => new Date(iso).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
+const hhmm = (iso: string) => new Date(iso).toLocaleTimeString(intl(), { hour: "2-digit", minute: "2-digit" });
 
 function Card({ title, icon, tone, children, count }: { title: string; icon: React.ReactNode; tone: string; children: React.ReactNode; count: number }) {
     return (
@@ -54,38 +55,38 @@ export default function TodayPanel() {
         <div className="space-y-4">
         {waiting > 0 && (
             <Link href="/team?tab=requests" className="flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900 font-semibold">
-                <Inbox className="w-5 h-5 shrink-0" aria-hidden /> {waiting === 1 ? "בקשה אחת מחכה לאישור שלך" : `${waiting} בקשות מחכות לאישור שלך`}
+                <Inbox className="w-5 h-5 shrink-0" aria-hidden /> {waiting === 1 ? tx("בקשה אחת מחכה לאישור שלך") : tx("{0} בקשות מחכות לאישור שלך", { 0: waiting })}
             </Link>
         )}
         <div className="grid gap-4 md:grid-cols-3">
-            <Card title="בעבודה עכשיו" icon={<Users className="w-5 h-5" />} tone="text-emerald-600" count={t.working.length}>
-                {t.working.length === 0 ? <p className="px-4 py-3 text-sm text-slate-500">אף אחד לא במשמרת עכשיו</p> : (
+            <Card title={tx("בעבודה עכשיו")} icon={<Users className="w-5 h-5" />} tone="text-emerald-600" count={t.working.length}>
+                {t.working.length === 0 ? <p className="px-4 py-3 text-sm text-slate-500">{tx("אף אחד לא במשמרת עכשיו")}</p> : (
                     <ul className="divide-y divide-slate-100">{t.working.map(w => (
                         <li key={w.user_id} className={row}>
                             <span className="flex-1 min-w-0"><b className="block text-sm text-slate-800 truncate">{w.name}</b>
-                                <span className="text-xs text-slate-500">כניסה ב-{hhmm(w.since)}
-                                    {w.on_break_since && <span className="ms-1.5 font-semibold text-amber-700">· בהפסקה מ-{hhmm(w.on_break_since)}</span>}</span></span>
+                                <span className="text-xs text-slate-500">{tx("כניסה ב-")}{hhmm(w.since)}
+                                    {w.on_break_since && <span className="ms-1.5 font-semibold text-amber-700">{tx("· בהפסקה מ-")}{hhmm(w.on_break_since)}</span>}</span></span>
                             <span className="text-sm font-bold tabular-nums text-emerald-700">{fmtDuration(workedMinutes(w.since, now, w.break_minutes, w.on_break_since))}</span>
                         </li>))}</ul>
                 )}
             </Card>
-            <Card title="עוד לא החתימו" icon={<AlarmClock className="w-5 h-5" />} tone="text-amber-600" count={t.missing.length}>
-                {t.missing.length === 0 ? <p className="px-4 py-3 text-sm text-slate-500">כל מי שיש לו משמרת או תורים היום כבר החתים</p> : (
+            <Card title={tx("עוד לא החתימו")} icon={<AlarmClock className="w-5 h-5" />} tone="text-amber-600" count={t.missing.length}>
+                {t.missing.length === 0 ? <p className="px-4 py-3 text-sm text-slate-500">{tx("כל מי שיש לו משמרת או תורים היום כבר החתים")}</p> : (
                     <ul className="divide-y divide-slate-100">{t.missing.map(m => (
                         <li key={m.user_id} className={row}>
                             <b className="flex-1 min-w-0 text-sm text-slate-800 truncate">{m.name}</b>
-                            <span className="text-end text-xs text-amber-700 font-semibold">{m.kind === "shift" ? "משמרת" : "תור ראשון"} ב-{hhmm(m.first_at)}
-                                {m.late_min ? <span className="block text-rose-700">איחור {m.late_min} דק׳</span> : null}</span>
+                            <span className="text-end text-xs text-amber-700 font-semibold">{m.kind === "shift" ? tx("משמרת") : tx("תור ראשון")}{tx(" ב-")}{hhmm(m.first_at)}
+                                {m.late_min ? <span className="block text-rose-700">{tx("איחור ")}{m.late_min}{tx(" דק׳")}</span> : null}</span>
                         </li>))}</ul>
                 )}
             </Card>
-            <Card title="סיימו היום" icon={<CircleCheck className="w-5 h-5" />} tone="text-sky-600" count={t.done.length}>
-                {t.done.length === 0 ? <p className="px-4 py-3 text-sm text-slate-500">עוד אין משמרות שהסתיימו היום</p> : (
+            <Card title={tx("סיימו היום")} icon={<CircleCheck className="w-5 h-5" />} tone="text-sky-600" count={t.done.length}>
+                {t.done.length === 0 ? <p className="px-4 py-3 text-sm text-slate-500">{tx("עוד אין משמרות שהסתיימו היום")}</p> : (
                     <ul className="divide-y divide-slate-100">{t.done.map((d, i) => (
                         <li key={`${d.user_id}-${i}`} className={row}>
                             <span className="flex-1 min-w-0"><b className="block text-sm text-slate-800 truncate">{d.name}</b>
                                 <span className="text-xs text-slate-500 tabular-nums">{hhmm(d.start)}–{hhmm(d.end)}</span></span>
-                            <span className="text-sm font-bold tabular-nums text-slate-700">{d.hours.toFixed(1)} שע׳</span>
+                            <span className="text-sm font-bold tabular-nums text-slate-700">{d.hours.toFixed(1)}{tx(" שע׳")}</span>
                         </li>))}</ul>
                 )}
             </Card>

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
 
+import { tx, intl } from "@/lib/i18n";
 // Who is on shift right now and for how long (GET /api/nfc/presence — a shift clocked in and not out). The owner,
 // 2026-10-18: "I want to see the workers' clock — how long they've been on shift". One list for the header's
 // "פעילים" (components/ClockWidget), ניהול צוות (components/team/ClockCode) and the owner's scan of the barcode
@@ -20,7 +21,7 @@ export function workedMinutes(since: string, now: number, breakMinutes = 0, onBr
 export function fmtDuration(minutes: number): string {
     const h = Math.floor(minutes / 60);
     const m = minutes % 60;
-    return h === 0 ? `${m} דק׳` : `${h} שע׳ ${m} דק׳`;
+    return h === 0 ? tx("{0} דק׳", { 0: m }) : tx("{0} שע׳ {1} דק׳", { 0: h, 1: m });
 }
 
 /** The list, asked for again every 30 seconds — null until the first answer. */
@@ -36,7 +37,7 @@ export function usePresence(): PresenceEntry[] | null {
     return list;
 }
 
-export function PresenceList({ entries, empty = "אף אחד לא במשמרת עכשיו" }: { entries: PresenceEntry[]; empty?: string }) {
+export function PresenceList({ entries, empty = tx("אף אחד לא במשמרת עכשיו") }: { entries: PresenceEntry[]; empty?: string }) {
     const [now, setNow] = useState(() => Date.now());
     useEffect(() => {
         const t = setInterval(() => setNow(Date.now()), 30000);
@@ -57,8 +58,8 @@ export function PresenceList({ entries, empty = "אף אחד לא במשמרת �
                         <span className="flex-1 min-w-0">
                             <span className="block text-sm font-semibold text-slate-800 truncate">{p.user_name}</span>
                             <span className="block text-xs text-slate-500">
-                                כניסה ב-{since.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}
-                                {p.on_break_since && <span className="ms-1.5 font-semibold text-amber-700">· בהפסקה מ-{new Date(p.on_break_since).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}</span>}
+                                {tx("כניסה ב-")}{since.toLocaleTimeString(intl(), { hour: "2-digit", minute: "2-digit" })}
+                                {p.on_break_since && <span className="ms-1.5 font-semibold text-amber-700">{tx("· בהפסקה מ-")}{new Date(p.on_break_since).toLocaleTimeString(intl(), { hour: "2-digit", minute: "2-digit" })}</span>}
                             </span>
                         </span>
                         <span className="text-sm font-bold tabular-nums text-emerald-700 shrink-0">{fmtDuration(minutes)}</span>

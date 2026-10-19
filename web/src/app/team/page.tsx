@@ -19,6 +19,7 @@ import SchedulePanel from "@/components/team/SchedulePanel";
 import RequestsPanel from "@/components/team/RequestsPanel";
 import ReportsPanel from "@/components/team/ReportsPanel";
 
+import { tx } from "@/lib/i18n";
 // The workers center (the owner, 2026-10-19: "one place for everything about the workers"): היום — who is on shift,
 // who hasn't clocked in, who finished; צוות — the team, its roles and pay, the attendance clock's settings;
 // סידור עבודה — the week's shifts and the workers' constraints (stage 2); שעות ושכר — the month's pay and the
@@ -27,12 +28,12 @@ import ReportsPanel from "@/components/team/ReportsPanel";
 // ?tab=today|schedule|requests|team|pay|reports
 type Tab = "today" | "schedule" | "requests" | "team" | "pay" | "reports";
 const TABS: { id: Tab; label: string; icon: typeof Users }[] = [
-    { id: "today", label: "היום", icon: CalendarClock },
-    { id: "schedule", label: "סידור", icon: CalendarRange },
-    { id: "requests", label: "בקשות", icon: Inbox },
-    { id: "team", label: "צוות", icon: Users },
-    { id: "pay", label: "שכר", icon: Wallet },
-    { id: "reports", label: "דוחות", icon: BarChart3 },
+    { id: "today", label: tx("היום"), icon: CalendarClock },
+    { id: "schedule", label: tx("סידור"), icon: CalendarRange },
+    { id: "requests", label: tx("בקשות"), icon: Inbox },
+    { id: "team", label: tx("צוות"), icon: Users },
+    { id: "pay", label: tx("שכר"), icon: Wallet },
+    { id: "reports", label: tx("דוחות"), icon: BarChart3 },
 ];
 
 type Artist = {
@@ -64,19 +65,19 @@ const NO_CLASS_PAY: ClassPay = {
     class_pay_percent: 0, class_pay_counts: "attended",
 };
 const CLASS_PAY_MODES: { value: ClassPayMode; label: string }[] = [
-    { value: "none", label: "בלי" },
-    { value: "per_class", label: "סכום לשיעור" },
-    { value: "per_participant", label: "לכל משתתף" },
-    { value: "both", label: "סכום + לכל משתתף" },
-    { value: "percent", label: "אחוז מהכניסות הבודדות" },
+    { value: "none", label: tx("בלי") },
+    { value: "per_class", label: tx("סכום לשיעור") },
+    { value: "per_participant", label: tx("לכל משתתף") },
+    { value: "both", label: tx("סכום + לכל משתתף") },
+    { value: "percent", label: tx("אחוז מהכניסות הבודדות") },
 ];
 
 function classPaySummary(a: ClassPay): string | null {
     switch (a.class_pay_mode) {
-        case "per_class": return `שיעורים: ₪${a.class_pay_per_class} לשיעור`;
-        case "per_participant": return `שיעורים: ₪${a.class_pay_per_participant} למשתתף${Number(a.class_pay_minimum) ? ` (מינימום ₪${a.class_pay_minimum})` : ""}`;
-        case "both": return `שיעורים: ₪${a.class_pay_per_class} + ₪${a.class_pay_per_participant} למשתתף`;
-        case "percent": return `שיעורים: ${a.class_pay_percent}% מהכניסות הבודדות`;
+        case "per_class": return tx("שיעורים: ₪{0} לשיעור", { 0: a.class_pay_per_class });
+        case "per_participant": return tx("שיעורים: ₪{0} למשתתף{1}", { 0: a.class_pay_per_participant, 1: Number(a.class_pay_minimum) ? tx(" (מינימום ₪{0})", { 0: a.class_pay_minimum }) : "" });
+        case "both": return tx("שיעורים: ₪{0} + ₪{1} למשתתף", { 0: a.class_pay_per_class, 1: a.class_pay_per_participant });
+        case "percent": return tx("שיעורים: {0}% מהכניסות הבודדות", { 0: a.class_pay_percent });
         default: return null;
     }
 }
@@ -152,7 +153,7 @@ function TeamCenter() {
             const data = await apiFetch<Artist[]>("/api/users/artists");
             setArtists(data);
         } catch (e: any) {
-            setErr(e?.message || "שגיאה בטעינת הצוות");
+            setErr(e?.message || tx("שגיאה בטעינת הצוות"));
         } finally {
             setLoading(false);
         }
@@ -208,7 +209,7 @@ function TeamCenter() {
 
     const handleSave = async () => {
         if (!displayName.trim() || (!editingUserId && (!email.trim() || !password.trim()))) {
-            toast.error("נא למלא את כל שדות החובה");
+            toast.error(tx("נא למלא את כל שדות החובה"));
             return;
         }
 
@@ -244,7 +245,7 @@ function TeamCenter() {
             setIsModalOpen(false);
             loadArtists();
         } catch (e: any) {
-            toast.error(e?.message || "שגיאה בשמירת חבר הצוות");
+            toast.error(e?.message || tx("שגיאה בשמירת חבר הצוות"));
         }
     };
 
@@ -255,21 +256,21 @@ function TeamCenter() {
             setDeletingUserId(null);
             loadArtists();
         } catch (e: any) {
-            toast.error(e?.message || "שגיאה במחיקת משתמש");
+            toast.error(e?.message || tx("שגיאה במחיקת משתמש"));
         }
     };
 
     return (
         <RequireAuth>
-            <AppShell title="מרכז העובדים">
+            <AppShell title={tx("מרכז העובדים")}>
                 <div className="p-4 md:p-8 max-w-[1200px] mx-auto space-y-8 animate-in fade-in duration-500">
 
                     {/* Header */}
                     <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                         <div>
-                            <h1 className="text-3xl font-black text-slate-800 tracking-tight">מרכז העובדים</h1>
+                            <h1 className="text-3xl font-black text-slate-800 tracking-tight">{tx("מרכז העובדים")}</h1>
                             <p className="mt-2 text-slate-500 max-w-xl leading-relaxed">
-                                מי בעבודה היום, הצוות והרשאות, שעון הנוכחות, שעות ושכר.
+                                {tx("מי בעבודה היום, הצוות והרשאות, שעון הנוכחות, שעות ושכר.")}
                             </p>
                         </div>
                         {tab === "team" && <div className="flex flex-col items-stretch md:items-end gap-1.5 w-full md:w-auto">
@@ -281,18 +282,18 @@ function TeamCenter() {
                                 <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
                                 </svg>
-                                הוסף איש צוות
+                                {tx("הוסף איש צוות")}
                             </button>
                             {seats?.limit != null && (
                                 <p className={`text-xs ${seats.left === 0 ? "text-amber-700 font-semibold" : "text-slate-500"}`}>
-                                    {seats.used} מתוך {seats.limit} אנשי צוות במסלול (כולל בעל העסק)
-                                    {seats.left === 0 && !isNativeApp() && <> · <a href="/billing" className="underline">שדרוג מסלול</a></>}
+                                    {seats.used}{tx(" מתוך ")}{seats.limit} {tx("אנשי צוות במסלול (כולל בעל העסק)")}
+                                    {seats.left === 0 && !isNativeApp() && <> · <a href="/billing" className="underline">{tx("שדרוג מסלול")}</a></>}
                                 </p>
                             )}
                         </div>}
                     </div>
 
-                    <div role="tablist" aria-label="מרכז העובדים" className="flex gap-1 rounded-2xl bg-white p-1 border border-slate-200/70 shadow-sm w-full md:w-fit">
+                    <div role="tablist" aria-label={tx("מרכז העובדים")} className="flex gap-1 rounded-2xl bg-white p-1 border border-slate-200/70 shadow-sm w-full md:w-fit">
                         {TABS.filter(t => t.id !== "pay" || seesPay).map(t => (
                             <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)}
                                 className={`flex-1 md:flex-none inline-flex items-center justify-center gap-1.5 min-h-11 px-2.5 md:px-4 whitespace-nowrap rounded-xl text-sm font-bold transition ${tab === t.id ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-50"}`}>
@@ -322,20 +323,20 @@ function TeamCenter() {
                         {loading ? (
                             <div className="p-12 flex flex-col justify-center items-center">
                                 <div className="animate-spin w-10 h-10 border-4 border-slate-800 border-t-transparent rounded-full mb-4"></div>
-                                <p className="text-slate-500 font-medium">טוען נתוני צוות...</p>
+                                <p className="text-slate-500 font-medium">{tx("טוען נתוני צוות...")}</p>
                             </div>
                         ) : (
                             <div className="overflow-x-auto">
-                                <table className="w-full text-right border-collapse">
+                                <table className="w-full text-start border-collapse">
                                     <thead>
                                         <tr className="bg-slate-50/80 border-b border-slate-100 text-slate-500 text-sm">
-                                            <th className="p-4 font-semibold w-16 text-center">צבע ביומן</th>
-                                            <th className="p-4 font-semibold">שם תצוגה</th>
-                                            <th className="p-4 font-semibold">אימייל (כניסה)</th>
-                                            <th className="p-4 font-semibold">תפקיד</th>
-                                            <th className="p-4 font-semibold">הגדרות שכר</th>
-                                            <th className="p-4 font-semibold text-center">פעיל</th>
-                                            <th className="p-4 font-semibold text-center">פעולות</th>
+                                            <th className="p-4 font-semibold w-16 text-center">{tx("צבע ביומן")}</th>
+                                            <th className="p-4 font-semibold">{tx("שם תצוגה")}</th>
+                                            <th className="p-4 font-semibold">{tx("אימייל (כניסה)")}</th>
+                                            <th className="p-4 font-semibold">{tx("תפקיד")}</th>
+                                            <th className="p-4 font-semibold">{tx("הגדרות שכר")}</th>
+                                            <th className="p-4 font-semibold text-center">{tx("פעיל")}</th>
+                                            <th className="p-4 font-semibold text-center">{tx("פעולות")}</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-50">
@@ -358,18 +359,18 @@ function TeamCenter() {
                                                         artist.role === "staff"  ? "bg-orange-100 text-orange-700" :
                                                                                    "bg-emerald-100 text-emerald-700"
                                                     }`}>
-                                                        {artist.role === "owner"  ? "בעלים" :
-                                                         artist.role === "admin"  ? "סגן מנהל" :
-                                                         artist.role === "staff"  ? "עובד/ת" :
+                                                        {artist.role === "owner"  ? tx("בעלים") :
+                                                         artist.role === "admin"  ? tx("סגן מנהל") :
+                                                         artist.role === "staff"  ? tx("עובד/ת") :
                                                                                     terms.staff}
                                                     </span>
                                                 </td>
                                                 <td className="p-4">
                                                     <div className="text-xs font-medium text-slate-600">
-                                                        {artist.pay_type === "hourly" ? `שעתי: ₪${artist.hourly_rate}/ש` :
-                                                         artist.pay_type === "commission" ? `עמלה: ${artist.commission_rate}%` :
-                                                         artist.pay_type === "global" ? `גלובלי: ₪${artist.global_salary}/חודש` :
-                                                         "ללא שכר"}
+                                                        {artist.pay_type === "hourly" ? tx("שעתי: ₪{0}/ש", { 0: artist.hourly_rate }) :
+                                                         artist.pay_type === "commission" ? tx("עמלה: {0}%", { 0: artist.commission_rate }) :
+                                                         artist.pay_type === "global" ? tx("גלובלי: ₪{0}/חודש", { 0: artist.global_salary }) :
+                                                         tx("ללא שכר")}
                                                     </div>
                                                     {classesOn && classPaySummary(artist) && (
                                                         <div className="text-[11px] text-slate-500 mt-0.5">{classPaySummary(artist)}</div>
@@ -386,7 +387,7 @@ function TeamCenter() {
                                                         <button
                                                             onClick={() => openEditModal(artist)}
                                                             className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-xl transition-colors"
-                                                            title="ערוך"
+                                                            title={tx("ערוך")}
                                                         >
                                                             <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                                                 <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -396,7 +397,7 @@ function TeamCenter() {
                                                             <button
                                                                 onClick={() => setSessionsFor({ id: artist.id, name: artist.display_name })}
                                                                 className="p-2 text-slate-400 hover:text-sky-500 hover:bg-sky-50 rounded-xl transition-colors"
-                                                                title="מכשירים מחוברים"
+                                                                title={tx("מכשירים מחוברים")}
                                                             >
                                                                 <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                                                     <rect x="7" y="2" width="10" height="20" rx="2" />
@@ -408,7 +409,7 @@ function TeamCenter() {
                                                             <button
                                                                 onClick={() => setDeletingUserId(artist.id)}
                                                                 className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"
-                                                                title="מחק"
+                                                                title={tx("מחק")}
                                                             >
                                                                 <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                                                     <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -422,7 +423,7 @@ function TeamCenter() {
                                         {artists.length === 0 && !loading && (
                                             <tr>
                                                 <td colSpan={6} className="p-8 text-center text-slate-500">
-                                                    לא נמצאו חברי צוות במערכת.
+                                                    {tx("לא נמצאו חברי צוות במערכת.")}
                                                 </td>
                                             </tr>
                                         )}
@@ -441,37 +442,37 @@ function TeamCenter() {
                     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
                         <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[90dvh]">
                             <div className="bg-slate-50 border-b border-slate-100 p-5 flex items-center justify-between shrink-0">
-                                <h3 className="text-xl font-bold text-slate-800">{editingUserId ? "עריכת איש צוות" : "הוספת איש צוות"}</h3>
+                                <h3 className="text-xl font-bold text-slate-800">{editingUserId ? tx("עריכת איש צוות") : tx("הוספת איש צוות")}</h3>
                                 <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-2 hover:bg-white rounded-full transition-colors">✕</button>
                             </div>
 
                             <div className="p-6 space-y-4 overflow-y-auto">
                                 <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-1">שם תצוגה (מופיע ללקוחות)</label>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-1">{tx("שם תצוגה (מופיע ללקוחות)")}</label>
                                     <input
                                         type="text"
                                         value={displayName}
                                         onChange={e => setDisplayName(e.target.value)}
                                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-sky-600"
-                                        placeholder="שם תצוגה"
+                                        placeholder={tx("שם תצוגה")}
                                     />
                                 </div>
 
                                 {/* Role selector — not on the owner's own row; only the owner makes someone a manager */}
                                 {!editingOwner && <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-2">תפקיד</label>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-2">{tx("תפקיד")}</label>
                                     <div className="grid grid-cols-2 gap-2">
                                         {([
-                                            { value: "artist", icon: Briefcase, label: terms.staff, desc: "גישה ליומן שלהם בלבד" },
-                                            { value: "staff",  icon: User,    label: "איש/אשת צוות", desc: "עובד/ת ללא ניהול" },
-                                            { value: "admin",  icon: Crown,   label: "סגן מנהל", desc: "ניהול — במה שבעל העסק מאפשר" },
+                                            { value: "artist", icon: Briefcase, label: terms.staff, desc: tx("גישה ליומן שלהם בלבד") },
+                                            { value: "staff",  icon: User,    label: tx("איש/אשת צוות"), desc: tx("עובד/ת ללא ניהול") },
+                                            { value: "admin",  icon: Crown,   label: tx("סגן מנהל"), desc: tx("ניהול — במה שבעל העסק מאפשר") },
                                         ] as const).filter(opt => opt.value !== "admin" || getCurrentUserRole() === "owner").map(opt => (
                                             <button
                                                 key={opt.value}
                                                 type="button"
                                                 onClick={() => setRole(opt.value)}
                                                 className={[
-                                                    "flex flex-col items-start gap-0.5 p-3 rounded-xl border-2 text-right transition-all",
+                                                    "flex flex-col items-start gap-0.5 p-3 rounded-xl border-2 text-start transition-all",
                                                     role === opt.value
                                                         ? "border-slate-900 bg-slate-900 text-white"
                                                         : "border-slate-200 bg-white text-slate-700 hover:border-slate-400",
@@ -486,8 +487,8 @@ function TeamCenter() {
                                 </div>}
 
                                 <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-1">צבע ביומן</label>
-                                    <p className="text-xs text-slate-500 mb-2">בחר צבע שבו יופיעו התורים של איש צוות זה ביומן.</p>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-1">{tx("צבע ביומן")}</label>
+                                    <p className="text-xs text-slate-500 mb-2">{tx("בחר צבע שבו יופיעו התורים של איש צוות זה ביומן.")}</p>
                                     <div className="flex flex-wrap gap-3">
                                         {COLOR_PRESETS.map(color => (
                                             <button
@@ -502,12 +503,12 @@ function TeamCenter() {
                                 </div>
 
                                 <div className="pt-4 border-t border-slate-100">
-                                    <label className="block text-sm font-semibold text-slate-700 mb-1">הגדרות שכר (Payroll)</label>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-1">{tx("הגדרות שכר (Payroll)")}</label>
                                     <div className="flex gap-2 mb-3">
                                         {([
-                                            { value: "hourly",     label: "⏱️ שעתי" },
-                                            { value: "commission", label: "📊 עמלה" },
-                                            { value: "global",     label: "💼 גלובלי" },
+                                            { value: "hourly",     label: tx("⏱️ שעתי") },
+                                            { value: "commission", label: tx("📊 עמלה") },
+                                            { value: "global",     label: tx("💼 גלובלי") },
                                         ] as const).map((t) => (
                                             <button
                                                 key={t.value}
@@ -526,47 +527,47 @@ function TeamCenter() {
 
                                     {payType === "hourly" && (
                                         <div className="animate-in slide-in-from-top-2 duration-200">
-                                            <label className="block text-xs font-bold text-slate-500 mb-1">תעריף שעה (₪)</label>
+                                            <label className="block text-xs font-bold text-slate-500 mb-1">{tx("תעריף שעה (₪)")}</label>
                                             <input
                                                 type="number"
                                                 value={hourlyRate}
                                                 onChange={e => setHourlyRate(e.target.value === "" ? "" : Number(e.target.value))}
                                                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-sky-600"
-                                                placeholder="₪ לשעה"
+                                                placeholder={tx("₪ לשעה")}
                                             />
-                                            <label htmlFor="work_start" className="block text-xs font-bold text-slate-500 mt-3 mb-1">שעת התחלה קבועה (לא חובה)</label>
+                                            <label htmlFor="work_start" className="block text-xs font-bold text-slate-500 mt-3 mb-1">{tx("שעת התחלה קבועה (לא חובה)")}</label>
                                             <div className="flex items-center gap-2">
                                                 <input id="work_start" type="time" value={workStart} onChange={e => setWorkStart(e.target.value)}
                                                     className="w-32 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-sky-600" />
-                                                {workStart && <button type="button" onClick={() => setWorkStart("")} className="text-xs font-semibold text-slate-500 underline">בלי</button>}
+                                                {workStart && <button type="button" onClick={() => setWorkStart("")} className="text-xs font-semibold text-slate-500 underline">{tx("בלי")}</button>}
                                             </div>
-                                            <p className="text-xs text-slate-500 mt-1">בימים בלי משמרת בסידור: כניסה לפני השעה הזו נספרת מהשעה הזו.</p>
+                                            <p className="text-xs text-slate-500 mt-1">{tx("בימים בלי משמרת בסידור: כניסה לפני השעה הזו נספרת מהשעה הזו.")}</p>
                                         </div>
                                     )}
 
                                     {payType === "commission" && (
                                         <div className="animate-in slide-in-from-top-2 duration-200">
-                                            <label className="block text-xs font-bold text-slate-500 mb-1">אחוז עמלה מהכנסות (%)</label>
+                                            <label className="block text-xs font-bold text-slate-500 mb-1">{tx("אחוז עמלה מהכנסות (%)")}</label>
                                             <input
                                                 type="number"
                                                 value={commissionRate}
                                                 onChange={e => setCommissionRate(e.target.value === "" ? "" : Number(e.target.value))}
                                                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-sky-600"
-                                                placeholder="% עמלה"
+                                                placeholder={tx("% עמלה")}
                                             />
                                         </div>
                                     )}
 
                                     {payType === "global" && (
                                         <div className="animate-in slide-in-from-top-2 duration-200">
-                                            <label className="block text-xs font-bold text-slate-500 mb-1">שכר חודשי קבוע (₪)</label>
-                                            <p className="text-[11px] text-slate-400 mb-1.5">שכר גלובלי — סכום קבוע לחודש ללא קשר לשעות. נדרשת נוכחות לצורך מעקב.</p>
+                                            <label className="block text-xs font-bold text-slate-500 mb-1">{tx("שכר חודשי קבוע (₪)")}</label>
+                                            <p className="text-[11px] text-slate-400 mb-1.5">{tx("שכר גלובלי — סכום קבוע לחודש ללא קשר לשעות. נדרשת נוכחות לצורך מעקב.")}</p>
                                             <input
                                                 type="number"
                                                 value={globalSalary}
                                                 onChange={e => setGlobalSalary(e.target.value === "" ? "" : Number(e.target.value))}
                                                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-sky-600"
-                                                placeholder="₪ לחודש"
+                                                placeholder={tx("₪ לחודש")}
                                             />
                                         </div>
                                     )}
@@ -578,8 +579,8 @@ function TeamCenter() {
                                     {/* What this e-mail is — whose, who signs in with it, what they see (the owner, 2026-10-12): a tap
                                         on the "?" opens it (a phone has no hover), a pointer over it too */}
                                     <div className="flex items-center gap-1.5 mb-1">
-                                        <label htmlFor="staff-email" className="text-sm font-semibold text-slate-700">אימייל (לכניסה למערכת)</label>
-                                        <button type="button" aria-label="מה זה המייל הזה?" aria-expanded={emailHelp} aria-controls="staff-email-help"
+                                        <label htmlFor="staff-email" className="text-sm font-semibold text-slate-700">{tx("אימייל (לכניסה למערכת)")}</label>
+                                        <button type="button" aria-label={tx("מה זה המייל הזה?")} aria-expanded={emailHelp} aria-controls="staff-email-help"
                                             onClick={() => setEmailHelp(v => !v)}
                                             onMouseEnter={() => { if (window.matchMedia("(hover: hover)").matches) setEmailHelp(true); }}
                                             onMouseLeave={() => { if (window.matchMedia("(hover: hover)").matches) setEmailHelp(false); }}
@@ -589,13 +590,13 @@ function TeamCenter() {
                                     </div>
                                     {emailHelp && (
                                         <div id="staff-email-help" role="note" className="mb-2 rounded-xl border border-sky-100 bg-sky-50 p-3 text-xs leading-relaxed text-slate-700 space-y-1.5">
-                                            <p>זה המייל <b>של העובד/ת</b> — איתו הוא/היא נכנס/ת ל-BizControl, באפליקציה או באתר, עם הסיסמה שבוחרים כאן. לכל עובד מייל משלו, לא המייל של העסק.</p>
-                                            <p className="font-semibold">מה רואים ביומן:</p>
+                                            <p>{tx("זה המייל ")}<b>{tx("של העובד/ת")}</b>{tx(" — איתו הוא/היא נכנס/ת ל-BizControl, באפליקציה או באתר, עם הסיסמה שבוחרים כאן. לכל עובד מייל משלו, לא המייל של העסק.")}</p>
+                                            <p className="font-semibold">{tx("מה רואים ביומן:")}</p>
                                             <ul className="space-y-1">
                                                 {([
-                                                    ["artist", terms.staff, "רק את התורים שלו/ה — לא את של האחרים, ובלי ניהול העסק."],
-                                                    ["staff", "איש/אשת צוות", "רק את התורים שלו/ה — לא את של האחרים, ובלי ניהול העסק."],
-                                                    ["admin", "סגן מנהל", "את כל היומן — התורים של כולם — ואת כל הניהול."],
+                                                    ["artist", terms.staff, tx("רק את התורים שלו/ה — לא את של האחרים, ובלי ניהול העסק.")],
+                                                    ["staff", tx("איש/אשת צוות"), tx("רק את התורים שלו/ה — לא את של האחרים, ובלי ניהול העסק.")],
+                                                    ["admin", tx("סגן מנהל"), tx("את כל היומן — התורים של כולם — ואת כל הניהול.")],
                                                 ] as const).map(([r, name, what]) => (
                                                     <li key={r} className={role === r ? "font-bold text-slate-900" : ""}>
                                                         {role === r ? "◂ " : "• "}<b>{name}</b>: {what}
@@ -615,15 +616,15 @@ function TeamCenter() {
                                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-sky-600 disabled:opacity-50"
                                         placeholder="user@example.com"
                                     />
-                                    {editingUserId && <p className="text-xs text-slate-500 mt-1">לא ניתן לשנות אימייל למשתמש קיים.</p>}
+                                    {editingUserId && <p className="text-xs text-slate-500 mt-1">{tx("לא ניתן לשנות אימייל למשתמש קיים.")}</p>}
                                 </div>
 
                                 {editingOwner ? (
                                     <p className="text-sm text-slate-600 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
-                                        את הסיסמה שלך משנים ב<a href="/automation?tab=account" className="font-semibold text-sky-700 underline">הגדרות ← החשבון שלי</a>, עם הסיסמה הנוכחית — כך אף אחד לא משנה אותה ממסך פתוח.
+                                        {tx("את הסיסמה שלך משנים ב")}<a href="/automation?tab=account" className="font-semibold text-sky-700 underline">{tx("הגדרות ← החשבון שלי")}</a>{tx(", עם הסיסמה הנוכחית — כך אף אחד לא משנה אותה ממסך פתוח.")}
                                     </p>
                                 ) : <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-1">סיסמה {editingUserId ? '(השאר ריק כדי לא לשנות)' : ''}</label>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-1">{tx("סיסמה ")}{editingUserId ? tx("(השאר ריק כדי לא לשנות)") : ''}</label>
                                     <PasswordInput
                                         value={password}
                                         onChange={e => setPassword(e.target.value)}
@@ -644,19 +645,19 @@ function TeamCenter() {
                                                 className="sr-only"
                                             />
                                             <div className={`w-11 h-6 rounded-full transition-colors ${isActive ? 'bg-emerald-500' : 'bg-slate-300'}`}></div>
-                                            <div className={`absolute top-1 bg-white w-4 h-4 rounded-full transition-all shadow-sm ${isActive ? 'left-1' : 'left-6'}`}></div>
+                                            <div className={`absolute top-1 bg-white w-4 h-4 rounded-full transition-all shadow-sm ${isActive ? 'end-1' : 'end-6'}`}></div>
                                         </div>
                                         <div className="text-sm font-semibold text-slate-700 group-hover:text-slate-900 transition-colors">
-                                            משתמש פעיל (מורשה להתחבר)
+                                            {tx("משתמש פעיל (מורשה להתחבר)")}
                                         </div>
                                     </label>
                                 )}
                             </div>
 
                             <div className="bg-slate-50 p-5 flex justify-end gap-3 shrink-0 rounded-b-3xl">
-                                <button onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-200 rounded-xl transition-colors">ביטול</button>
+                                <button onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-200 rounded-xl transition-colors">{tx("ביטול")}</button>
                                 <button onClick={handleSave} className="px-6 py-2.5 text-sm font-bold text-white bg-sky-600 shadow-lg shadow-sky-600/20 hover:bg-sky-700 rounded-xl transition-all">
-                                    שמור שינויים
+                                    {tx("שמור שינויים")}
                                 </button>
                             </div>
                         </div>
@@ -672,14 +673,14 @@ function TeamCenter() {
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                 </svg>
                             </div>
-                            <h3 className="text-xl font-bold text-slate-800 mb-2">הסרת איש צוות</h3>
-                            <p className="text-sm text-slate-500 mb-6">האם אתה בטוח שברצונך להסיר איש צוות זה מהמערכת? פעולה זו תמנע ממנו להתחבר.</p>
+                            <h3 className="text-xl font-bold text-slate-800 mb-2">{tx("הסרת איש צוות")}</h3>
+                            <p className="text-sm text-slate-500 mb-6">{tx("האם אתה בטוח שברצונך להסיר איש צוות זה מהמערכת? פעולה זו תמנע ממנו להתחבר.")}</p>
                             <div className="flex justify-center gap-3">
                                 <button onClick={() => setDeletingUserId(null)} className="px-5 py-2.5 text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors">
-                                    ביטול
+                                    {tx("ביטול")}
                                 </button>
                                 <button onClick={handleDelete} className="px-5 py-2.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 shadow-lg ring-1 ring-red-700 rounded-xl transition-colors">
-                                    כן, הסר
+                                    {tx("כן, הסר")}
                                 </button>
                             </div>
                         </div>
@@ -713,8 +714,8 @@ function ClassPaySection({ value: v, onChange }: { value: ClassPay; onChange: (v
     const byParticipant = v.class_pay_mode === "per_participant" || v.class_pay_mode === "both";
     return (
         <div className="pt-4 border-t border-slate-100">
-            <p className="block text-sm font-semibold text-slate-700 mb-1" id="class-pay-label">תשלום על שיעורים קבוצתיים</p>
-            <p className="text-[11px] text-slate-400 mb-2">בנוסף לשכר הרגיל. נספרים שיעורים שכבר התקיימו ושהוא/היא העביר/ה — גם כמחליף/ה.</p>
+            <p className="block text-sm font-semibold text-slate-700 mb-1" id="class-pay-label">{tx("תשלום על שיעורים קבוצתיים")}</p>
+            <p className="text-[11px] text-slate-400 mb-2">{tx("בנוסף לשכר הרגיל. נספרים שיעורים שכבר התקיימו ושהוא/היא העביר/ה — גם כמחליף/ה.")}</p>
             <div role="radiogroup" aria-labelledby="class-pay-label" className="flex flex-wrap gap-2 mb-3">
                 {CLASS_PAY_MODES.map(m => (
                     <button key={m.value} type="button" role="radio" aria-checked={v.class_pay_mode === m.value}
@@ -727,13 +728,13 @@ function ClassPaySection({ value: v, onChange }: { value: ClassPay; onChange: (v
             </div>
             {v.class_pay_mode !== "none" && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {(v.class_pay_mode === "per_class" || v.class_pay_mode === "both") && money("סכום לכל שיעור (₪)", "class_pay_per_class")}
-                    {byParticipant && money("סכום לכל משתתף (₪)", "class_pay_per_participant")}
-                    {v.class_pay_mode === "per_participant" && money("מינימום לשיעור (₪)", "class_pay_minimum", "לא חובה — כשהגיעו מעט משתתפים")}
+                    {(v.class_pay_mode === "per_class" || v.class_pay_mode === "both") && money(tx("סכום לכל שיעור (₪)"), "class_pay_per_class")}
+                    {byParticipant && money(tx("סכום לכל משתתף (₪)"), "class_pay_per_participant")}
+                    {v.class_pay_mode === "per_participant" && money(tx("מינימום לשיעור (₪)"), "class_pay_minimum", tx("לא חובה — כשהגיעו מעט משתתפים"))}
                     {v.class_pay_mode === "percent" && (
                         <div className="sm:col-span-2">
-                            <label htmlFor="class_pay_percent" className="block text-xs font-bold text-slate-500 mb-1">אחוז מהתשלומים על כניסות בודדות לשיעור (%)</label>
-                            <p className="text-[11px] text-slate-400 mb-1">תשלום על מנוי לא שייך לשיעור אחד, ולכן לא נספר. גם חיוב על ביטול מאוחר לא.</p>
+                            <label htmlFor="class_pay_percent" className="block text-xs font-bold text-slate-500 mb-1">{tx("אחוז מהתשלומים על כניסות בודדות לשיעור (%)")}</label>
+                            <p className="text-[11px] text-slate-400 mb-1">{tx("תשלום על מנוי לא שייך לשיעור אחד, ולכן לא נספר. גם חיוב על ביטול מאוחר לא.")}</p>
                             <input id="class_pay_percent" type="number" min={0} max={100} inputMode="decimal" dir="ltr" value={v.class_pay_percent || ""}
                                 onChange={e => set({ class_pay_percent: e.target.value === "" ? 0 : Math.min(100, Math.max(0, Number(e.target.value))) })}
                                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-sky-600" placeholder="%" />
@@ -741,9 +742,9 @@ function ClassPaySection({ value: v, onChange }: { value: ClassPay; onChange: (v
                     )}
                     {byParticipant && (
                         <div className="sm:col-span-2">
-                            <p className="block text-xs font-bold text-slate-500 mb-1" id="class-pay-counts">איך סופרים משתתפים</p>
+                            <p className="block text-xs font-bold text-slate-500 mb-1" id="class-pay-counts">{tx("איך סופרים משתתפים")}</p>
                             <div role="radiogroup" aria-labelledby="class-pay-counts" className="flex flex-wrap gap-2">
-                                {([["attended", "מי שסומן/ה שהגיע/ה"], ["booked", "כל מי שנרשם/ה (גם בלי סימון)"]] as const).map(([val, label]) => (
+                                {([["attended", tx("מי שסומן/ה שהגיע/ה")], ["booked", tx("כל מי שנרשם/ה (גם בלי סימון)")]] as const).map(([val, label]) => (
                                     <button key={val} type="button" role="radio" aria-checked={v.class_pay_counts === val}
                                         onClick={() => set({ class_pay_counts: val })}
                                         className={`min-h-9 px-3 text-xs font-semibold rounded-xl border ${v.class_pay_counts === val

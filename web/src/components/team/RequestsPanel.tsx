@@ -5,6 +5,7 @@ import { ArrowLeftRight, Check, Plane, Stethoscope, X } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { toast } from "@/lib/toast";
 
+import { tx } from "@/lib/i18n";
 // The "בקשות" tab of the workers center (app/services/staff_requests.py — the owner, 2026-10-19): swaps and time off
 // waiting for a decision — approve (the schedule changes / the calendar is locked) or not, with a word to the worker —
 // and the last month's decided ones.
@@ -16,12 +17,12 @@ export type StaffRequest = {
 type Lists = { waiting?: StaffRequest[]; recent?: StaffRequest[] };
 
 export const STATUS: Record<string, { label: string; cls: string }> = {
-    waiting_colleague: { label: "מחכה לתשובת העמית/ה", cls: "bg-slate-100 text-slate-600" },
-    waiting_owner: { label: "מחכה לאישור", cls: "bg-amber-50 text-amber-800" },
-    approved: { label: "אושרה", cls: "bg-emerald-50 text-emerald-700" },
-    rejected: { label: "לא אושרה", cls: "bg-rose-50 text-rose-700" },
-    declined: { label: "העמית/ה לא הסכים/ה", cls: "bg-rose-50 text-rose-700" },
-    canceled: { label: "בוטלה", cls: "bg-slate-100 text-slate-500" },
+    waiting_colleague: { label: tx("מחכה לתשובת העמית/ה"), cls: "bg-slate-100 text-slate-600" },
+    waiting_owner: { label: tx("מחכה לאישור"), cls: "bg-amber-50 text-amber-800" },
+    approved: { label: tx("אושרה"), cls: "bg-emerald-50 text-emerald-700" },
+    rejected: { label: tx("לא אושרה"), cls: "bg-rose-50 text-rose-700" },
+    declined: { label: tx("העמית/ה לא הסכים/ה"), cls: "bg-rose-50 text-rose-700" },
+    canceled: { label: tx("בוטלה"), cls: "bg-slate-100 text-slate-500" },
 };
 export const KIND_ICON = { swap: ArrowLeftRight, vacation: Plane, sick: Stethoscope, other: Plane };
 
@@ -36,9 +37,9 @@ export default function RequestsPanel() {
         setBusy(r.id);
         try {
             await apiFetch(`/api/requests/${r.id}/decide`, { method: "POST", body: JSON.stringify({ approve, note: notes[r.id] || "" }) });
-            toast.success(approve ? (r.kind === "swap" ? "אושר — הסידור עודכן" : "אושר — היומן ננעל באותם ימים") : "נדחה — העובד/ת קיבל/ה הודעה");
+            toast.success(approve ? (r.kind === "swap" ? tx("אושר — הסידור עודכן") : tx("אושר — היומן ננעל באותם ימים")) : tx("נדחה — העובד/ת קיבל/ה הודעה"));
             load();
-        } catch (e) { toast.error(e instanceof Error ? e.message : "הפעולה נכשלה"); }
+        } catch (e) { toast.error(e instanceof Error ? e.message : tx("הפעולה נכשלה")); }
         finally { setBusy(null); }
     };
 
@@ -47,8 +48,8 @@ export default function RequestsPanel() {
     return (
         <div className="space-y-4">
             <section className="bg-white rounded-2xl border border-slate-200/70 shadow-sm overflow-hidden">
-                <h3 className="px-4 py-3 border-b border-slate-100 font-bold text-slate-800">מחכות לך ({waiting.filter(r => r.status === "waiting_owner").length})</h3>
-                {waiting.length === 0 ? <p className="px-4 py-3 text-sm text-slate-500">אין בקשות פתוחות.</p> : (
+                <h3 className="px-4 py-3 border-b border-slate-100 font-bold text-slate-800">{tx("מחכות לך (")}{waiting.filter(r => r.status === "waiting_owner").length})</h3>
+                {waiting.length === 0 ? <p className="px-4 py-3 text-sm text-slate-500">{tx("אין בקשות פתוחות.")}</p> : (
                     <ul className="divide-y divide-slate-100">
                         {waiting.map(r => {
                             const Icon = KIND_ICON[r.kind];
@@ -65,7 +66,7 @@ export default function RequestsPanel() {
                                             {r.note && <div className="text-xs text-slate-500">&quot;{r.note}&quot;</div>}
                                             {r.shifts_during && r.shifts_during.length > 0 && (
                                                 <div className="mt-1 text-xs text-amber-800 bg-amber-50 rounded-lg px-2 py-1">
-                                                    יש לו/ה משמרות בימים האלה — כדאי להעביר אותן בסידור: {r.shifts_during.join(", ")}
+                                                    {tx("יש לו/ה משמרות בימים האלה — כדאי להעביר אותן בסידור:")} {r.shifts_during.join(", ")}
                                                 </div>
                                             )}
                                         </div>
@@ -73,14 +74,14 @@ export default function RequestsPanel() {
                                     {r.status === "waiting_owner" && (
                                         <div className="flex flex-wrap items-center gap-2">
                                             <input value={notes[r.id] ?? ""} onChange={e => setNotes({ ...notes, [r.id]: e.target.value })} maxLength={300}
-                                                placeholder="מילה לעובד/ת (לא חובה)" className="flex-1 min-w-[10rem] rounded-lg border border-slate-200 px-2 py-1.5 text-sm" />
+                                                placeholder={tx("מילה לעובד/ת (לא חובה)")} className="flex-1 min-w-[10rem] rounded-lg border border-slate-200 px-2 py-1.5 text-sm" />
                                             <button type="button" disabled={busy === r.id} onClick={() => decide(r, true)}
                                                 className="inline-flex items-center gap-1 min-h-10 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold disabled:opacity-50">
-                                                <Check className="w-4 h-4" aria-hidden /> אישור
+                                                <Check className="w-4 h-4" aria-hidden /> {tx("אישור")}
                                             </button>
                                             <button type="button" disabled={busy === r.id} onClick={() => decide(r, false)}
                                                 className="inline-flex items-center gap-1 min-h-10 px-3 rounded-xl border border-slate-200 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">
-                                                <X className="w-4 h-4" aria-hidden /> לא מאשר/ת
+                                                <X className="w-4 h-4" aria-hidden /> {tx("לא מאשר/ת")}
                                             </button>
                                         </div>
                                     )}
@@ -92,7 +93,7 @@ export default function RequestsPanel() {
             </section>
             {(lists.recent ?? []).length > 0 && (
                 <section className="bg-white rounded-2xl border border-slate-200/70 shadow-sm overflow-hidden">
-                    <h3 className="px-4 py-3 border-b border-slate-100 font-bold text-slate-800">החודש האחרון</h3>
+                    <h3 className="px-4 py-3 border-b border-slate-100 font-bold text-slate-800">{tx("החודש האחרון")}</h3>
                     <ul className="divide-y divide-slate-100">
                         {(lists.recent ?? []).map(r => (
                             <li key={r.id} className="px-4 py-2.5 text-sm flex flex-wrap items-center gap-2">
