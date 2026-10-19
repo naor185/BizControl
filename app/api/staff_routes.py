@@ -239,6 +239,89 @@ def get_payroll(
     )
 
 
+class AccountantSendIn(BaseModel):
+    year: int
+    month: int
+
+
+@router.get("/payroll/accountant")
+def payroll_accountant(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    """Where the month's hours and pay go: the accountant's address, sent by itself on the 1st or not, the last month."""
+    if not may_do(db, ctx.studio_id, ctx.role, "money"):
+        raise HTTPException(status_code=403, detail="Forbidden")
+    from app.services.payroll_report import accountant_email
+    settings = db.get(StudioSettings, ctx.studio_id)
+    return {"email": accountant_email(db, ctx.studio_id), "auto": bool(settings and settings.payroll_to_accountant_auto),
+            "last_auto": settings.payroll_sent_month if settings else None}
+
+
+@router.post("/payroll/accountant/auto")
+def payroll_accountant_auto(body: dict, ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    """On the 1st of each month, the month before to the accountant — by itself."""
+    if not may_do(db, ctx.studio_id, ctx.role, "money"):
+        raise HTTPException(status_code=403, detail="Forbidden")
+    from app.services.activity_log import record
+    settings = db.get(StudioSettings, ctx.studio_id)
+    settings.payroll_to_accountant_auto = bool(body.get("on"))
+    db.commit()
+    record(db, ctx, "money", "שעות ושכר לרואה החשבון בראשון לחודש — " + ("מופעל" if settings.payroll_to_accountant_auto else "כבוי"))
+    return payroll_accountant(ctx, db)
+
+
+@router.post("/payroll/send-to-accountant")
+def payroll_send_to_accountant(body: AccountantSendIn, ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    """The month's hours and pay to the accountant, now — the team's report (PDF) and every shift (Excel)."""
+    if not may_do(db, ctx.studio_id, ctx.role, "money"):
+        raise HTTPException(status_code=403, detail="Forbidden")
+    if not (1 <= body.month <= 12):
+        raise HTTPException(status_code=400, detail="חודש לא תקין")
+    from app.services import payroll_report
+    from app.services.activity_log import record
+    try:
+        out = payroll_report.send(db, ctx.studio_id, body.year, body.month)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    record(db, ctx, "money", f"שעות ושכר {out['month']} נשלחו לרואה החשבון ({out['to']})")
+    return out
+
+
+@router.get("/today")
+def staff_today(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    """Today on the workers center: who is on shift (and since when), who has appointments today and hasn't clocked
+    in (and the first one's time), the shifts that ended today (hours from when they count). For who manages the team."""
+    if not may_do(db, ctx.studio_id, ctx.role, "team"):
+        raise HTTPException(status_code=403, detail="Forbidden")
+    from sqlalchemy import func as _func
+    from app.models.appointment import Appointment
+    from app.repositories.staff_repository import paid_start
+    from app.services import nfc_clock
+    tz = pytz.timezone((db.get(StudioSettings, ctx.studio_id).timezone if db.get(StudioSettings, ctx.studio_id) else None) or "Asia/Jerusalem")
+    day = datetime.now(tz).date()
+    start = tz.localize(datetime(day.year, day.month, day.day))
+    end = start + timedelta(days=1)
+    team = {u.id: u for u in db.scalars(select(User).where(User.studio_id == ctx.studio_id, User.is_active.is_(True),
+                                                             User.role != "owner")).all()}
+    name = lambda uid: (team[uid].display_name or team[uid].email) if uid in team else ""
+    sessions = db.scalars(select(WorkSession).where(WorkSession.studio_id == ctx.studio_id,
+                                                    (WorkSession.end_time.is_(None)) | (WorkSession.start_time >= start))
+                          .order_by(WorkSession.start_time)).all()
+    working = [{"user_id": str(s.user_id), "name": name(s.user_id), "since": s.start_time.isoformat()}
+               for s in sessions if s.end_time is None and s.user_id in team]
+    done = [{"user_id": str(s.user_id), "name": name(s.user_id), "start": s.start_time.isoformat(), "end": s.end_time.isoformat(),
+             "hours": round(max((s.end_time - paid_start(s)).total_seconds(), 0) / 3600, 2)}
+            for s in sessions if s.end_time is not None and s.start_time >= start and s.user_id in team]
+    clocked = {s.user_id for s in sessions if s.end_time is None or s.start_time >= start}
+    missing = []
+    if nfc_clock.included(db, ctx.studio_id):
+        firsts = db.execute(select(Appointment.artist_id, _func.min(Appointment.starts_at))
+                            .where(Appointment.studio_id == ctx.studio_id, Appointment.status == "scheduled",
+                                   Appointment.starts_at >= start, Appointment.starts_at < end, Appointment.artist_id.is_not(None))
+                            .group_by(Appointment.artist_id)).all()
+        missing = [{"user_id": str(uid), "name": name(uid), "first_at": first.isoformat()}
+                   for uid, first in sorted(firsts, key=lambda r: r[1]) if uid in team and uid not in clocked]
+    return {"working": working, "missing": missing, "done": done}
+
+
 @router.get("/payroll/pdf")
 def download_payroll_pdf(
     start_date: datetime = Query(...),
@@ -291,16 +374,10 @@ def download_staff_pay_summary_pdf(
     if item is None:
         raise HTTPException(status_code=404, detail="העובד/ת לא נמצא/ה")
 
-    from sqlalchemy import select as _select
-    from app.models.work_session import WorkSession
-    settings = db.query(StudioSettings).filter(StudioSettings.studio_id == ctx.studio_id).first()
-    tz = pytz.timezone((settings.timezone if settings else None) or "Asia/Jerusalem")
-    rows = db.scalars(_select(WorkSession).where(
-        WorkSession.user_id == user_id, WorkSession.start_time >= start_date, WorkSession.start_time <= end_date,
-        WorkSession.end_time.is_not(None)).order_by(WorkSession.start_time)).all()
-    shifts = [{"date": w.start_time.astimezone(tz).strftime("%d/%m/%Y"), "start": w.start_time.astimezone(tz).strftime("%H:%M"),
-               "end": w.end_time.astimezone(tz).strftime("%H:%M"),
-               "hours": (w.end_time - w.start_time).total_seconds() / 3600, "pay": float(w.session_pay or 0)} for w in rows]
+    from app.services.payroll_report import shift_rows
+    # the start as counted (a clock-in before the opening hour counts from it — services/nfc_clock.paid_from)
+    shifts = [{**r, "start": r["counted_from"] or r["start"]}
+              for r in shift_rows(db, ctx.studio_id, start_date, end_date, user_id=user_id)]
 
     studio = db.get(Studio, ctx.studio_id)
     pdf_bytes = generate_staff_pay_summary_pdf(dict(item), shifts, start_date, end_date, studio.name if studio else "")

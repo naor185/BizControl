@@ -69,8 +69,8 @@ export const SECTION_GROUPS: { groupLabel: string; icon: LucideIcon; items: Busi
         groupLabel: "צוות ושכר",
         icon: UserCog,
         items: [
-            { href: "/team",         label: "ניהול צוות", description: "{staff_plural}, תפקידים, שיטת תשלום ושעון נוכחות",      icon: UserCog },
-            { href: "/team/payroll", label: "דוח שכר",     description: "מי, כמה ומתי — חישוב שכר חודשי לכל עובד/ת + PDF",       icon: Wallet, perm: "money" },
+            { href: "/team",         label: "מרכז העובדים", description: "היום, {staff_plural}, תפקידים ושעון נוכחות",          icon: UserCog },
+            { href: "/team?tab=pay", label: "שעות ושכר",    description: "שכר חודשי לכל עובד/ת, PDF ושליחה לרואה החשבון",        icon: Wallet, perm: "money" },
             { href: "/activity",     label: "יומן פעילות", description: "מי עשה מה ומתי — קבלות, מחיקות, הנחות, הגדרות וצוות",   icon: History, perm: "owner" },
         ],
     },

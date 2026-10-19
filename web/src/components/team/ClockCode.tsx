@@ -6,7 +6,6 @@ import { Switch } from "@/components/ui/switch";
 import { apiFetch } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import { clockQr, downloadClockCard, printClockCard } from "@/lib/clockCard";
-import { PresenceList, usePresence } from "@/components/team/PresenceNow";
 
 // The attendance clock on ניהול צוות (app/services/nfc_clock.py). BizControl turns it on for the business; then the
 // owner (and a manager allowed the team) sees its barcode here — to print and hang at the door, or to write on an NFC
@@ -20,7 +19,6 @@ export default function ClockCode() {
     const [confirmRenew, setConfirmRenew] = useState(false);
     const [busy, setBusy] = useState(false);
 
-    const presence = usePresence();
     useEffect(() => { apiFetch<Status>("/api/nfc/status").then(setSt).catch(() => {}); }, []);
     useEffect(() => { if (st?.link) clockQr(st.link).then(setQr); }, [st?.link]);
 
@@ -56,19 +54,8 @@ export default function ClockCode() {
             <Switch checked={st.from_opening !== false} labelledBy="from-opening" onChange={setFromOpening} />
         </div>
     );
-    // who is on shift now and for how long (the owner, 2026-10-18)
-    const now = (
-        <section className="bg-white rounded-2xl border border-slate-200/70 shadow-sm overflow-hidden" aria-labelledby="presence-now">
-            <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-emerald-500" aria-hidden />
-                <h3 id="presence-now" className="flex-1 text-base font-bold text-slate-800">בעבודה עכשיו</h3>
-                {presence && presence.length > 0 && <span className="text-xs font-bold text-emerald-700">{presence.length}</span>}
-            </div>
-            {presence ? <PresenceList entries={presence} /> : <Loader2 className="m-4 w-5 h-5 text-emerald-600 animate-spin" aria-label="טוען" />}
-        </section>
-    );
     if (!st.on) {
-        return (<div className="space-y-4">{now}{opening}
+        return (<div className="space-y-4">{opening}
             <div className="flex items-start gap-3 bg-slate-50 border border-slate-100 rounded-2xl p-4 text-sm text-slate-600 leading-relaxed">
                 <Nfc className="w-5 h-5 mt-0.5 shrink-0 text-slate-400" aria-hidden />
                 <p>
@@ -78,7 +65,7 @@ export default function ClockCode() {
             </div>
         </div>);
     }
-    return (<div className="space-y-4">{now}{opening}
+    return (<div className="space-y-4">{opening}
         <section className="bg-white rounded-2xl border border-emerald-100 shadow-sm p-5 space-y-4">
             <div>
                 <h3 className="flex items-center gap-2 text-base font-bold text-slate-800"><Nfc className="w-4.5 h-4.5 text-emerald-600" aria-hidden />שעון נוכחות — ברקוד בכניסה</h3>

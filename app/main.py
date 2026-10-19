@@ -172,6 +172,19 @@ def start_scheduler():
         finally:
             db.close()
     scheduler.add_job(tick_viki_summaries, "cron", minute=20, id="viki_summaries_tick", replace_existing=True)
+
+    def tick_payroll_to_accountant():
+        from app.services.payroll_report import sweep_monthly
+        db = SessionLocal()
+        try:
+            sweep_monthly(db)
+        except Exception as e:
+            _scheduler_log.exception("payroll to accountant sweep failed: %s", e)
+        finally:
+            db.close()
+    # the month's hours and pay to the accountants who asked — from the 1st, a missed day caught up (services/payroll_report.py)
+    scheduler.add_job(tick_payroll_to_accountant, "cron", hour=8, minute=40, timezone="Asia/Jerusalem",
+                      misfire_grace_time=86400, id="payroll_to_accountant_tick", replace_existing=True)
     scheduler.add_job(tick_staff_reminders, "interval", minutes=2, id="staff_reminders_tick", replace_existing=True)
 
     def tick_waitlist_expiry():

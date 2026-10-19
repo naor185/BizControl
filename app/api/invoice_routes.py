@@ -343,10 +343,13 @@ def update_accountant_email(
     ctx: AuthContext = Depends(require_studio_ctx),
     db: Session = Depends(get_db),
 ):
-    """Update accountant email — always editable, not locked with main settings."""
+    """Update accountant email — always editable, not locked with main settings. A business that hasn't filled its
+    invoice settings yet has no row — an update alone saved nothing while answering "saved" (2026-10-19): kept either
+    way, the rest of the row at its defaults (settings_completed stays false)."""
     email = body.get("accountant_email", "").strip() or None
     db.execute(
-        text("UPDATE invoice_settings SET accountant_email=:email, updated_at=NOW() WHERE studio_id=:sid"),
+        text("""INSERT INTO invoice_settings (studio_id, accountant_email) VALUES (:sid, :email)
+                ON CONFLICT (studio_id) DO UPDATE SET accountant_email = EXCLUDED.accountant_email, updated_at = NOW()"""),
         {"email": email, "sid": ctx.studio_id}
     )
     db.commit()

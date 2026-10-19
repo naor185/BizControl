@@ -2929,6 +2929,10 @@ def ensure_schema():
         # a clock-in before the opening hour counts from it (services/nfc_clock.paid_from), and from when a shift is paid
         cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS clock_from_opening BOOLEAN NOT NULL DEFAULT TRUE")
         cur.execute("ALTER TABLE work_sessions ADD COLUMN IF NOT EXISTS paid_from TIMESTAMPTZ")
+        # the month's hours and pay to the accountant on the 1st, by itself (services/payroll_report.py) — and the month
+        # last sent that way
+        cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS payroll_to_accountant_auto BOOLEAN NOT NULL DEFAULT FALSE")
+        cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS payroll_sent_month VARCHAR(7)")
         # what a manager may do — the owner's switches (none set: the defaults)
         cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS manager_permissions TEXT")
         # the invitation to the BizFind app (services/app_invite.py), and the store links on the platform's row

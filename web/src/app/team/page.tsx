@@ -1,9 +1,10 @@
 "use client";
 import { toast } from "@/lib/toast";
-import { Briefcase, Crown, User, CircleHelp } from "lucide-react";
+import { Briefcase, Crown, User, CircleHelp, CalendarClock, Users, Wallet } from "lucide-react";
 import { useTerms } from "@/lib/useTerms";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import AppShell from "@/components/AppShell";
 import RequireAuth from "@/components/RequireAuth";
 import { apiFetch, getCurrentUserRole } from "@/lib/api";
@@ -12,6 +13,18 @@ import PasswordInput from "@/components/PasswordInput";
 import StaffSessionsModal from "@/components/StaffSessionsModal";
 import ManagerPermissions from "@/components/ManagerPermissions";
 import ClockCode from "@/components/team/ClockCode";
+import TodayPanel from "@/components/team/TodayPanel";
+import PayrollPanel from "@/components/team/PayrollPanel";
+
+// The workers center (the owner, 2026-10-19: "one place for everything about the workers"): היום — who is on shift,
+// who hasn't clocked in, who finished; צוות — the team, its roles and pay, the attendance clock's settings;
+// שעות ושכר — the month's pay and the accountant (for who may see the money). ?tab=today|team|pay
+type Tab = "today" | "team" | "pay";
+const TABS: { id: Tab; label: string; icon: typeof Users }[] = [
+    { id: "today", label: "היום", icon: CalendarClock },
+    { id: "team", label: "צוות", icon: Users },
+    { id: "pay", label: "שעות ושכר", icon: Wallet },
+];
 
 type Artist = {
     id: string;
@@ -72,7 +85,12 @@ const COLOR_PRESETS = [
     "#6366f1", // Indigo
 ];
 
+// the tab comes from the address (?tab=), so the hub's "שעות ושכר" and the old pay address open it
 export default function TeamPage() {
+    return <Suspense fallback={null}><TeamCenter /></Suspense>;
+}
+
+function TeamCenter() {
     const terms = useTerms();   // the service giver's title in this business's words, not "אמן"
     const [emailHelp, setEmailHelp] = useState(false);
     const [artists, setArtists] = useState<Artist[]>([]);
@@ -104,6 +122,16 @@ export default function TeamPage() {
 
     // the plan's staff — the owner counted (app/services/plan_limits.py)
     const [seats, setSeats] = useState<{ used: number; limit: number | null; left: number | null } | null>(null);
+    const router = useRouter();
+    const asked = useSearchParams().get("tab");
+    const tab: Tab = asked === "team" || asked === "pay" ? asked : "today";
+    const setTab = (t: Tab) => router.replace(t === "today" ? "/team" : `/team?tab=${t}`, { scroll: false });
+    // the money tab: the owner, or a manager allowed money
+    const [seesPay, setSeesPay] = useState(() => getCurrentUserRole() === "owner");
+    useEffect(() => {
+        if (getCurrentUserRole() === "owner") return;
+        apiFetch<{ permissions?: { money?: boolean } }>("/api/auth/me").then(m => setSeesPay(!!m.permissions?.money)).catch(() => {});
+    }, []);
 
     const loadArtists = async () => {
         setLoading(true);
@@ -219,20 +247,18 @@ export default function TeamPage() {
 
     return (
         <RequireAuth>
-            <AppShell title="ניהול צוות">
+            <AppShell title="מרכז העובדים">
                 <div className="p-4 md:p-8 max-w-[1200px] mx-auto space-y-8 animate-in fade-in duration-500">
 
                     {/* Header */}
                     <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                         <div>
-                            <h1 className="text-3xl font-black text-slate-800 tracking-tight flex items-center gap-3">
-                                ניהול צוות 👥
-                            </h1>
+                            <h1 className="text-3xl font-black text-slate-800 tracking-tight">מרכז העובדים</h1>
                             <p className="mt-2 text-slate-500 max-w-xl leading-relaxed">
-                                ניהול חברי צוות, הרשאות, שיטות שכר וצבעים ביומן.
+                                מי בעבודה היום, הצוות והרשאות, שעון הנוכחות, שעות ושכר.
                             </p>
                         </div>
-                        <div className="flex flex-col items-stretch md:items-end gap-1.5 w-full md:w-auto">
+                        {tab === "team" && <div className="flex flex-col items-stretch md:items-end gap-1.5 w-full md:w-auto">
                             <button
                                 onClick={openCreateModal}
                                 disabled={seats?.left === 0}
@@ -249,9 +275,22 @@ export default function TeamPage() {
                                     {seats.left === 0 && !isNativeApp() && <> · <a href="/billing" className="underline">שדרוג מסלול</a></>}
                                 </p>
                             )}
-                        </div>
+                        </div>}
                     </div>
 
+                    <div role="tablist" aria-label="מרכז העובדים" className="flex gap-1 rounded-2xl bg-white p-1 border border-slate-200/70 shadow-sm w-full md:w-fit">
+                        {TABS.filter(t => t.id !== "pay" || seesPay).map(t => (
+                            <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)}
+                                className={`flex-1 md:flex-none inline-flex items-center justify-center gap-1.5 min-h-11 px-2.5 md:px-4 whitespace-nowrap rounded-xl text-sm font-bold transition ${tab === t.id ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-50"}`}>
+                                <t.icon className="w-4 h-4" aria-hidden /> {t.label}
+                            </button>
+                        ))}
+                    </div>
+
+                    {tab === "today" && <TodayPanel />}
+                    {tab === "pay" && seesPay && <PayrollPanel />}
+
+                    {tab === "team" && <>
                     <ClockCode />
 
                     {err && (
@@ -377,6 +416,7 @@ export default function TeamPage() {
                     </div>
 
                     <ManagerPermissions />
+                    </>}
                 </div>
 
                 {/* Create/Edit Modal */}
