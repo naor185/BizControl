@@ -12,6 +12,10 @@ const MAX = 110;
 
 function startsAtTop(target: EventTarget | null): boolean {
     if (window.scrollY > 0) return false;
+    // the calendar's hours and appointments: a finger dragging down there picks or stretches a time, or moves an
+    // appointment — never a reload (the owner, 2026-10-20: "I stretch the appointment and the screen refreshes").
+    // A screen can mark any other drag area data-no-pull.
+    if (target instanceof Element && target.closest("[data-no-pull], .fc-view-harness")) return false;
     for (let el = target as HTMLElement | null; el && el !== document.body; el = el.parentElement) {
         const cs = getComputedStyle(el);
         if (cs.position === "fixed" || el.getAttribute("role") === "dialog" || el.getAttribute("aria-modal") === "true") return false;
