@@ -88,7 +88,11 @@ def message_default(db, studio_id, key: str) -> str:
     studio = db.get(Studio, studio_id)
     t = db.get(BusinessTypeTemplate, studio.business_type) if studio and studio.business_type else None
     own = ((t.message_defaults if t else None) or {}).get(key)
-    return own if isinstance(own, str) and own.strip() else GENERIC_MESSAGES.get(key, "")
+    text = own if isinstance(own, str) and own.strip() else GENERIC_MESSAGES.get(key, "")
+    # in the business's language — an English business shows and sends it in English (services/client_language)
+    from app.core.i18n import studio_locale
+    from app.services.client_language import speak
+    return speak(text, studio_locale(db, studio_id)) or text
 
 
 def resolve_with_note(db, value, other_text: str | None = None) -> tuple[str, str | None]:

@@ -172,6 +172,18 @@ LINES: dict[str, str] = {
     "להסרה מהודעות שיווקיות:": "To stop marketing messages:", "להסרה מרשימת הדיוור:": "To unsubscribe:",
     "לחץ כאן": "click here",
 
+    # ── the field's ready-made texts (app/data/business_types — the tattoo aftercare, the generic thank-you) ──
+    "לאחר סיום הקעקוע נשארים עם הניילון/מדבקה למשך כשעתיים.": "After the tattoo, keep the wrap/film on for about two hours.",
+    "לאחר מכן ניתן להסיר את הניילון או המדבקה ולשטוף בעדינות עם מים פושרים וסבון.": "Then remove the wrap or film and wash gently with lukewarm water and soap.",
+    "יום לאחר הקעקוע מתחילים למרוח את החמאה/המשחה פעמיים ביום - בוקר וערב למשך שלושה שבועות.": "From the day after, apply the balm/ointment twice a day — morning and evening — for three weeks.",
+    "יש למרוח שכבה דקה ומאוזנת: לא יותר מדי ולא מעט מדי.": "Apply a thin, even layer: not too much and not too little.",
+    "במקרים של יובש גבוה ניתן למרוח עד 3 פעמים ביום.": "If it gets very dry, you can apply it up to 3 times a day.",
+    "בזמן ההחלמה:": "While it heals:",
+    "❌ לא לגרד": "❌ Don't scratch",
+    "❌ לא לקלף": "❌ Don't peel",
+    "🚫 להימנע מבריכה, ים, ג׳קוזי וסאונה למשך שבועיים": "🚫 Avoid pools, the sea, jacuzzis and saunas for two weeks",
+    "לאחר כחודש וחצי מומלץ להגיע לביקורת כדי לוודא החלמה מלאה של הקעקוע. 🙏": "After about six weeks, come in for a check-up to make sure the tattoo healed fully. 🙏",
+
     # ── the subscription's e-mails to the owner (services/plan_alert_service) ──
     "המערכת — יומן, לקוחות, תשלומים והגדרות — תיחסם, ותוצג רק הודעה על סיום המנוי.":
         "The system — calendar, clients, payments and settings — will be locked, showing only a notice that the subscription ended.",
