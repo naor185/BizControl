@@ -31,6 +31,13 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
         if (ready) return;               // checked earlier in this visit
 
         let cancelled = false;
+        // When the check can't finish (it hung, or something threw): the screen opens only with a token in hand —
+        // never without one. Without one: the sign-in screen (the owner, 2026-10-20: a fresh install of the app showed
+        // the calendar without signing in — the Keychain lookup outran the 6 seconds and this opened the screen).
+        const openOrSignIn = () => {
+            if (getToken()) setReady(true);
+            else router.replace(`/login?next=${encodeURIComponent(pathname || "/dashboard")}`);
+        };
 
         // Absolute worst-case bound on the whole boot check, independent of
         // whatever any individual step below does — this screen must never
@@ -39,7 +46,7 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
         // within 6s, just render — worst case, a stale page reloads on the
         // next tap instead of sitting frozen indefinitely.
         const hardTimeout = setTimeout(() => {
-            if (!cancelled) setReady(true);
+            if (!cancelled) openOrSignIn();
         }, 6000);
 
         (async () => {
@@ -97,12 +104,9 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
             checkedThisVisit = true;
             setReady(true);
           } catch {
-            // Whatever this is, it must not be able to leave the app stuck —
-            // render anyway rather than hang with no fallback left (the
-            // hard-timeout above still fires as a backstop regardless, but
-            // there's no reason to wait 6s for it once we already know
-            // something broke).
-            setReady(true);
+            // Whatever this is, it must not be able to leave the app stuck — and must not open the screen for
+            // someone who isn't signed in: with a token the screen opens, without one the sign-in screen.
+            if (!cancelled) openOrSignIn();
           } finally {
             clearTimeout(hardTimeout);
           }
