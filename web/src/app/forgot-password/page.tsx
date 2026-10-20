@@ -1,40 +1,46 @@
 "use client";
 
+import AfterMount from "@/components/AfterMount";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { apiFetch } from "@/lib/api";
 
+import { tx, savedLocale } from "@/lib/i18n";
 type Lang = "he" | "en";
 type Method = "email" | "phone";
 type PhoneStep = "request" | "verify";
 
 const T: Record<string, Record<Lang, string>> = {
-    title:          { he: "שכחת סיסמה?",                       en: "Forgot Password?" },
-    subtitleEmail:  { he: "הזן את האימייל שלך ונשלח לך קישור לאיפוס", en: "Enter your email and we'll send a reset link" },
-    subtitlePhone:  { he: "הזן את מספר הטלפון שלך ונשלח קוד אימות בוואטסאפ", en: "Enter your phone number and we'll WhatsApp you a code" },
-    tabEmail:       { he: "אימייל",                              en: "Email" },
-    tabPhone:       { he: "וואטסאפ",                             en: "WhatsApp" },
-    emailLabel:     { he: "אימייל",                              en: "Email" },
-    phoneLabel:     { he: "טלפון",                               en: "Phone" },
-    codeLabel:      { he: "קוד אימות",                           en: "Verification code" },
-    sendLink:       { he: "שלח קישור לאיפוס",                    en: "Send Reset Link" },
-    sendCode:       { he: "שלח קוד בוואטסאפ",                    en: "Send WhatsApp Code" },
-    verify:         { he: "אמת קוד",                             en: "Verify Code" },
-    sending:        { he: "שולח...",                             en: "Sending..." },
-    verifying:      { he: "מאמת...",                             en: "Verifying..." },
-    sentTitle:      { he: "נשלח!",                                en: "Sent!" },
-    sentBodyEmail:  { he: "קישור לאיפוס סיסמה נשלח לאימייל שלך.", en: "A password reset link has been sent to your email." },
-    spamNote:       { he: "בדוק גם את תיקיית הספאם.",             en: "Check your spam folder too." },
-    codeSentNote:   { he: "אם המספר הזה רשום במערכת, נשלח אליו קוד בוואטסאפ. הקוד תקף ל-10 דקות.", en: "If this number is on file, a WhatsApp code was sent. It's valid for 10 minutes." },
-    resend:         { he: "לא קיבלת? שלח קוד חדש",                en: "Didn't get it? Send a new code" },
-    changePhone:    { he: "← טלפון אחר",                         en: "← Different phone" },
-    back:           { he: "← חזור להתחברות",                     en: "← Back to login" },
-    network:        { he: "לא ניתן להתחבר לשרת",                 en: "Cannot connect to server" },
-    invalidCode:    { he: "קוד שגוי או פג תוקף",                  en: "Invalid or expired code" },
-    defaultErr:     { he: "שגיאה בשליחה",                        en: "Error sending" },
+    title:          { he: tx("שכחת סיסמה?"),                       en: "Forgot Password?" },
+    subtitleEmail:  { he: tx("הזן את האימייל שלך ונשלח לך קישור לאיפוס"), en: "Enter your email and we'll send a reset link" },
+    subtitlePhone:  { he: tx("הזן את מספר הטלפון שלך ונשלח קוד אימות בוואטסאפ"), en: "Enter your phone number and we'll WhatsApp you a code" },
+    tabEmail:       { he: tx("אימייל"),                              en: "Email" },
+    tabPhone:       { he: tx("וואטסאפ"),                             en: "WhatsApp" },
+    emailLabel:     { he: tx("אימייל"),                              en: "Email" },
+    phoneLabel:     { he: tx("טלפון"),                               en: "Phone" },
+    codeLabel:      { he: tx("קוד אימות"),                           en: "Verification code" },
+    sendLink:       { he: tx("שלח קישור לאיפוס"),                    en: "Send Reset Link" },
+    sendCode:       { he: tx("שלח קוד בוואטסאפ"),                    en: "Send WhatsApp Code" },
+    verify:         { he: tx("אמת קוד"),                             en: "Verify Code" },
+    sending:        { he: tx("שולח..."),                             en: "Sending..." },
+    verifying:      { he: tx("מאמת..."),                             en: "Verifying..." },
+    sentTitle:      { he: tx("נשלח!"),                                en: "Sent!" },
+    sentBodyEmail:  { he: tx("קישור לאיפוס סיסמה נשלח לאימייל שלך."), en: "A password reset link has been sent to your email." },
+    spamNote:       { he: tx("בדוק גם את תיקיית הספאם."),             en: "Check your spam folder too." },
+    codeSentNote:   { he: tx("אם המספר הזה רשום במערכת, נשלח אליו קוד בוואטסאפ. הקוד תקף ל-10 דקות."), en: "If this number is on file, a WhatsApp code was sent. It's valid for 10 minutes." },
+    resend:         { he: tx("לא קיבלת? שלח קוד חדש"),                en: "Didn't get it? Send a new code" },
+    changePhone:    { he: tx("← טלפון אחר"),                         en: "← Different phone" },
+    back:           { he: tx("← חזור להתחברות"),                     en: "← Back to login" },
+    network:        { he: tx("לא ניתן להתחבר לשרת"),                 en: "Cannot connect to server" },
+    invalidCode:    { he: tx("קוד שגוי או פג תוקף"),                  en: "Invalid or expired code" },
+    defaultErr:     { he: tx("שגיאה בשליחה"),                        en: "Error sending" },
 };
 
 export default function ForgotPasswordPage() {
+    return <AfterMount><ForgotPasswordPageInner /></AfterMount>;
+}
+
+function ForgotPasswordPageInner() {
     const [method, setMethod] = useState<Method>("email");
     const [phoneStep, setPhoneStep] = useState<PhoneStep>("request");
     const [email, setEmail] = useState("");
@@ -47,7 +53,7 @@ export default function ForgotPasswordPage() {
 
     useEffect(() => {
         if (typeof navigator !== "undefined") {
-            setLang(navigator.language.startsWith("en") ? "en" : "he");
+            setLang(savedLocale());          // the system's language — the user's choice, not the phone's
         }
     }, []);
 
@@ -142,7 +148,7 @@ export default function ForgotPasswordPage() {
                     </div>
                     <div className="font-black text-2xl text-white tracking-tight">BizControl</div>
                     <div className="text-sm text-blue-200/60 mt-1">
-                        {lang === "he" ? "שחזור סיסמה" : "Password Recovery"}
+                        {lang === "he" ? tx("שחזור סיסמה") : "Password Recovery"}
                     </div>
                 </div>
 

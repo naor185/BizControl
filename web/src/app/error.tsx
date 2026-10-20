@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 
+import { tx } from "@/lib/i18n";
 // Next.js App Router error boundary — catches any otherwise-unhandled
 // client-side exception in the app and shows a recoverable Hebrew screen
 // instead of the raw "Application error: a client-side exception has
@@ -14,14 +15,14 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
     }, [error]);
 
     return (
-        <div dir="rtl" style={{
+        <div style={{
             minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
             padding: "2rem", textAlign: "center", background: "#0f172a", color: "#e2e8f0", fontFamily: "system-ui,-apple-system,sans-serif",
         }}>
             <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>😕</div>
-            <h1 style={{ fontSize: "1.3rem", fontWeight: 800, marginBottom: "0.5rem" }}>משהו השתבש</h1>
+            <h1 style={{ fontSize: "1.3rem", fontWeight: 800, marginBottom: "0.5rem" }}>{tx("משהו השתבש")}</h1>
             <p style={{ color: "#94a3b8", fontSize: "0.95rem", marginBottom: "1.75rem", maxWidth: 340 }}>
-                אירעה שגיאה בלתי צפויה. נסו לרענן — אם זה חוזר, נשמח שתדווחו לנו.
+                {tx("אירעה שגיאה בלתי צפויה. נסו לרענן — אם זה חוזר, נשמח שתדווחו לנו.")}
             </p>
             <button
                 onClick={() => reset()}
@@ -31,7 +32,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
                     marginBottom: "1.5rem",
                 }}
             >
-                נסה שוב
+                {tx("נסה שוב")}
             </button>
 
             {/* Temporary while we're actively tracking down mobile crashes — shows
@@ -42,7 +43,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
                 maxWidth: 340, background: "#1e293b", border: "1px solid #334155", borderRadius: 10,
                 padding: "0.85rem 1rem", textAlign: "left", direction: "ltr",
             }}>
-                <div style={{ fontSize: "0.7rem", color: "#64748b", marginBottom: "0.3rem" }}>פרטים טכניים (לשליחה לתמיכה):</div>
+                <div style={{ fontSize: "0.7rem", color: "#64748b", marginBottom: "0.3rem" }}>{tx("פרטים טכניים (לשליחה לתמיכה):")}</div>
                 <div style={{ fontSize: "0.78rem", color: "#fca5a5", fontFamily: "monospace", wordBreak: "break-word", whiteSpace: "pre-wrap" }}>
                     {error?.message || "(no message)"}
                 </div>

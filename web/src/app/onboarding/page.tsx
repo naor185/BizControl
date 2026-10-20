@@ -1,4 +1,5 @@
 "use client";
+import AfterMount from "@/components/AfterMount";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch, API_BASE } from "@/lib/api";
@@ -7,6 +8,7 @@ import { Rocket, Zap } from "lucide-react";
 import { isNativeApp } from "@/lib/platform";
 import { BIZFIND_URL } from "@/lib/config";
 
+import { tx } from "@/lib/i18n";
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type PlanFeature = { key: string; label: string; enabled: boolean; limit: number | null };
@@ -40,6 +42,10 @@ function Progress({ step, total }: { step: number; total: number }) {
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 export default function OnboardingPage() {
+    return <AfterMount><OnboardingPageInner /></AfterMount>;
+}
+
+function OnboardingPageInner() {
     const router = useRouter();
     const [step, setStep] = useState(1);
     const [me, setMe] = useState<StudioMe | null>(null);
@@ -65,7 +71,12 @@ export default function OnboardingPage() {
         const load = async () => {
             try {
                 const [meData, plansData, typesData] = await Promise.all([
-                    apiFetch<StudioMe>("/api/me"),
+                    // the business's name and plan — /api/me never existed: every new business from BizFind landed on
+                    // the sign-in page here instead (found 2026-10-20)
+                    Promise.all([apiFetch<{ studio_name?: string | null }>("/api/auth/me"),
+                                 apiFetch<{ subscription_plan: string; plan_expires_at?: string | null }>("/api/auth/studio-info")])
+                        .then(([u, st]): StudioMe => ({ name: u.studio_name || "", subscription_plan: st.subscription_plan,
+                                                        plan_expires_at: st.plan_expires_at || undefined })),
                     fetch(`${API_BASE}/api/marketplace/plans`).then(r => r.json()).catch(() => []),
                     fetch(`${API_BASE}/api/public/business-types?include_directory=false`).then(r => r.json()).catch(() => []),
                 ]);
@@ -129,7 +140,7 @@ export default function OnboardingPage() {
     }
 
     return (
-        <div dir="rtl" className="min-h-screen bg-gradient-to-br from-violet-50 via-white to-indigo-50 flex items-center justify-center p-4">
+        <div className="min-h-screen bg-gradient-to-br from-violet-50 via-white to-indigo-50 flex items-center justify-center p-4">
             <div className="w-full max-w-lg">
 
                 {/* Logo */}
@@ -140,7 +151,7 @@ export default function OnboardingPage() {
                     </Link>
                     {trialDaysLeft !== null && (
                         <div className="mt-2 inline-flex items-center gap-1.5 bg-amber-100 text-amber-700 text-xs font-bold px-3 py-1 rounded-full">
-                            🔬 {trialDaysLeft} ימי ניסיון נותרו
+                            🔬 {trialDaysLeft} {tx("ימי ניסיון נותרו")}
                         </div>
                     )}
                 </div>
@@ -151,18 +162,18 @@ export default function OnboardingPage() {
                     {/* ── Step 1: Business Details ── */}
                     {step === 1 && (
                         <div>
-                            <h1 className="text-2xl font-black text-slate-800 mb-1">ברוכים הבאים! 👋</h1>
-                            <p className="text-slate-400 text-sm mb-6">בואו נגדיר את פרטי העסק שלכם. זה ייקח פחות מדקה.</p>
+                            <h1 className="text-2xl font-black text-slate-800 mb-1">{tx("ברוכים הבאים! 👋")}</h1>
+                            <p className="text-slate-400 text-sm mb-6">{tx("בואו נגדיר את פרטי העסק שלכם. זה ייקח פחות מדקה.")}</p>
 
                             <div className="space-y-4">
                                 <div>
-                                    <label className={labelCls}>שם העסק *</label>
-                                    <input className={inputCls} value={businessName} onChange={e => setBusinessName(e.target.value)} placeholder="שם העסק כפי שהלקוחות מכירים אותו" maxLength={120} />
+                                    <label className={labelCls}>{tx("שם העסק *")}</label>
+                                    <input className={inputCls} value={businessName} onChange={e => setBusinessName(e.target.value)} placeholder={tx("שם העסק כפי שהלקוחות מכירים אותו")} maxLength={120} />
                                 </div>
                                 <div>
-                                    <label className={labelCls}>קטגוריה *</label>
+                                    <label className={labelCls}>{tx("קטגוריה *")}</label>
                                     <select className={inputCls} value={category} onChange={e => setCategory(e.target.value)}>
-                                        <option value="">בחרו קטגוריה</option>
+                                        <option value="">{tx("בחרו קטגוריה")}</option>
                                         {types.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}
                                     </select>
                                     {category === "other" && (
@@ -170,7 +181,7 @@ export default function OnboardingPage() {
                                             className={inputCls + " mt-2"}
                                             value={categoryOther}
                                             onChange={e => setCategoryOther(e.target.value)}
-                                            placeholder="פרטו את קטגוריית העסק"
+                                            placeholder={tx("פרטו את קטגוריית העסק")}
                                             maxLength={60}
                                             autoFocus
                                         />
@@ -178,24 +189,24 @@ export default function OnboardingPage() {
                                 </div>
                                 <div className="grid grid-cols-2 gap-3">
                                     <div>
-                                        <label className={labelCls}>עיר *</label>
-                                        <input className={inputCls} value={city} onChange={e => setCity(e.target.value)} placeholder="תל אביב" />
+                                        <label className={labelCls}>{tx("עיר *")}</label>
+                                        <input className={inputCls} value={city} onChange={e => setCity(e.target.value)} placeholder={tx("תל אביב")} />
                                     </div>
                                     <div>
-                                        <label className={labelCls}>טלפון</label>
+                                        <label className={labelCls}>{tx("טלפון")}</label>
                                         <input className={inputCls} value={phone} onChange={e => setPhone(e.target.value)} placeholder="050-000000" dir="ltr" />
                                     </div>
                                 </div>
                                 <div>
-                                    <label className={labelCls}>כתובת</label>
-                                    <input className={inputCls} value={address} onChange={e => setAddress(e.target.value)} placeholder="רחוב הרצל 5, קומה 2" />
+                                    <label className={labelCls}>{tx("כתובת")}</label>
+                                    <input className={inputCls} value={address} onChange={e => setAddress(e.target.value)} placeholder={tx("רחוב הרצל 5, קומה 2")} />
                                 </div>
                                 <div>
-                                    <label className={labelCls}>תיאור קצר (יוצג בפרופיל)</label>
+                                    <label className={labelCls}>{tx("תיאור קצר (יוצג בפרופיל)")}</label>
                                     <textarea
                                         className={`${inputCls} resize-none`} rows={3}
                                         value={description} onChange={e => setDescription(e.target.value)}
-                                        placeholder="ספרו ללקוחות מה מיוחד אצלכם..."
+                                        placeholder={tx("ספרו ללקוחות מה מיוחד אצלכם...")}
                                         maxLength={400}
                                     />
                                 </div>
@@ -206,7 +217,7 @@ export default function OnboardingPage() {
                                 disabled={!businessName.trim() || !city.trim() || saving}
                                 className="mt-6 w-full bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-black py-3.5 rounded-2xl text-base disabled:opacity-40 transition-opacity shadow-lg shadow-violet-200"
                             >
-                                {saving ? "שומר..." : "המשיכו ←"}
+                                {saving ? tx("שומר...") : tx("המשיכו ←")}
                             </button>
                         </div>
                     )}
@@ -214,11 +225,11 @@ export default function OnboardingPage() {
                     {/* ── Step 2: Choose Plan ── */}
                     {step === 2 && (
                         <div>
-                            <h1 className="text-2xl font-black text-slate-800 mb-1">המסלולים</h1>
+                            <h1 className="text-2xl font-black text-slate-800 mb-1">{tx("המסלולים")}</h1>
                             <p className="text-slate-400 text-sm mb-6">
                                 {trialDaysLeft !== null
-                                    ? `יש לכם עוד ${trialDaysLeft} ימים בחודש החינמי, עם כל המערכת פתוחה. בסופו בוחרים מסלול.`
-                                    : "בחרו את המסלול המתאים לכם."}
+                                    ? tx("יש לכם עוד {0} ימים בחודש החינמי, עם כל המערכת פתוחה. בסופו בוחרים מסלול.", { 0: trialDaysLeft })
+                                    : tx("בחרו את המסלול המתאים לכם.")}
                             </p>
 
                             <div className="space-y-2.5 max-h-96 overflow-y-auto pb-1">
@@ -229,7 +240,7 @@ export default function OnboardingPage() {
                                         <button
                                             key={plan.key}
                                             onClick={() => setSelectedPlan(plan.key)}
-                                            className={`w-full rounded-2xl p-4 text-right border-2 transition-all ${
+                                            className={`w-full rounded-2xl p-4 text-start border-2 transition-all ${
                                                 sel
                                                     ? isBizControl ? "border-violet-600 bg-violet-50" : "border-sky-500 bg-sky-50"
                                                     : "border-slate-100 bg-white hover:border-slate-200"
@@ -244,24 +255,24 @@ export default function OnboardingPage() {
                                                         <span className="font-bold text-slate-800 text-sm">
                                                             {plan.label}
                                                             {plan.is_trial && (
-                                                                <span className="mr-2 text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-semibold">
-                                                                    {plan.days} ימים חינם
+                                                                <span className="ms-2 text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-semibold">
+                                                                    {plan.days} {tx("ימים חינם")}
                                                                 </span>
                                                             )}
                                                         </span>
                                                         <span className={`font-black text-sm ${isBizControl ? "text-violet-600" : "text-sky-600"}`}>
-                                                            {plan.is_trial ? "חינם" : `₪${plan.price_ils}/חודש`}
+                                                            {plan.is_trial ? tx("חינם") : tx("₪{0}/חודש", { 0: plan.price_ils })}
                                                         </span>
                                                     </div>
                                                     <div className="text-xs text-slate-400 mt-0.5">
-                                                        {isBizControl ? "BizFind + BizControl" : "BizFind בלבד"}
+                                                        {isBizControl ? "BizFind + BizControl" : tx("BizFind בלבד")}
                                                     </div>
                                                     {sel && plan.features.length > 0 && (
                                                         <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-0.5">
                                                             {plan.features.filter(f => f.enabled).slice(0, 6).map(f => (
                                                                 <div key={f.key} className="text-xs text-slate-500 flex items-center gap-1">
                                                                     <span className={isBizControl ? "text-violet-400" : "text-sky-400"}>✓</span>
-                                                                    {f.label}{f.limit ? ` (עד ${f.limit})` : ""}
+                                                                    {f.label}{f.limit ? tx(" (עד {0})", { 0: f.limit }) : ""}
                                                                 </div>
                                                             ))}
                                                         </div>
@@ -275,16 +286,16 @@ export default function OnboardingPage() {
                             </div>
 
                             <p className="text-center text-xs text-slate-400 mt-3">
-                                תשלום חודשי ללא התחייבות ·{" "}
-                                <a href={`${BIZFIND_URL}/billing-terms`} target="_blank" rel="noopener" className="underline">תקנון ביטולים וחיובים</a>
+                                {tx("תשלום חודשי ללא התחייבות ·")}{" "}
+                                <a href={`${BIZFIND_URL}/billing-terms`} target="_blank" rel="noopener" className="underline">{tx("תקנון ביטולים וחיובים")}</a>
                             </p>
 
                             <div className="flex gap-3 mt-6">
                                 <button onClick={() => setStep(1)} className="flex-1 py-3 rounded-2xl border border-slate-200 text-slate-500 font-semibold text-sm hover:bg-slate-50">
-                                    חזרה
+                                    {tx("חזרה")}
                                 </button>
                                 <button onClick={() => setStep(3)} className="flex-2 flex-[2] bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-black py-3 rounded-2xl text-sm shadow-lg shadow-violet-200">
-                                    המשיכו ←
+                                    {tx("המשיכו ←")}
                                 </button>
                             </div>
                         </div>
@@ -294,19 +305,19 @@ export default function OnboardingPage() {
                     {step === 3 && (
                         <div className="text-center">
                             <div className="text-6xl mb-4">🎉</div>
-                            <h1 className="text-2xl font-black text-slate-800 mb-2">הכל מוכן!</h1>
+                            <h1 className="text-2xl font-black text-slate-800 mb-2">{tx("הכל מוכן!")}</h1>
                             <p className="text-slate-400 text-sm mb-6">
-                                <strong className="text-slate-700">{businessName}</strong> מוכן לפעולה.
-                                {trialDaysLeft !== null && ` יש לכם ${trialDaysLeft} ימי ניסיון מלאים.`}
+                                <strong className="text-slate-700">{businessName}</strong> {tx("מוכן לפעולה.")}
+                                {trialDaysLeft !== null && tx(" יש לכם {0} ימי ניסיון מלאים.", { 0: trialDaysLeft })}
                             </p>
 
                             {/* Quick actions */}
-                            <div className="grid grid-cols-2 gap-3 mb-6 text-right">
+                            <div className="grid grid-cols-2 gap-3 mb-6 text-start">
                                 {[
-                                    { icon: "📅", title: "יומן", desc: "נהלו תורים ומפגשים", href: "/calendar" },
-                                    { icon: "👥", title: "לקוחות", desc: "CRM מלא", href: "/clients" },
-                                    { icon: "💳", title: "תשלומים", desc: "קבלות ודוחות", href: "/payments" },
-                                    { icon: "🔔", title: "אוטומציות", desc: "WhatsApp + תזכורות", href: "/automation" },
+                                    { icon: "📅", title: tx("יומן"), desc: tx("נהלו תורים ומפגשים"), href: "/calendar" },
+                                    { icon: "👥", title: tx("לקוחות"), desc: tx("CRM מלא"), href: "/clients" },
+                                    { icon: "💳", title: tx("תשלומים"), desc: tx("קבלות ודוחות"), href: "/payments" },
+                                    { icon: "🔔", title: tx("אוטומציות"), desc: tx("WhatsApp + תזכורות"), href: "/automation" },
                                 ].map(item => (
                                     <Link key={item.href} href={item.href} className="bg-slate-50 hover:bg-violet-50 border border-slate-100 hover:border-violet-200 rounded-2xl p-3.5 no-underline transition-colors block">
                                         <div className="text-2xl mb-1">{item.icon}</div>
@@ -321,15 +332,15 @@ export default function OnboardingPage() {
                                 disabled={saving}
                                 className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-black py-4 rounded-2xl text-base shadow-lg shadow-violet-200 disabled:opacity-40"
                             >
-                                {saving ? "שומר..." : "הגדר את החנות שלי ←"}
+                                {saving ? tx("שומר...") : tx("הגדר את החנות שלי ←")}
                             </button>
 
                             <p className="text-xs text-slate-400 mt-3">
-                                ניתן תמיד לעבור ליומן התורים מהתפריט למטה
+                                {tx("ניתן תמיד לעבור ליומן התורים מהתפריט למטה")}
                             </p>
 
                             <button onClick={() => setStep(2)} className="text-xs text-slate-400 hover:text-slate-600 mt-2 underline">
-                                ← חזרה לבחירת מסלול
+                                {tx("← חזרה לבחירת מסלול")}
                             </button>
                         </div>
                     )}

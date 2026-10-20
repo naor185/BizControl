@@ -124,7 +124,7 @@ function LoginContent() {
         setNativeUnlockErr(null);
         setNativeUnlocking(true);
         try {
-            const ok = await verifyNativeBiometric("כניסה מהירה ל-BizControl");
+            const ok = await verifyNativeBiometric(locale.startsWith("en") ? "Quick sign-in to BizControl" : "כניסה מהירה ל-BizControl");
             if (!ok) return; // user cancelled — stay on this screen
             const me = await apiFetch<{ role: string }>("/api/auth/me");
             router.replace(me.role === "superadmin" ? "/admin" : nextUrl);
@@ -134,7 +134,7 @@ function LoginContent() {
             // access and refresh tokens genuinely dead) — either way there's
             // no session left to unlock into, fall back to a normal login.
             clearToken();
-            setNativeUnlockErr((e as Error)?.message || "האימות נכשל, יש להתחבר מחדש");
+            setNativeUnlockErr((e as Error)?.message || (locale.startsWith("en") ? "Verification failed — please sign in again" : "האימות נכשל, יש להתחבר מחדש"));
             setNativeUnlock("hide");
         } finally {
             setNativeUnlocking(false);
@@ -263,7 +263,7 @@ function LoginContent() {
             const me = await apiFetch<{ role: string }>("/api/auth/me");
             router.replace(me.role === "superadmin" ? "/admin" : nextUrl);
         } catch (e: unknown) {
-            setErr(parseErr(String((e as Error)?.message || "קוד שגוי"), locale).text);
+            setErr(parseErr(String((e as Error)?.message || (locale.startsWith("en") ? "Wrong code" : "קוד שגוי")), locale).text);
         } finally {
             setLoading(false);
         }
@@ -445,7 +445,7 @@ function LoginContent() {
                         <img src="/logo.png" alt="BizControl" className="w-40 h-40 object-contain drop-shadow-2xl" />
                     </div>
                     <div className="font-black text-3xl text-white tracking-tight drop-shadow-lg">BizControl</div>
-                    <div className="text-sm text-blue-200/80 mt-1">ניהול העסק שלך, בפשטות</div>
+                    <div className="text-sm text-blue-200/80 mt-1">{locale.startsWith("en") ? "Your business, simply managed" : "ניהול העסק שלך, בפשטות"}</div>
                 </div>
 
                 <div className="w-full max-w-sm">

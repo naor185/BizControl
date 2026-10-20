@@ -1,8 +1,10 @@
 "use client";
+import AfterMount from "@/components/AfterMount";
 import { useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { setToken } from "@/lib/api";
 
+import { tx } from "@/lib/i18n";
 const API = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
 
 function AutoLoginInner() {
@@ -51,7 +53,7 @@ function AutoLoginInner() {
                 border: "4px solid #e2e8f0", borderTopColor: "#7c3aed",
                 animation: "spin 0.8s linear infinite",
             }} />
-            <p style={{ color: "#64748b", fontSize: "0.9rem" }}>מתחבר לחשבון שלך...</p>
+            <p style={{ color: "#64748b", fontSize: "0.9rem" }}>{tx("מתחבר לחשבון שלך...")}</p>
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </div>
     );
@@ -59,8 +61,8 @@ function AutoLoginInner() {
 
 export default function AutoLoginPage() {
     return (
-        <Suspense fallback={null}>
+        <AfterMount><Suspense fallback={null}>
             <AutoLoginInner />
-        </Suspense>
+        </Suspense></AfterMount>
     );
 }

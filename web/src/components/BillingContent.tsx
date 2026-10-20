@@ -151,7 +151,7 @@ export default function BillingContent() {
                         {tx("אם המנוי לא יחודש עד")} {fmtDate(status.plan_expires_at)}
                     </div>
                     <ul className="list-disc list-inside space-y-1.5 text-sm text-amber-900/90 leading-relaxed marker:text-amber-400">
-                        {IF_NOT_RENEWED.map(line => <li key={line}>{line}</li>)}
+                        {IF_NOT_RENEWED.map(line => <li key={line}>{tx(line)}</li>)}
                     </ul>
                     {!isNative && (
                         <p className="text-sm text-amber-900 mt-3">{tx("לחידוש: WhatsApp 052-8518805 או ncbilutattoo@gmail.com")}</p>
