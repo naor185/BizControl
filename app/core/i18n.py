@@ -28,7 +28,7 @@ def say(text, lang: str):
     for rx, en in _PATTERNS_RX:
         m = rx.match(text)
         if m:
-            return en.format(*(EN.get(g, g) for g in m.groups()))
+            return en.format(*(say(g, lang) for g in m.groups()))     # a value can be a known text too
     return text
 
 
@@ -550,3 +550,91 @@ PATTERNS: dict[str, str] = {
 }
 _PATTERNS_RX = [(re.compile("^" + re.escape(he).replace(re.escape("{}"), "(.+?)") + "$", re.S), en)
                 for he, en in PATTERNS.items()]
+
+
+def user_locale(db, user) -> str:
+    """A signed-in person's language: their own choice (users.locale), else the business's."""
+    own = getattr(user, "locale", None) if user is not None else None
+    if own in LANGS:
+        return own
+    return studio_locale(db, getattr(user, "studio_id", None)) if user is not None else "he"
+
+
+# ── The bell and the phone (2026-10-20): what the system tells the owner, the managers and the workers, written in
+# Hebrew where it happens and said in each reader's language when the bell is read (api/notification_routes) or the
+# push goes out (services/message_worker) — old notifications too.
+EN.update({
+    "חבר/ה חדש/ה הצטרפ/ה למועדון": "A new member joined the club",
+    "ליד חדש": "New lead",
+    "צילום של תשלום מקדמה": "A picture of a deposit payment",
+    "דיווח על תשלום מקדמה": "A deposit payment was reported",
+    "לקוח": "Client",
+    "נגמרו הודעות ה-WhatsApp של החודש": "This month's WhatsApp messages are used up",
+    "וואטסאפ": "WhatsApp", "מייל": "Email", "פוש": "Push",
+    "תקופת הניסיון הסתיימה — האתר הועבר לארכיון": "The trial ended — the site was archived",
+    "המנוי הסתיים — האתר הועבר לארכיון": "The subscription ended — the site was archived",
+    "תקופת הניסיון מסתיימת בעוד יום אחד": "The trial ends in one day",
+    "המנוי יפוג בעוד יום אחד": "The subscription expires in one day",
+    "החלפת משמרת מחכה לאישור": "A shift swap is waiting for approval",
+    "בקשת חופשה": "Vacation request", "בקשת מחלה": "Sick leave request", "בקשת היעדרות": "Absence request",
+    "משימה בוצעה": "Task done",
+    "משימה חדשה": "New task",
+    "תזכורת למשימה": "Task reminder",
+    "ויקי: הסיכום השבועי שלך מוכן": "Viki: your weekly summary is ready",
+    "ויקי: סיכום החודש מוכן": "Viki: the monthly summary is ready",
+    "מה הלך טוב, מה לשפר — והמטרה לשבוע": "What went well, what to improve — and the goal for the week",
+    "מה הלך טוב, מה לשפר — והמטרה לחודש החדש": "What went well, what to improve — and the goal for the new month",
+    "המשמרת שלך כבר התחילה": "Your shift has already started",
+    "עוד לא החתמת כניסה": "You haven't clocked in yet",
+    'בתשובת "הסר" בוואטסאפ': 'by replying "remove" on WhatsApp',
+    "בקישור ההסרה": "with the unsubscribe link",
+})
+
+PATTERNS.update({
+    "{} • {} נקודות": "{0} • {1} points",
+    "{} עוד לא החתים/ה כניסה": "{0} hasn't clocked in yet",
+    "המשמרת התחילה ב-{} ({} דקות)": "The shift started at {0} ({1} minutes)",
+    "המשמרת התחילה ב-{} — שכחת להחתים כניסה?": "The shift started at {0} — forgot to clock in?",
+    "יש לך תור ב-{} — סרוק/י את הברקוד שבכניסה כדי להחתים כניסה.": "You have an appointment at {0} — scan the barcode at the entrance to clock in.",
+    "{} — ₪{} · התור ב־{} · עם צילום": "{0} — ₪{1} · appointment on {2} · with a picture",
+    "{} — ₪{} · התור ב־{}": "{0} — ₪{1} · appointment on {2}",
+    "{} הוסר/ה מרשימת ההודעות": "{0} was removed from the messages list",
+    "{} ביקש/ה {} לא לקבל יותר הודעות שיווקיות": "{0} asked {1} to stop getting marketing messages",
+    "ביקש/ה {} לא לקבל יותר הודעות שיווקיות": "Asked {0} to stop getting marketing messages",
+    "נשלחו {} הודעות — כל המכסה של המסלול לחודש. עד תחילת החודש הבא תזכורות ואישורים יוצאים במייל ללקוחות שיש להם מייל, ותפוצות לא יוצאות.":
+        "{0} messages were sent — the plan's whole monthly quota. Until next month, reminders and confirmations go by email to clients who have one, and broadcasts don't go out.",
+    "נוצלו {}% מהודעות ה-WhatsApp של החודש": "{0}% of this month's WhatsApp messages are used",
+    "נשלחו {} מתוך {} הודעות במסלול החודש.": "{0} of the plan's {1} messages were sent this month.",
+    "הודעת {} נכשלה": "{0} message failed",
+    "ההודעה ל{} לא נשלחה. צוות BizControl קיבל התראה ומטפל.": "The message to {0} wasn't sent. The BizControl team was alerted and is on it.",
+    "תקופת הניסיון מסתיימת בעוד {} ימים": "The trial ends in {0} days",
+    "המנוי יפוג בעוד {} ימים": "The subscription expires in {0} days",
+    "המערכת חסומה, אתר העסק בארכיון והלקוחות לא יכולים לקבוע תור. הנתונים נשמרים והכול חוזר ברגע שמחדשים. לחידוש: WhatsApp {}.":
+        "The system is locked, the business's site is archived and clients can't book. Your data is kept and everything comes back the moment you renew. To renew: WhatsApp {0}.",
+    "עד {}. אם לא תחדשו: המערכת תיחסם, אתר העסק (הזמנת תורים, דף נחיתה, BizFind) יעבור לארכיון והלקוחות לא יוכלו לקבוע תור. הנתונים נשמרים והכול חוזר ברגע שמחדשים. לחידוש: WhatsApp {}.":
+        "Until {0}. If you don't renew: the system will be locked, the business's site (booking, landing page, BizFind) will be archived and clients won't be able to book. Your data is kept and everything comes back the moment you renew. To renew: WhatsApp {1}.",
+    "{} ({}) — עדיין לא סומנה כבוצעה": "{0} ({1}) — not marked done yet",
+    "תור מתחיל בעוד {} ⏰": "An appointment starts in {0} ⏰",
+    "{} בשעה {} · {}": "{0} at {1} · {2}",
+    "{} בשעה {}": "{0} at {1}",
+    "{} שבועות": "{0} weeks", "{} ימים": "{0} days", "{} שעות": "{0} hours", "{} דקות": "{0} minutes",
+})
+EN.update({"שבוע": "a week", "יום": "a day", "שעה": "an hour"})
+for _k in ("{} — רק לבעלים או למנהל", "{} לא נמצא"):   # the general ones last
+    PATTERNS[_k] = PATTERNS.pop(_k)
+_PATTERNS_RX = [(re.compile("^" + re.escape(he).replace(re.escape("{}"), "(.+?)") + "$", re.S), en)
+                for he, en in PATTERNS.items()]
+
+EN.update({   # the data import's and the AI's messages
+    "אי אפשר לייבא את סוג הנתונים הזה עדיין": "This kind of data can't be imported yet",
+    "לא נשארו בקובץ עמודות לייבוא": "No columns are left in the file to import",
+    "אי אפשר לשנות את המיפוי בשלב הזה": "The mapping can't be changed at this stage",
+    "אפשר לשנות החלטות רק בתצוגה המקדימה": "Choices can be changed only in the preview",
+    "החלטה לא מוכרת": "Unknown choice",
+    "אפשר לאשר ייבוא רק אחרי התצוגה המקדימה": "An import can be approved only after the preview",
+    "אין שורות לייבוא — כל השורות מסומנות לדילוג": "No rows to import — every row is marked to skip",
+    "אפשר להמשיך רק ייבוא שנעצר": "Only a stopped import can be continued",
+    "לא נבחרו שורות": "No rows were chosen",
+    "אפשר לבטל רק ייבוא שכבר רץ": "Only an import that already ran can be undone",
+    "לא מוגדר GROQ_API_KEY / GEMINI_API_KEY / OPENAI_API_KEY": "GROQ_API_KEY / GEMINI_API_KEY / OPENAI_API_KEY isn't set",
+})

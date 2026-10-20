@@ -168,6 +168,11 @@ def send_push_to_user(db: Session, user_id: UUID, title: str, body: str, deep_li
     ).scalars().all()
     if not tokens:
         return 0
+    # written in Hebrew where it happens, said in this person's language (app/core/i18n)
+    from app.core.i18n import say, user_locale
+    from app.models.user import User
+    lang = user_locale(db, db.get(User, user_id))
+    title, body = say(title, lang), say(body, lang)
     bundle_id = os.environ.get("APNS_BUNDLE_ID", "com.bizcontrol.app")
     sent = _send_to_tokens(tokens, title, body, deep_link, bundle_id)
     db.commit()

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import select, func
 from uuid import UUID
@@ -33,7 +33,7 @@ WORKERS = ("artist", "staff")
 
 
 @router.get("", response_model=list[NotificationOut])
-def list_notifications(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+def list_notifications(request: Request, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     if current_user.role in WORKERS:
         return []
     rows = db.scalars(
@@ -42,11 +42,14 @@ def list_notifications(db: Session = Depends(get_db), current_user=Depends(get_c
         .order_by(Notification.created_at.desc())
         .limit(50)
     ).all()
+    # written in Hebrew where they happen, said in the reader's language (app/core/i18n — old ones too)
+    from app.core.i18n import lang_of, say
+    lang = lang_of(request.headers.get("X-Lang"))
     return [NotificationOut(
         id=str(r.id),
         type=r.type,
-        title=r.title,
-        body=r.body,
+        title=say(r.title, lang),
+        body=say(r.body, lang),
         is_read=r.is_read,
         action_url=r.action_url,
         created_at=r.created_at,

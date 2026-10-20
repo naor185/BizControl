@@ -62,8 +62,10 @@ def _to_worker(db: Session, studio_id, worker: User, title: str, body: str, kind
         db.add(MessageJob(studio_id=studio_id, recipient_user_id=worker.id, channel="push", subject=title, body=body,
                           deep_link=link, reminder_type=kind, dedup_key=key, scheduled_at=now, status="pending"))
     elif worker.phone:
+        from app.core.i18n import say, user_locale       # the worker's language (a push is said in it when sent)
+        lang = user_locale(db, worker)
         db.add(MessageJob(studio_id=studio_id, recipient_user_id=worker.id, channel="whatsapp", to_phone=worker.phone,
-                          body=f"{title}: {body}", reminder_type=kind, dedup_key=key, scheduled_at=now, status="pending"))
+                          body=f"{say(title, lang)}: {say(body, lang)}", reminder_type=kind, dedup_key=key, scheduled_at=now, status="pending"))
     else:
         return False
     db.commit()

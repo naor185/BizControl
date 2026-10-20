@@ -54,3 +54,24 @@ def test_the_client_pages_speak_the_businesss_language(client, db_session):
     assert say("הקופון SUMMER הופסק", "en") == "The coupon SUMMER was stopped"
     assert say("ההודעה לא נמצא", "en") == "The message not found"
     assert say("הקופון SUMMER הופסק", "he") == "הקופון SUMMER הופסק"
+
+
+def test_the_bell_speaks_the_readers_language(client, db_session):
+    """Notifications are written in Hebrew where they happen and said in the reader's language — old ones too."""
+    from sqlalchemy import select
+    from app.models.notification import Notification
+    from app.models.studio import Studio
+    owner = register_and_login(client, "lang-bell", "owner@lang-bell.com")
+    s = db_session.scalar(select(Studio).where(Studio.slug == "lang-bell"))
+    db_session.add_all([
+        Notification(studio_id=s.id, type="message_failed", title="הודעת וואטסאפ נכשלה",
+                     body="ההודעה לדנה לא נשלחה. צוות BizControl קיבל התראה ומטפל."),
+        Notification(studio_id=s.id, type="plan_3", title="המנוי יפוג בעוד 3 ימים", body="משהו שאין לו תרגום"),
+    ])
+    db_session.commit()
+    en = client.get("/api/notifications", headers={**owner, "X-Lang": "en"}).json()
+    assert {n["title"] for n in en} == {"WhatsApp message failed", "The subscription expires in 3 days"}
+    assert "The message to דנה wasn't sent. The BizControl team was alerted and is on it." in {n["body"] for n in en}
+    assert "משהו שאין לו תרגום" in {n["body"] for n in en}                  # no English yet — as written
+    he = client.get("/api/notifications", headers=owner).json()
+    assert "הודעת וואטסאפ נכשלה" in {n["title"] for n in he}
