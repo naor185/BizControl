@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowRight, Bell, Mail, MessageCircle, RefreshCw, RotateCcw, X } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
+import { tx, intl } from "@/lib/i18n";
 // The message queue — the superadmin's (owner, 2026-10-11): every business's outgoing WhatsApp / e-mail / push,
 // its status and error; retry or cancel (/api/admin/messages, app/api/admin_message_routes.py). A business owner
 // doesn't see it; the superadmin also gets an e-mail when a business's messages fail.
@@ -15,20 +16,20 @@ type Job = {
     scheduled_at: string | null; sent_at: string | null; created_at: string | null;
 };
 const STATUS: Record<string, { label: string; cls: string }> = {
-    pending:  { label: "ממתין",  cls: "bg-sky-50 text-sky-700" },
-    sent:     { label: "נשלח",   cls: "bg-emerald-50 text-emerald-700" },
-    failed:   { label: "נכשל",   cls: "bg-rose-50 text-rose-700" },
-    canceled: { label: "בוטל",   cls: "bg-slate-100 text-slate-500" },
+    pending:  { label: tx("ממתין"),  cls: "bg-sky-50 text-sky-700" },
+    sent:     { label: tx("נשלח"),   cls: "bg-emerald-50 text-emerald-700" },
+    failed:   { label: tx("נכשל"),   cls: "bg-rose-50 text-rose-700" },
+    canceled: { label: tx("בוטל"),   cls: "bg-slate-100 text-slate-500" },
 };
 const FILTERS: { key: string; label: string }[] = [
-    { key: "", label: "הכול" }, { key: "failed", label: "נכשלו" }, { key: "pending", label: "ממתינים" }, { key: "sent", label: "נשלחו" },
+    { key: "", label: tx("הכול") }, { key: "failed", label: tx("נכשלו") }, { key: "pending", label: tx("ממתינים") }, { key: "sent", label: tx("נשלחו") },
 ];
-const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString("he-IL", { dateStyle: "short", timeStyle: "short" }) : "—");
+const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString(intl(), { dateStyle: "short", timeStyle: "short" }) : "—");
 
 function ChannelIcon({ channel }: { channel: string }) {
     if (channel === "whatsapp") return <MessageCircle className="h-4 w-4 text-emerald-700" aria-label="WhatsApp" />;
-    if (channel === "email") return <Mail className="h-4 w-4 text-slate-500" aria-label="מייל" />;
-    return <Bell className="h-4 w-4 text-slate-500" aria-label="התראה" />;
+    if (channel === "email") return <Mail className="h-4 w-4 text-slate-500" aria-label={tx("מייל")} />;
+    return <Bell className="h-4 w-4 text-slate-500" aria-label={tx("התראה")} />;
 }
 
 export default function AdminMessagesPage() {
@@ -44,7 +45,7 @@ export default function AdminMessagesPage() {
         if (studioId) q.set("studio_id", studioId);
         if (status) q.set("status", status);
         apiFetch<Job[]>(`/api/admin/messages?${q}`).then(j => { setJobs(j); setErr(null); })
-            .catch(e => { setJobs([]); setErr(e instanceof Error ? e.message : "הטעינה נכשלה"); });
+            .catch(e => { setJobs([]); setErr(e instanceof Error ? e.message : tx("הטעינה נכשלה")); });
     }, [studioId, status]);
     useEffect(() => { load(); }, [load]);
     useEffect(() => {
@@ -61,35 +62,35 @@ export default function AdminMessagesPage() {
             await apiFetch(path, { method: "POST" });
             load();
         } catch (e) {
-            setErr(e instanceof Error ? e.message : "הפעולה נכשלה");
+            setErr(e instanceof Error ? e.message : tx("הפעולה נכשלה"));
         } finally {
             setBusy(null);
         }
     };
 
     return (
-        <div className="max-w-7xl mx-auto py-8 px-4 space-y-5" dir="rtl">
+        <div className="max-w-7xl mx-auto py-8 px-4 space-y-5">
             <Link href="/admin" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-900">
-                <ArrowRight className="h-4 w-4" /> חזרה לאדמין
+                <ArrowRight className="ltr:-scale-x-100 h-4 w-4" /> {tx("חזרה לאדמין")}
             </Link>
             <div className="flex items-start justify-between gap-4 flex-wrap">
                 <div>
-                    <h1 className="text-2xl font-black text-slate-900">תור הודעות</h1>
-                    <p className="text-slate-500 text-sm mt-1">כל ההודעות שהעסקים שולחים — WhatsApp, מייל והתראות. בעלי העסקים לא רואים את המסך הזה; כשהודעה של עסק נכשלת מגיע אליך מייל.</p>
+                    <h1 className="text-2xl font-black text-slate-900">{tx("תור הודעות")}</h1>
+                    <p className="text-slate-500 text-sm mt-1">{tx("כל ההודעות שהעסקים שולחים — WhatsApp, מייל והתראות. בעלי העסקים לא רואים את המסך הזה; כשהודעה של עסק נכשלת מגיע אליך מייל.")}</p>
                 </div>
                 <div className="flex items-center gap-2">
                     <button onClick={() => act(`/api/admin/messages/retry-all-failed${studioId ? `?studio_id=${studioId}` : ""}`, "all")}
                         disabled={busy === "all" || failed === 0}
                         className="inline-flex items-center gap-2 px-4 py-2 text-sm font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-xl disabled:opacity-40">
-                        <RotateCcw className="h-4 w-4" /> {busy === "all" ? "רגע..." : `לנסות שוב את כל הנכשלות${studioId ? " של העסק" : ""}`}
+                        <RotateCcw className="h-4 w-4" /> {busy === "all" ? tx("רגע...") : tx("לנסות שוב את כל הנכשלות{0}", { 0: studioId ? tx(" של העסק") : "" })}
                     </button>
-                    <button onClick={load} aria-label="רענון" className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700"><RefreshCw className="h-4 w-4" /></button>
+                    <button onClick={load} aria-label={tx("רענון")} className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700"><RefreshCw className="h-4 w-4" /></button>
                 </div>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
                 <select value={studioId} onChange={e => setStudioId(e.target.value)} className="border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white">
-                    <option value="">כל העסקים</option>
+                    <option value="">{tx("כל העסקים")}</option>
                     {studios.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
                 {FILTERS.map(f => (
@@ -101,16 +102,16 @@ export default function AdminMessagesPage() {
             </div>
 
             {err && <p className="text-sm text-rose-600">{err}</p>}
-            {jobs === null ? <p className="text-center text-slate-400 py-12">טוען...</p> : (
+            {jobs === null ? <p className="text-center text-slate-400 py-12">{tx("טוען...")}</p> : (
                 <div className="bg-white border border-slate-200 rounded-2xl overflow-x-auto">
                     <table className="w-full text-sm">
                         <thead>
                             <tr className="text-slate-500 border-b border-slate-100">
-                                {["", "עסק", "אל", "ההודעה", "מצב", "מתי", ""].map((h, i) => <th key={i} className="text-right font-semibold px-4 py-3 whitespace-nowrap">{h}</th>)}
+                                {["", tx("עסק"), tx("אל"), tx("ההודעה"), tx("מצב"), tx("מתי"), ""].map((h, i) => <th key={i} className="text-start font-semibold px-4 py-3 whitespace-nowrap">{h}</th>)}
                             </tr>
                         </thead>
                         <tbody>
-                            {jobs.length === 0 && <tr><td colSpan={7} className="text-center text-slate-400 py-10">אין הודעות</td></tr>}
+                            {jobs.length === 0 && <tr><td colSpan={7} className="text-center text-slate-400 py-10">{tx("אין הודעות")}</td></tr>}
                             {jobs.map(j => {
                                 const st = STATUS[j.status] ?? { label: j.status, cls: "bg-slate-100 text-slate-600" };
                                 return (
@@ -128,20 +129,20 @@ export default function AdminMessagesPage() {
                                         </td>
                                         <td className="px-4 py-3 whitespace-nowrap">
                                             <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${st.cls}`}>{st.label}</span>
-                                            {j.attempts > 0 && j.status !== "sent" && <div className="text-[11px] text-slate-400 mt-0.5">{j.attempts} ניסיונות</div>}
+                                            {j.attempts > 0 && j.status !== "sent" && <div className="text-[11px] text-slate-400 mt-0.5">{j.attempts}{tx(" ניסיונות")}</div>}
                                         </td>
                                         <td className="px-4 py-3 whitespace-nowrap text-slate-500 tabular-nums">{when(j.sent_at || j.scheduled_at)}</td>
                                         <td className="px-4 py-3 whitespace-nowrap">
                                             {j.status === "failed" && (
                                                 <button onClick={() => act(`/api/admin/messages/${j.id}/retry`, j.id)} disabled={busy === j.id}
                                                     className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 hover:underline disabled:opacity-50">
-                                                    <RotateCcw className="h-3.5 w-3.5" /> לנסות שוב
+                                                    <RotateCcw className="h-3.5 w-3.5" /> {tx("לנסות שוב")}
                                                 </button>
                                             )}
                                             {j.status === "pending" && (
                                                 <button onClick={() => act(`/api/admin/messages/${j.id}/cancel`, j.id)} disabled={busy === j.id}
                                                     className="inline-flex items-center gap-1 text-xs font-bold text-rose-700 hover:underline disabled:opacity-50">
-                                                    <X className="h-3.5 w-3.5" /> ביטול
+                                                    <X className="h-3.5 w-3.5" /> {tx("ביטול")}
                                                 </button>
                                             )}
                                         </td>

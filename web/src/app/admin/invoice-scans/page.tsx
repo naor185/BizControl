@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
 
+import { tx } from "@/lib/i18n";
 interface StudioScanRow {
     studio_id: string;
     studio_name: string;
@@ -35,7 +36,7 @@ export default function InvoiceScansAdminPage() {
             setTotalUsed(data.total_used);
             setTotalCostUsd(data.total_cost_usd);
         } catch (e: any) {
-            setErr(e.message || "שגיאה בטעינת נתונים");
+            setErr(e.message || tx("שגיאה בטעינת נתונים"));
         } finally {
             setLoading(false);
         }
@@ -74,12 +75,12 @@ export default function InvoiceScansAdminPage() {
     const topStudio = rows.length > 0 ? rows[0] : null;
 
     return (
-        <div style={{ minHeight: "100vh", background: "linear-gradient(135deg,#0f172a 0%,#1e1b4b 100%)", padding: "2rem", fontFamily: "sans-serif", direction: "rtl" }}>
+        <div style={{ minHeight: "100vh", background: "linear-gradient(135deg,#0f172a 0%,#1e1b4b 100%)", padding: "2rem", fontFamily: "sans-serif" }}>
             <div style={{ maxWidth: 1100, margin: "0 auto" }}>
                 {/* Header */}
                 <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "2rem" }}>
-                    <a href="/admin" style={{ color: "#a78bfa", textDecoration: "none", fontSize: "0.9rem" }}>← חזרה לאדמין</a>
-                    <h1 style={{ color: "#fff", fontSize: "1.8rem", fontWeight: 700, margin: 0 }}>📄 ניהול סריקות AI</h1>
+                    <a href="/admin" style={{ color: "#a78bfa", textDecoration: "none", fontSize: "0.9rem" }}>{tx("← חזרה לאדמין")}</a>
+                    <h1 style={{ color: "#fff", fontSize: "1.8rem", fontWeight: 700, margin: 0 }}>{tx("📄 ניהול סריקות AI")}</h1>
                 </div>
 
                 {err && (
@@ -90,31 +91,31 @@ export default function InvoiceScansAdminPage() {
 
                 {/* Summary cards */}
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: "1rem", marginBottom: "2rem" }}>
-                    <StatCard title="סה״כ סריקות החודש" value={totalUsed.toString()} icon="🔍" />
-                    <StatCard title="סטודיוים פעילים" value={rows.filter(r => r.enabled).length.toString()} icon="✅" />
-                    <StatCard title="הניצל הכי הרבה" value={topStudio ? `${topStudio.studio_name} (${topStudio.used})` : "—"} icon="🏆" />
-                    <StatCard title="עלות Gemini משוערת (חודש)" value={`$${totalCostUsd.toFixed(4)}`} icon="💵" />
-                    <StatCard title="GCP Credits" value="ראה GCP Console" icon="☁️" sub="console.cloud.google.com" />
+                    <StatCard title={tx("סה״כ סריקות החודש")} value={totalUsed.toString()} icon="🔍" />
+                    <StatCard title={tx("סטודיוים פעילים")} value={rows.filter(r => r.enabled).length.toString()} icon="✅" />
+                    <StatCard title={tx("הניצל הכי הרבה")} value={topStudio ? `${topStudio.studio_name} (${topStudio.used})` : "—"} icon="🏆" />
+                    <StatCard title={tx("עלות Gemini משוערת (חודש)")} value={`$${totalCostUsd.toFixed(4)}`} icon="💵" />
+                    <StatCard title="GCP Credits" value={tx("ראה GCP Console")} icon="☁️" sub="console.cloud.google.com" />
                 </div>
 
                 {/* Table */}
                 <div style={{ background: "rgba(255,255,255,.05)", border: "1px solid rgba(255,255,255,.1)", borderRadius: 16, overflow: "hidden" }}>
                     <div style={{ padding: "1rem 1.5rem", borderBottom: "1px solid rgba(255,255,255,.08)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <span style={{ color: "#fff", fontWeight: 600 }}>כל הסטודיוים</span>
+                        <span style={{ color: "#fff", fontWeight: 600 }}>{tx("כל הסטודיוים")}</span>
                         <button onClick={load} style={{ background: "rgba(167,139,250,.15)", border: "1px solid rgba(167,139,250,.3)", borderRadius: 8, color: "#a78bfa", padding: "0.4rem 1rem", cursor: "pointer", fontSize: "0.85rem" }}>
-                            רענן
+                            {tx("רענן")}
                         </button>
                     </div>
 
                     {loading ? (
-                        <div style={{ padding: "3rem", textAlign: "center", color: "#64748b" }}>טוען...</div>
+                        <div style={{ padding: "3rem", textAlign: "center", color: "#64748b" }}>{tx("טוען...")}</div>
                     ) : (
                         <div style={{ overflowX: "auto" }}>
                         <table style={{ minWidth: 880, width: "100%", borderCollapse: "collapse", fontSize: "0.9rem" }}>
                             <thead>
                                 <tr style={{ background: "rgba(255,255,255,.03)" }}>
-                                    {["סטודיו", "סריקה AI", "שימוש חודשי", "מכסה", "טוקנים", "עלות משוערת", "קביעת מכסה", "איפוס חודשי"].map(h => (
-                                        <th key={h} style={{ padding: "0.75rem 1rem", textAlign: "right", color: "#94a3b8", fontWeight: 600, fontSize: "0.8rem" }}>{h}</th>
+                                    {[tx("סטודיו"), tx("סריקה AI"), tx("שימוש חודשי"), tx("מכסה"), tx("טוקנים"), tx("עלות משוערת"), tx("קביעת מכסה"), tx("איפוס חודשי")].map(h => (
+                                        <th key={h} style={{ padding: "0.75rem 1rem", textAlign: "start", color: "#94a3b8", fontWeight: 600, fontSize: "0.8rem" }}>{h}</th>
                                     ))}
                                 </tr>
                             </thead>
@@ -132,7 +133,7 @@ export default function InvoiceScansAdminPage() {
                                                     color: row.enabled ? "#4ade80" : "#64748b",
                                                 }}
                                             >
-                                                {saving === row.studio_id ? "..." : row.enabled ? "✅ פעיל" : "❌ כבוי"}
+                                                {saving === row.studio_id ? "..." : row.enabled ? tx("✅ פעיל") : tx("❌ כבוי")}
                                             </button>
                                         </td>
                                         <td style={{ padding: "0.75rem 1rem" }}>
@@ -150,7 +151,7 @@ export default function InvoiceScansAdminPage() {
                                             </div>
                                         </td>
                                         <td style={{ padding: "0.75rem 1rem", color: row.quota === 0 ? "#4ade80" : "#e2e8f0" }}>
-                                            {row.quota === 0 ? "∞ ללא הגבלה" : `${row.quota} / חודש`}
+                                            {row.quota === 0 ? tx("∞ ללא הגבלה") : tx("{0} / חודש", { 0: row.quota })}
                                         </td>
                                         <td style={{ padding: "0.75rem 1rem", color: "#94a3b8", fontSize: "0.8rem" }}>
                                             {(row.prompt_tokens + row.completion_tokens).toLocaleString()}
@@ -183,7 +184,7 @@ export default function InvoiceScansAdminPage() {
                                     </tr>
                                 ))}
                                 {rows.length === 0 && (
-                                    <tr><td colSpan={8} style={{ padding: "2rem", textAlign: "center", color: "#64748b" }}>אין סטודיוים</td></tr>
+                                    <tr><td colSpan={8} style={{ padding: "2rem", textAlign: "center", color: "#64748b" }}>{tx("אין סטודיוים")}</td></tr>
                                 )}
                             </tbody>
                         </table>
@@ -192,7 +193,7 @@ export default function InvoiceScansAdminPage() {
                 </div>
 
                 <p style={{ color: "#475569", fontSize: "0.8rem", marginTop: "1rem", textAlign: "center" }}>
-                    מכסה 0 = ללא הגבלה. מכסה מתאפסת אוטומטית בתחילת כל חודש.
+                    {tx("מכסה 0 = ללא הגבלה. מכסה מתאפסת אוטומטית בתחילת כל חודש.")}
                 </p>
             </div>
         </div>

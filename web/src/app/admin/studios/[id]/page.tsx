@@ -11,6 +11,7 @@ import { useParams, useRouter } from "next/navigation";
 import { apiFetch, getToken, setToken } from "@/lib/api";
 import PasswordInput from "@/components/PasswordInput";
 
+import { tx, intl } from "@/lib/i18n";
 type StudioDetail = {
     id: string;
     name: string;
@@ -89,22 +90,22 @@ const PLATFORM_META = {
     whatsapp:  { label: "WhatsApp Business", icon: "💬", color: "border-green-400",  badge: "bg-green-50 text-green-700"  },
     instagram: { label: "Instagram DMs",     icon: "📸", color: "border-pink-400",   badge: "bg-pink-50 text-pink-700"   },
     facebook:  { label: "Facebook Messenger",icon: "👍", color: "border-blue-400",   badge: "bg-blue-50 text-blue-700"   },
-    lead_ads:  { label: "Lead Ads (טפסים)", icon: "📋", color: "border-purple-400", badge: "bg-purple-50 text-purple-700"},
+    lead_ads:  { label: tx("Lead Ads (טפסים)"), icon: "📋", color: "border-purple-400", badge: "bg-purple-50 text-purple-700"},
 } as const;
 
 const SOURCE_LABELS: Record<string, string> = {
-    whatsapp: "💬 WhatsApp", instagram: "📸 Instagram", facebook: "👍 Facebook", manual: "✏️ ידני",
+    whatsapp: "💬 WhatsApp", instagram: "📸 Instagram", facebook: "👍 Facebook", manual: tx("✏️ ידני"),
 };
 
 const FEATURE_LABELS: Record<string, { label: string; desc: string; icon: string }> = {
-    whatsapp_cloud:       { label: "WhatsApp Cloud API",  desc: "WhatsApp Cloud API של Meta (לא Green API)",         icon: "📱" },
-    ai_auto_tag:          { label: "AI Auto-Tag",         desc: "תיוג אוטומטי של לידים לפי תוכן ההודעה",            icon: "🏷" },
-    lead_attribution:     { label: "Lead Attribution",    desc: "מעקב מלא: מודעה → ליד → תור → הכנסה",              icon: "🎯" },
-    voice:                { label: "BizControl Voice",    desc: "מודול טלפוניה, לוג שיחות ושיוך ללקוחות",           icon: "📞" },
+    whatsapp_cloud:       { label: "WhatsApp Cloud API",  desc: tx("WhatsApp Cloud API של Meta (לא Green API)"),         icon: "📱" },
+    ai_auto_tag:          { label: "AI Auto-Tag",         desc: tx("תיוג אוטומטי של לידים לפי תוכן ההודעה"),            icon: "🏷" },
+    lead_attribution:     { label: "Lead Attribution",    desc: tx("מעקב מלא: מודעה → ליד → תור → הכנסה"),              icon: "🎯" },
+    voice:                { label: "BizControl Voice",    desc: tx("מודול טלפוניה, לוג שיחות ושיוך ללקוחות"),           icon: "📞" },
 };
 
 const PLAN_LABELS: Record<string, { label: string; color: string }> = {
-    free:     { label: "חינמי",    color: "bg-slate-100 text-slate-600" },
+    free:     { label: tx("חינמי"),    color: "bg-slate-100 text-slate-600" },
     starter:  { label: "Starter",  color: "bg-blue-100 text-blue-700" },
     pro:      { label: "Pro",      color: "bg-purple-100 text-purple-700" },
     studio:   { label: "Studio",   color: "bg-emerald-100 text-emerald-700" },
@@ -112,7 +113,7 @@ const PLAN_LABELS: Record<string, { label: string; color: string }> = {
 };
 
 const ROLE_LABELS: Record<string, string> = {
-    owner: "בעלים", admin: "אדמין", artist: "נותן/ת שירות", staff: "צוות",
+    owner: tx("בעלים"), admin: tx("אדמין"), artist: tx("נותן/ת שירות"), staff: tx("צוות"),
 };
 
 function daysUntil(iso: string | null): number | null {
@@ -121,7 +122,7 @@ function daysUntil(iso: string | null): number | null {
 }
 
 function fmtDate(iso: string) {
-    return new Date(iso).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "numeric" });
+    return new Date(iso).toLocaleDateString(intl(), { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
 export default function StudioDetailPage() {
@@ -200,7 +201,7 @@ export default function StudioDetailPage() {
             if (e?.message?.includes("403") || e?.message?.includes("401")) {
                 router.replace("/login");
             } else {
-                setErr(e?.message || "שגיאה בטעינה");
+                setErr(e?.message || tx("שגיאה בטעינה"));
             }
         } finally {
             setLoading(false);
@@ -211,7 +212,7 @@ export default function StudioDetailPage() {
 
     const handleToggleActive = async () => {
         if (!detail) return;
-        if (!confirm(`${detail.is_active ? "להשהות" : "להפעיל מחדש"} את ${detail.name}?`)) return;
+        if (!confirm(tx("{0} את {1}?", { 0: detail.is_active ? tx("להשהות") : tx("להפעיל מחדש"), 1: detail.name }))) return;
         await apiFetch(`/api/admin/studios/${studioId}`, {
             method: "PATCH",
             body: JSON.stringify({ is_active: !detail.is_active }),
@@ -252,7 +253,7 @@ export default function StudioDetailPage() {
 
     const handleDelete = async () => {
         if (!detail) return;
-        if (!confirm(`למחוק את ${detail.name}? פעולה זו בלתי הפיכה!`)) return;
+        if (!confirm(tx("למחוק את {0}? פעולה זו בלתי הפיכה!", { 0: detail.name }))) return;
         await apiFetch(`/api/admin/studios/${studioId}`, { method: "DELETE" });
         router.replace("/admin");
     };
@@ -260,14 +261,14 @@ export default function StudioDetailPage() {
     const [deletingClients, setDeletingClients] = useState(false);
     const handleDeleteAllClients = async () => {
         if (!detail) return;
-        if (!confirm(`למחוק את כל ${detail.client_count} הלקוחות של ${detail.name}?\n\nפעולה זו בלתי הפיכה — כל הלקוחות, הנקודות וההיסטוריה ימחקו לצמיתות!`)) return;
+        if (!confirm(tx("למחוק את כל {0} הלקוחות של {1}?\n\nפעולה זו בלתי הפיכה — כל הלקוחות, הנקודות וההיסטוריה ימחקו לצמיתות!", { 0: detail.client_count, 1: detail.name }))) return;
         setDeletingClients(true);
         try {
             await apiFetch(`/api/admin/studios/${studioId}/clients`, { method: "DELETE" });
             await load();
-            toast.error("כל הלקוחות נמחקו בהצלחה");
+            toast.error(tx("כל הלקוחות נמחקו בהצלחה"));
         } catch (e: any) {
-            toast.error(e?.message || "שגיאה במחיקה");
+            toast.error(e?.message || tx("שגיאה במחיקה"));
         } finally {
             setDeletingClients(false);
         }
@@ -292,7 +293,7 @@ export default function StudioDetailPage() {
 
     const handleChangePlan = async () => {
         if (!newPlan || newPlan === detail?.subscription_plan) return;
-        if (!confirm(`לשנות תוכנית ל-${newPlan}?`)) return;
+        if (!confirm(tx("לשנות תוכנית ל-{0}?", { 0: newPlan }))) return;
         await apiFetch(`/api/admin/studios/${studioId}`, {
             method: "PATCH",
             body: JSON.stringify({ subscription_plan: newPlan }),
@@ -339,54 +340,54 @@ export default function StudioDetailPage() {
             });
             setFeatures(prev => prev.map(f => f.feature === feature ? { ...f, is_enabled: enabled } : f));
         } catch (e: any) {
-            toast.error(e?.message || "שגיאה");
+            toast.error(e?.message || tx("שגיאה"));
         } finally {
             setTogglingFeature(null);
         }
     };
 
     const handleEnableAllFeatures = async () => {
-        if (!confirm("להפעיל את כל התכונות לסטודיו זה?")) return;
+        if (!confirm(tx("להפעיל את כל התכונות לסטודיו זה?"))) return;
         setEnablingAll(true);
         try {
             await apiFetch(`/api/superadmin/features/${studioId}/enable-all`, { method: "POST" });
             const feats = await apiFetch<FeatureFlag[]>(`/api/superadmin/features/${studioId}`);
             setFeatures(feats);
         } catch (e: any) {
-            toast.error(e?.message || "שגיאה");
+            toast.error(e?.message || tx("שגיאה"));
         } finally {
             setEnablingAll(false);
         }
     };
 
     const handleUnlockInvoiceSettings = async () => {
-        if (!confirm("לפתוח את הגדרות החשבונית לעריכה עבור סטודיו זה?\nהסטודיו יראה את אשף ההגדרה מחדש בכניסה הבאה.")) return;
+        if (!confirm(tx("לפתוח את הגדרות החשבונית לעריכה עבור סטודיו זה?\nהסטודיו יראה את אשף ההגדרה מחדש בכניסה הבאה."))) return;
         setUnlockingInvoice(true);
         try {
             await apiFetch(`/api/invoices/settings/unlock?studio_id_target=${studioId}`, { method: "POST" });
-            toast.error("הגדרות החשבונית נפתחו לעריכה");
+            toast.error(tx("הגדרות החשבונית נפתחו לעריכה"));
         } catch (e: any) {
-            toast.error(e?.message || "שגיאה");
+            toast.error(e?.message || tx("שגיאה"));
         } finally {
             setUnlockingInvoice(false);
         }
     };
 
     const handleDeleteNote = async (noteId: string) => {
-        if (!confirm("למחוק הערה זו?")) return;
+        if (!confirm(tx("למחוק הערה זו?"))) return;
         await apiFetch(`/api/admin/studios/${studioId}/notes/${noteId}`, { method: "DELETE" });
         setNotes(prev => prev.filter(n => n.id !== noteId));
     };
 
     if (loading) return (
-        <div className="min-h-screen flex items-center justify-center text-gray-400 text-sm" dir="rtl">
-            טוען...
+        <div className="min-h-screen flex items-center justify-center text-gray-400 text-sm">
+            {tx("טוען...")}
         </div>
     );
 
     if (err || !detail) return (
-        <div className="min-h-screen flex items-center justify-center text-red-500 text-sm" dir="rtl">
-            {err || "לא נמצא"}
+        <div className="min-h-screen flex items-center justify-center text-red-500 text-sm">
+            {err || tx("לא נמצא")}
         </div>
     );
 
@@ -396,7 +397,7 @@ export default function StudioDetailPage() {
     const isTrial = daysLeft !== null && daysLeft >= 0 && daysLeft <= 14;
 
     return (
-        <div dir="rtl" className="min-h-screen bg-gray-50 pb-20">
+        <div className="min-h-screen bg-gray-50 pb-20">
             {/* Header */}
             <div className="bg-white border-b border-gray-100 sticky top-0 z-10" style={{ top: "env(safe-area-inset-top, 0px)" }}>
                 <div className="max-w-4xl mx-auto px-4 py-4 flex items-center gap-3">
@@ -407,7 +408,7 @@ export default function StudioDetailPage() {
                     </div>
                     <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${plan.color}`}>{plan.label}</span>
                     <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${detail.is_active && !isExpired ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"}`}>
-                        {detail.is_active && !isExpired ? "פעיל" : "מושהה"}
+                        {detail.is_active && !isExpired ? tx("פעיל") : tx("מושהה")}
                     </span>
                 </div>
             </div>
@@ -417,10 +418,10 @@ export default function StudioDetailPage() {
                 {/* KPI row */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     {[
-                        { label: "לקוחות", value: detail.client_count, icon: "👥" },
-                        { label: "תורים החודש", value: detail.appointment_count_month, icon: "📅" },
-                        { label: "תורים סה״כ", value: detail.appointment_count_total, icon: "📊" },
-                        { label: "משתמשים", value: detail.user_count, icon: "🧑‍💼" },
+                        { label: tx("לקוחות"), value: detail.client_count, icon: "👥" },
+                        { label: tx("תורים החודש"), value: detail.appointment_count_month, icon: "📅" },
+                        { label: tx("תורים סה״כ"), value: detail.appointment_count_total, icon: "📊" },
+                        { label: tx("משתמשים"), value: detail.user_count, icon: "🧑‍💼" },
                     ].map(k => (
                         <div key={k.label} className="bg-white rounded-2xl p-4 text-center shadow-sm border border-gray-100">
                             <div className="text-2xl mb-1">{k.icon}</div>
@@ -433,65 +434,65 @@ export default function StudioDetailPage() {
                 {/* Info card */}
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 divide-y divide-gray-50">
                     <div className="px-4 py-3 flex justify-between text-sm">
-                        <span className="text-gray-500">בעלים</span>
+                        <span className="text-gray-500">{tx("בעלים")}</span>
                         <span className="font-medium text-gray-900">{detail.owner_display_name || "—"} {detail.owner_email ? `(${detail.owner_email})` : ""}</span>
                     </div>
                     <div className="px-4 py-3 flex justify-between text-sm">
-                        <span className="text-gray-500">נוצר</span>
+                        <span className="text-gray-500">{tx("נוצר")}</span>
                         <span className="font-medium text-gray-900">{fmtDate(detail.created_at)}</span>
                     </div>
                     <div className="px-4 py-3 flex justify-between text-sm">
-                        <span className="text-gray-500">תוקף תוכנית</span>
+                        <span className="text-gray-500">{tx("תוקף תוכנית")}</span>
                         <span className={`font-medium ${isExpired ? "text-red-600" : isTrial ? "text-amber-600" : "text-gray-900"}`}>
                             {detail.plan_expires_at
-                                ? `${fmtDate(detail.plan_expires_at)} ${daysLeft !== null ? `(${daysLeft >= 0 ? `עוד ${daysLeft} ימים` : `פג לפני ${Math.abs(daysLeft)} ימים`})` : ""}`
-                                : "ללא הגבלה"}
+                                ? `${fmtDate(detail.plan_expires_at)} ${daysLeft !== null ? `(${daysLeft >= 0 ? tx("עוד {0} ימים", { 0: daysLeft }) : tx("פג לפני {0} ימים", { 0: Math.abs(daysLeft) })})` : ""}`
+                                : tx("ללא הגבלה")}
                         </span>
                     </div>
                 </div>
 
                 {/* Actions */}
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 space-y-3">
-                    <h2 className="text-sm font-semibold text-gray-700">פעולות</h2>
+                    <h2 className="text-sm font-semibold text-gray-700">{tx("פעולות")}</h2>
                     <div className="flex flex-wrap gap-2">
                         <button
                             onClick={() => setExtendModal(true)}
                             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 transition-colors"
                         >
-                            ⏳ הארך תוכנית
+                            {tx("⏳ הארך תוכנית")}
                         </button>
                         <button
                             onClick={handleImpersonate}
                             disabled={impersonating}
                             className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white text-sm font-semibold rounded-xl hover:bg-purple-700 transition-colors disabled:opacity-50"
                         >
-                            👁 {impersonating ? "נכנס..." : "התחזה לבעלים"}
+                            👁 {impersonating ? tx("נכנס...") : tx("התחזה לבעלים")}
                         </button>
                         <button
                             onClick={handleToggleActive}
                             className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl transition-colors ${detail.is_active ? "bg-amber-100 text-amber-700 hover:bg-amber-200" : "bg-green-100 text-green-700 hover:bg-green-200"}`}
                         >
-                            {detail.is_active ? "⏸ השהה" : "▶ הפעל"}
+                            {detail.is_active ? tx("⏸ השהה") : tx("▶ הפעל")}
                         </button>
                         <button
                             onClick={handleDelete}
                             className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 text-sm font-semibold rounded-xl hover:bg-red-100 transition-colors"
                         >
-                            🗑 מחק סטודיו
+                            {tx("🗑 מחק סטודיו")}
                         </button>
                         <button
                             onClick={handleDeleteAllClients}
                             disabled={deletingClients || detail.client_count === 0}
                             className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-xl hover:bg-red-700 transition-colors disabled:opacity-40"
                         >
-                            🧹 {deletingClients ? "מוחק..." : `מחק כל הלקוחות (${detail.client_count})`}
+                            🧹 {deletingClients ? tx("מוחק...") : tx("מחק כל הלקוחות ({0})", { 0: detail.client_count })}
                         </button>
                         <button
                             onClick={handleUnlockInvoiceSettings}
                             disabled={unlockingInvoice}
                             className="flex items-center gap-2 px-4 py-2 bg-orange-50 text-orange-700 text-sm font-semibold rounded-xl hover:bg-orange-100 transition-colors disabled:opacity-50"
                         >
-                            🔓 {unlockingInvoice ? "פותח..." : "פתח הגדרות חשבונית"}
+                            🔓 {unlockingInvoice ? tx("פותח...") : tx("פתח הגדרות חשבונית")}
                         </button>
                     </div>
                 </div>
@@ -504,14 +505,14 @@ export default function StudioDetailPage() {
                     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                         <div className="px-4 py-3 border-b border-gray-50 flex items-center gap-2">
                             <span className="text-base">⚙️</span>
-                            <h2 className="text-sm font-semibold text-gray-700">הגדרות פלטפורמה</h2>
-                            <span className="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full font-medium">רק לסופר-אדמין</span>
+                            <h2 className="text-sm font-semibold text-gray-700">{tx("הגדרות פלטפורמה")}</h2>
+                            <span className="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full font-medium">{tx("רק לסופר-אדמין")}</span>
                         </div>
 
                         <div className="p-4 space-y-4">
                             {/* Plan change */}
                             <div>
-                                <label className="block text-xs font-semibold text-gray-500 mb-1.5">תוכנית מנוי</label>
+                                <label className="block text-xs font-semibold text-gray-500 mb-1.5">{tx("תוכנית מנוי")}</label>
                                 <div className="flex gap-2">
                                     <select
                                         value={newPlan}
@@ -527,7 +528,7 @@ export default function StudioDetailPage() {
                                         disabled={newPlan === settings.subscription_plan}
                                         className="px-4 py-2 bg-black text-white text-sm font-semibold rounded-xl hover:bg-gray-800 transition-colors disabled:opacity-30"
                                     >
-                                        שמור
+                                        {tx("שמור")}
                                     </button>
                                 </div>
                             </div>
@@ -535,31 +536,31 @@ export default function StudioDetailPage() {
                             {/* Self-booking toggle */}
                             <div className="flex items-center justify-between py-2 border-t border-gray-50">
                                 <div>
-                                    <p className="text-sm font-medium text-gray-800">הזמנה עצמית מקוונת</p>
-                                    <p className="text-xs text-gray-400">לקוחות יכולים לקבוע תורים בעצמם דרך הלינק הציבורי</p>
+                                    <p className="text-sm font-medium text-gray-800">{tx("הזמנה עצמית מקוונת")}</p>
+                                    <p className="text-xs text-gray-400">{tx("לקוחות יכולים לקבוע תורים בעצמם דרך הלינק הציבורי")}</p>
                                 </div>
                                 <Switch checked={!!settings.self_booking_enabled} onChange={v => handleSaveSettings({ self_booking_enabled: v })}
-                                    disabled={savingSettings} label="הזמנה עצמית מקוונת" />
+                                    disabled={savingSettings} label={tx("הזמנה עצמית מקוונת")} />
                             </div>
 
                             {/* AI generation count reset */}
                             <div className="flex items-center justify-between py-2 border-t border-gray-50">
                                 <div>
-                                    <p className="text-sm font-medium text-gray-800">שימושי AI החודש</p>
-                                    <p className="text-xs text-gray-400">{settings.ai_generations_count} שימושים</p>
+                                    <p className="text-sm font-medium text-gray-800">{tx("שימושי AI החודש")}</p>
+                                    <p className="text-xs text-gray-400">{settings.ai_generations_count}{tx(" שימושים")}</p>
                                 </div>
                                 <button
                                     onClick={() => handleSaveSettings({ ai_generations_count: 0 })}
                                     disabled={savingSettings || settings.ai_generations_count === 0}
                                     className="px-3 py-1.5 bg-gray-100 text-gray-600 text-xs font-semibold rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-30"
                                 >
-                                    אפס
+                                    {tx("אפס")}
                                 </button>
                             </div>
 
                             {/* Calendar hours */}
                             <div className="pt-2 border-t border-gray-50">
-                                <label className="block text-xs font-semibold text-gray-500 mb-1.5">שעות יומן (התחלה — סיום)</label>
+                                <label className="block text-xs font-semibold text-gray-500 mb-1.5">{tx("שעות יומן (התחלה — סיום)")}</label>
                                 <div className="flex items-center gap-2">
                                     <input
                                         type="time"
@@ -583,7 +584,7 @@ export default function StudioDetailPage() {
                                         disabled={savingSettings}
                                         className="px-3 py-1.5 bg-black text-white text-xs font-semibold rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-30"
                                     >
-                                        שמור
+                                        {tx("שמור")}
                                     </button>
                                 </div>
                             </div>
@@ -601,7 +602,7 @@ export default function StudioDetailPage() {
                             <span className="text-base">💬</span>
                             <h2 className="text-sm font-semibold text-gray-700">WhatsApp — Green API</h2>
                             {settings.whatsapp_provider === "green_api" && settings.whatsapp_instance_id && (
-                                <span className="text-xs text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full font-medium">מחובר</span>
+                                <span className="text-xs text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full font-medium">{tx("מחובר")}</span>
                             )}
                             {settings.whatsapp_instance_id && (
                                 <span className="text-xs text-gray-400 font-mono">Instance: {settings.whatsapp_instance_id}</span>
@@ -620,11 +621,11 @@ export default function StudioDetailPage() {
                                 />
                             </div>
                             <div>
-                                <label className="block text-xs font-semibold text-gray-500 mb-1.5">🔐 API Token {settings.whatsapp_provider === "green_api" && settings.whatsapp_api_key && <span className="text-emerald-600 font-normal">(שמור)</span>}</label>
+                                <label className="block text-xs font-semibold text-gray-500 mb-1.5">🔐 API Token {settings.whatsapp_provider === "green_api" && settings.whatsapp_api_key && <span className="text-emerald-600 font-normal">{tx("(שמור)")}</span>}</label>
                                 <PasswordInput
                                     value={waGreenToken}
                                     onChange={e => setWaGreenToken(e.target.value)}
-                                    placeholder={settings.whatsapp_provider === "green_api" && settings.whatsapp_api_key ? "השאר ריק לשמור Token קיים" : "הדבק API Token מ-Green API"}
+                                    placeholder={settings.whatsapp_provider === "green_api" && settings.whatsapp_api_key ? tx("השאר ריק לשמור Token קיים") : tx("הדבק API Token מ-Green API")}
                                     dir="ltr"
                                     className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-black/10"
                                 />
@@ -647,19 +648,19 @@ export default function StudioDetailPage() {
                                 disabled={savingWa || !waInstanceId.trim()}
                                 className="w-full py-2.5 bg-emerald-600 text-white text-sm font-semibold rounded-xl hover:bg-emerald-700 transition-colors disabled:opacity-40"
                             >
-                                {savingWa ? "שומר..." : "שמור Green API"}
+                                {savingWa ? tx("שומר...") : tx("שמור Green API")}
                             </button>
                             {settings.whatsapp_provider === "green_api" && settings.whatsapp_instance_id && (
                                 <button
                                     onClick={() => {
-                                        if (!confirm("לנתק את Green API WhatsApp מהסטודיו הזה?")) return;
+                                        if (!confirm(tx("לנתק את Green API WhatsApp מהסטודיו הזה?"))) return;
                                         handleSaveSettings({ whatsapp_provider: null, whatsapp_instance_id: null, whatsapp_api_key: null });
                                         setWaInstanceId("");
                                         setWaGreenToken("");
                                     }}
                                     className="w-full py-2 text-xs text-red-500 hover:text-red-700 transition-colors"
                                 >
-                                    נתק Green API
+                                    {tx("נתק Green API")}
                                 </button>
                             )}
                         </div>
@@ -679,14 +680,14 @@ export default function StudioDetailPage() {
                                 badge stayed on "not connected" forever even though
                                 sending worked fine. */}
                             {settings.whatsapp_provider === "meta" && settings.whatsapp_phone_id && (
-                                <span className="text-xs text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full font-medium">מחובר</span>
+                                <span className="text-xs text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full font-medium">{tx("מחובר")}</span>
                             )}
                         </div>
 
                         <div className="p-4 space-y-4">
                             {/* Webhook info */}
                             <div className="bg-gray-50 rounded-xl p-3 space-y-2 text-xs">
-                                <p className="text-gray-500 font-medium">הגדרות Webhook למרכז העסקים של Meta:</p>
+                                <p className="text-gray-500 font-medium">{tx("הגדרות Webhook למרכז העסקים של Meta:")}</p>
                                 {[
                                     { label: "Webhook URL", value: "https://api.biz-control.com/api/webhook/meta" },
                                     { label: "Verify Token", value: "bizcontrol_verify" },
@@ -702,7 +703,7 @@ export default function StudioDetailPage() {
                                             }}
                                             className="shrink-0 px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors text-gray-600"
                                         >
-                                            {waCopied === label ? "✓" : "העתק"}
+                                            {waCopied === label ? "✓" : tx("העתק")}
                                         </button>
                                     </div>
                                 ))}
@@ -719,7 +720,7 @@ export default function StudioDetailPage() {
                                     dir="ltr"
                                     className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black/10"
                                 />
-                                <p className="text-xs text-gray-400 mt-1">מ-Meta Business Suite → WhatsApp → הגדרות API</p>
+                                <p className="text-xs text-gray-400 mt-1">{tx("מ-Meta Business Suite → WhatsApp → הגדרות API")}</p>
                             </div>
 
                             {/* Access Token */}
@@ -750,20 +751,20 @@ export default function StudioDetailPage() {
                                 disabled={savingWa}
                                 className="w-full py-2.5 bg-black text-white text-sm font-semibold rounded-xl hover:bg-gray-800 transition-colors disabled:opacity-40"
                             >
-                                {savingWa ? "שומר..." : "שמור הגדרות WhatsApp"}
+                                {savingWa ? tx("שומר...") : tx("שמור הגדרות WhatsApp")}
                             </button>
 
                             {settings.whatsapp_provider === "meta" && settings.whatsapp_phone_id && (
                                 <button
                                     onClick={() => {
-                                        if (!confirm("לנתק את WhatsApp מהסטודיו הזה?")) return;
+                                        if (!confirm(tx("לנתק את WhatsApp מהסטודיו הזה?"))) return;
                                         handleSaveSettings({ whatsapp_provider: null, whatsapp_phone_id: null, whatsapp_api_key: null });
                                         setWaPhoneId("");
                                         setWaApiKey("");
                                     }}
                                     className="w-full py-2 text-xs text-red-500 hover:text-red-700 transition-colors"
                                 >
-                                    נתק WhatsApp
+                                    {tx("נתק WhatsApp")}
                                 </button>
                             )}
                         </div>
@@ -774,8 +775,8 @@ export default function StudioDetailPage() {
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                     <div className="px-4 py-3 border-b border-gray-50 flex items-center gap-2">
                         <span className="text-base">🔌</span>
-                        <h2 className="text-sm font-semibold text-gray-700">אינטגרציות רשתות חברתיות</h2>
-                        <span className="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full font-medium">סופר-אדמין</span>
+                        <h2 className="text-sm font-semibold text-gray-700">{tx("אינטגרציות רשתות חברתיות")}</h2>
+                        <span className="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full font-medium">{tx("סופר-אדמין")}</span>
                     </div>
                     <div className="p-4 space-y-3">
                         {(["whatsapp","instagram","facebook","lead_ads"] as const).map(platform => {
@@ -798,9 +799,9 @@ export default function StudioDetailPage() {
                                         <div className="flex-1 min-w-0">
                                             <p className="text-sm font-semibold text-gray-900">{meta.label}</p>
                                             <p className="text-xs text-gray-400">
-                                                {!isActive || expired ? "לא פעיל" :
-                                                    isPermanent ? "פעיל — קבוע" :
-                                                    daysLeft !== null ? `פעיל — עוד ${daysLeft} ימים` : "פעיל"}
+                                                {!isActive || expired ? tx("לא פעיל") :
+                                                    isPermanent ? tx("פעיל — קבוע") :
+                                                    daysLeft !== null ? tx("פעיל — עוד {0} ימים", { 0: daysLeft }) : tx("פעיל")}
                                             </p>
                                         </div>
                                         {/* Toggle */}
@@ -817,7 +818,7 @@ export default function StudioDetailPage() {
                                                 disabled={saving}
                                                 className="px-3 py-1 text-xs font-semibold bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-40"
                                             >
-                                                ניסיון {days}י׳
+                                                {tx("ניסיון")} {days}{tx("י׳")}
                                             </button>
                                         ))}
                                         <button
@@ -825,7 +826,7 @@ export default function StudioDetailPage() {
                                             disabled={saving}
                                             className="px-3 py-1 text-xs font-semibold bg-black text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-40"
                                         >
-                                            {saving ? "..." : "קבוע ✓"}
+                                            {saving ? "..." : tx("קבוע ✓")}
                                         </button>
                                     </div>
 
@@ -896,11 +897,11 @@ export default function StudioDetailPage() {
                                                 disabled={saving}
                                                 className="w-full py-1.5 bg-black text-white text-xs font-semibold rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-40"
                                             >
-                                                {saving ? "שומר..." : "שמור פרטי חיבור"}
+                                                {saving ? tx("שומר...") : tx("שמור פרטי חיבור")}
                                             </button>
                                         )}
                                         {platform === "lead_ads" && (
-                                            <p className="text-xs text-gray-400">Lead Ads עובד אוטומטית דרך ה-Webhook של Facebook/Instagram — אין צורך ב-token נפרד.</p>
+                                            <p className="text-xs text-gray-400">{tx("Lead Ads עובד אוטומטית דרך ה-Webhook של Facebook/Instagram — אין צורך ב-token נפרד.")}</p>
                                         )}
                                     </div>
                                 </div>
@@ -913,23 +914,23 @@ export default function StudioDetailPage() {
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                     <div className="px-4 py-3 border-b border-gray-50 flex items-center gap-2">
                         <span className="text-base">🧭</span>
-                        <h2 className="text-sm font-semibold text-gray-700">ניהול תפריט — כפתורי ניווט</h2>
-                        <span className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full font-medium mr-auto">סופר-אדמין</span>
+                        <h2 className="text-sm font-semibold text-gray-700">{tx("ניהול תפריט — כפתורי ניווט")}</h2>
+                        <span className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full font-medium ms-auto">{tx("סופר-אדמין")}</span>
                     </div>
                     <div className="divide-y divide-gray-50">
                         {([
-                            { id: "calendar",     label: "יומן תורים",      icon: "📅", section: "ראשי" },
-                            { id: "pos",          label: "קופה",             icon: "🛒", section: "ראשי" },
-                            { id: "crm",          label: "לקוחות",           icon: "👥", section: "ראשי" },
-                            { id: "broadcasts",   label: "תפוצות",           icon: "📢", section: "ראשי" },
-                            { id: "analytics",    label: "אנליטיקות",       icon: "📈", section: "ראשי" },
-                            { id: "services",     label: "שירותים",          icon: "🛎️", section: "ניהול" },
-                            { id: "wait_list",    label: "רשימת המתנה",     icon: "⏳", section: "ניהול" },
-                            { id: "products",     label: "מוצרים",           icon: "📦", section: "ניהול" },
-                            { id: "expenses",     label: "הוצאות",           icon: "💼", section: "ניהול" },
-                            { id: "obligations",  label: "התחייבויות",      icon: "💳", section: "ניהול" },
-                            { id: "employee_mgmt",label: "צוות",             icon: "🎨", section: "ניהול" },
-                            { id: "customer_club",label: "מועדון לקוחות",   icon: "🎁", section: "ניהול" },
+                            { id: "calendar",     label: tx("יומן תורים"),      icon: "📅", section: tx("ראשי") },
+                            { id: "pos",          label: tx("קופה"),             icon: "🛒", section: tx("ראשי") },
+                            { id: "crm",          label: tx("לקוחות"),           icon: "👥", section: tx("ראשי") },
+                            { id: "broadcasts",   label: tx("תפוצות"),           icon: "📢", section: tx("ראשי") },
+                            { id: "analytics",    label: tx("אנליטיקות"),       icon: "📈", section: tx("ראשי") },
+                            { id: "services",     label: tx("שירותים"),          icon: "🛎️", section: tx("ניהול") },
+                            { id: "wait_list",    label: tx("רשימת המתנה"),     icon: "⏳", section: tx("ניהול") },
+                            { id: "products",     label: tx("מוצרים"),           icon: "📦", section: tx("ניהול") },
+                            { id: "expenses",     label: tx("הוצאות"),           icon: "💼", section: tx("ניהול") },
+                            { id: "obligations",  label: tx("התחייבויות"),      icon: "💳", section: tx("ניהול") },
+                            { id: "employee_mgmt",label: tx("צוות"),             icon: "🎨", section: tx("ניהול") },
+                            { id: "customer_club",label: tx("מועדון לקוחות"),   icon: "🎁", section: tx("ניהול") },
                         ] as const).map(item => {
                             const enabled = navModules[item.id] !== false;
                             const saving = togglingNav === item.id;
@@ -941,7 +942,7 @@ export default function StudioDetailPage() {
                                         <p className="text-[10px] text-gray-400">{item.section}</p>
                                     </div>
                                     <Switch
-                                        title={enabled ? "הסתר מהתפריט" : "הצג בתפריט"}
+                                        title={enabled ? tx("הסתר מהתפריט") : tx("הצג בתפריט")}
                                         checked={enabled}
                                         onChange={async () => {
                                             setTogglingNav(item.id);
@@ -951,7 +952,7 @@ export default function StudioDetailPage() {
                                                     body: JSON.stringify({ is_enabled: !enabled }),
                                                 });
                                                 setNavModules(prev => ({ ...prev, [item.id]: !enabled }));
-                                            } catch { toast.error("שגיאה"); }
+                                            } catch { toast.error(tx("שגיאה")); }
                                             finally { setTogglingNav(null); }
                                         }}
                                         disabled={saving}
@@ -966,20 +967,20 @@ export default function StudioDetailPage() {
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                     <div className="px-4 py-3 border-b border-gray-50 flex items-center gap-2">
                         <span className="text-base">🚩</span>
-                        <h2 className="text-sm font-semibold text-gray-700">Feature Flags — שליטה בתכונות</h2>
-                        <span className="text-xs text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full font-medium">מיושן — עבור ל&quot;ניהול מודולים&quot;</span>
-                        <span className="text-xs text-red-600 bg-red-50 px-2 py-0.5 rounded-full font-medium mr-auto">סופר-אדמין בלבד</span>
+                        <h2 className="text-sm font-semibold text-gray-700">{tx("Feature Flags — שליטה בתכונות")}</h2>
+                        <span className="text-xs text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full font-medium">{tx("מיושן — עבור ל\"ניהול מודולים\"")}</span>
+                        <span className="text-xs text-red-600 bg-red-50 px-2 py-0.5 rounded-full font-medium ms-auto">{tx("סופר-אדמין בלבד")}</span>
                         <button
                             onClick={handleEnableAllFeatures}
                             disabled={enablingAll}
                             className="text-xs px-3 py-1 bg-black text-white font-semibold rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-40"
                         >
-                            {enablingAll ? "מפעיל..." : "הפעל הכל"}
+                            {enablingAll ? tx("מפעיל...") : tx("הפעל הכל")}
                         </button>
                     </div>
                     <div className="divide-y divide-gray-50">
                         {features.length === 0 ? (
-                            <p className="text-sm text-gray-400 text-center py-6">אין נתוני feature flags</p>
+                            <p className="text-sm text-gray-400 text-center py-6">{tx("אין נתוני feature flags")}</p>
                         ) : (
                             features.map(f => {
                                 const meta = FEATURE_LABELS[f.feature];
@@ -993,7 +994,7 @@ export default function StudioDetailPage() {
                                         </div>
                                         {f.is_enabled && f.enabled_at && (
                                             <span className="text-[10px] text-gray-400 shrink-0 hidden sm:block">
-                                                {new Date(f.enabled_at).toLocaleDateString("he-IL")}
+                                                {new Date(f.enabled_at).toLocaleDateString(intl())}
                                             </span>
                                         )}
                                         <Switch checked={f.is_enabled} onChange={v => handleToggleFeature(f.feature, v)} disabled={toggling} />
@@ -1009,16 +1010,16 @@ export default function StudioDetailPage() {
                     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                         <div className="px-4 py-3 border-b border-gray-50 flex items-center gap-2">
                             <span className="text-base">📊</span>
-                            <h2 className="text-sm font-semibold text-gray-700">אנליטיקס לידים וקמפיינים</h2>
+                            <h2 className="text-sm font-semibold text-gray-700">{tx("אנליטיקס לידים וקמפיינים")}</h2>
                         </div>
                         <div className="p-4 space-y-4">
                             {/* Summary row */}
                             <div className="grid grid-cols-4 gap-2">
                                 {[
-                                    { label: "סה״כ לידים", value: analytics.total_leads, color: "text-gray-900" },
-                                    { label: "קבעו תור", value: analytics.by_status["booked"] || 0, color: "text-emerald-600" },
-                                    { label: "מעוניינים", value: analytics.by_status["interested"] || 0, color: "text-amber-600" },
-                                    { label: "אבדו", value: analytics.by_status["lost"] || 0, color: "text-red-500" },
+                                    { label: tx("סה״כ לידים"), value: analytics.total_leads, color: "text-gray-900" },
+                                    { label: tx("קבעו תור"), value: analytics.by_status["booked"] || 0, color: "text-emerald-600" },
+                                    { label: tx("מעוניינים"), value: analytics.by_status["interested"] || 0, color: "text-amber-600" },
+                                    { label: tx("אבדו"), value: analytics.by_status["lost"] || 0, color: "text-red-500" },
                                 ].map(s => (
                                     <div key={s.label} className="text-center bg-gray-50 rounded-xl p-2">
                                         <p className={`text-xl font-bold ${s.color}`}>{s.value}</p>
@@ -1029,7 +1030,7 @@ export default function StudioDetailPage() {
 
                             {/* By source */}
                             <div>
-                                <p className="text-xs font-semibold text-gray-500 mb-2">לפי מקור</p>
+                                <p className="text-xs font-semibold text-gray-500 mb-2">{tx("לפי מקור")}</p>
                                 <div className="flex flex-wrap gap-2">
                                     {Object.entries(analytics.by_source).map(([src, count]) => (
                                         <span key={src} className="text-xs px-2.5 py-1 bg-gray-100 text-gray-700 rounded-full font-medium">
@@ -1042,7 +1043,7 @@ export default function StudioDetailPage() {
                             {/* Campaigns table */}
                             {analytics.campaigns.length > 0 && (
                                 <div>
-                                    <p className="text-xs font-semibold text-gray-500 mb-2">קמפיינים ממומנים</p>
+                                    <p className="text-xs font-semibold text-gray-500 mb-2">{tx("קמפיינים ממומנים")}</p>
                                     <div className="space-y-2">
                                         {analytics.campaigns.map(c => (
                                             <div key={c.campaign_name} className="bg-gray-50 rounded-xl px-3 py-2.5">
@@ -1051,10 +1052,10 @@ export default function StudioDetailPage() {
                                                     <span className="text-xs text-gray-400 shrink-0">{SOURCE_LABELS[c.source] || c.source}</span>
                                                 </div>
                                                 <div className="flex items-center gap-3 text-xs text-gray-500">
-                                                    <span>{c.total} לידים</span>
-                                                    <span className="text-emerald-600 font-medium">{c.booked} קבעו</span>
-                                                    <span className="text-red-500">{c.lost} אבדו</span>
-                                                    <span className="mr-auto font-bold text-gray-700">{c.conversion_rate}% המרה</span>
+                                                    <span>{c.total}{tx(" לידים")}</span>
+                                                    <span className="text-emerald-600 font-medium">{c.booked}{tx(" קבעו")}</span>
+                                                    <span className="text-red-500">{c.lost}{tx(" אבדו")}</span>
+                                                    <span className="ms-auto font-bold text-gray-700">{c.conversion_rate}{tx("% המרה")}</span>
                                                 </div>
                                                 {/* Conversion bar */}
                                                 <div className="mt-1.5 h-1.5 bg-gray-200 rounded-full overflow-hidden">
@@ -1076,10 +1077,10 @@ export default function StudioDetailPage() {
                     (appointments, payments, receipts, shifts): shown apart, "הוסרו מהצוות", not among the active */}
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                     <div className="px-4 py-3 border-b border-gray-50">
-                        <h2 className="text-sm font-semibold text-gray-700">משתמשים ({detail.users.filter(u => u.is_active).length})</h2>
+                        <h2 className="text-sm font-semibold text-gray-700">{tx("משתמשים (")}{detail.users.filter(u => u.is_active).length})</h2>
                     </div>
                     {detail.users.filter(u => u.is_active).length === 0 ? (
-                        <p className="text-sm text-gray-400 text-center py-6">אין משתמשים</p>
+                        <p className="text-sm text-gray-400 text-center py-6">{tx("אין משתמשים")}</p>
                     ) : (
                         <div className="divide-y divide-gray-50">
                             {detail.users.filter(u => u.is_active).map(u => (
@@ -1096,7 +1097,7 @@ export default function StudioDetailPage() {
                     {detail.users.some(u => !u.is_active) && (
                         <details className="border-t border-gray-100">
                             <summary className="px-4 py-2.5 text-xs font-semibold text-gray-500 cursor-pointer">
-                                הוסרו מהצוות ({detail.users.filter(u => !u.is_active).length}) — נשמרים בשביל ההיסטוריה שעל שמם
+                                {tx("הוסרו מהצוות (")}{detail.users.filter(u => !u.is_active).length}{tx(") — נשמרים בשביל ההיסטוריה שעל שמם")}
                             </summary>
                             <div className="divide-y divide-gray-50">
                                 {detail.users.filter(u => !u.is_active).map(u => (
@@ -1105,7 +1106,7 @@ export default function StudioDetailPage() {
                                             <div className="text-sm truncate">{u.display_name}</div>
                                             <div className="text-xs truncate">{u.email}</div>
                                         </div>
-                                        <span className="text-xs shrink-0">{ROLE_LABELS[u.role] ?? u.role} · הוסר</span>
+                                        <span className="text-xs shrink-0">{ROLE_LABELS[u.role] ?? u.role}{tx(" · הוסר")}</span>
                                     </div>
                                 ))}
                             </div>
@@ -1116,8 +1117,8 @@ export default function StudioDetailPage() {
                 {/* Payments to BizControl, recorded by hand until card clearing — each one extends the period */}
                 <div className="space-y-2">
                     <div className="flex items-center justify-between px-1">
-                        <h2 className="text-sm font-semibold text-gray-700">תשלומים ל-BizControl</h2>
-                        <button onClick={() => setPayModal(true)} className="text-xs font-bold px-3 py-1.5 rounded-lg bg-black text-white hover:bg-gray-800">רישום תשלום</button>
+                        <h2 className="text-sm font-semibold text-gray-700">{tx("תשלומים ל-BizControl")}</h2>
+                        <button onClick={() => setPayModal(true)} className="text-xs font-bold px-3 py-1.5 rounded-lg bg-black text-white hover:bg-gray-800">{tx("רישום תשלום")}</button>
                     </div>
                     <CrmPayments studioId={studioId} reload={paymentsReload} onChanged={load} />
                 </div>
@@ -1125,8 +1126,8 @@ export default function StudioDetailPage() {
                 {/* Messages from the company to the owner — sent from the CRM (/admin/crm) */}
                 <div className="space-y-2">
                     <div className="flex items-center justify-between px-1">
-                        <h2 className="text-sm font-semibold text-gray-700">הודעות מהחברה לבעל העסק</h2>
-                        <a href={`/admin/messages?studio_id=${studioId}`} className="text-xs font-bold text-gray-600 hover:text-gray-900 underline">תור ההודעות של העסק</a>
+                        <h2 className="text-sm font-semibold text-gray-700">{tx("הודעות מהחברה לבעל העסק")}</h2>
+                        <a href={`/admin/messages?studio_id=${studioId}`} className="text-xs font-bold text-gray-600 hover:text-gray-900 underline">{tx("תור ההודעות של העסק")}</a>
                     </div>
                     <CrmSentLog studioId={studioId} />
                 </div>
@@ -1134,7 +1135,7 @@ export default function StudioDetailPage() {
                 {/* Internal Notes */}
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                     <div className="px-4 py-3 border-b border-gray-50">
-                        <h2 className="text-sm font-semibold text-gray-700">הערות פנימיות</h2>
+                        <h2 className="text-sm font-semibold text-gray-700">{tx("הערות פנימיות")}</h2>
                     </div>
 
                     {/* Add note */}
@@ -1142,9 +1143,9 @@ export default function StudioDetailPage() {
                         <textarea
                             value={newNote}
                             onChange={e => setNewNote(e.target.value)}
-                            placeholder="הוסף הערה פנימית..."
+                            placeholder={tx("הוסף הערה פנימית...")}
                             rows={3}
-                            className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 resize-none focus:outline-none focus:ring-2 focus:ring-black/10 text-right"
+                            className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 resize-none focus:outline-none focus:ring-2 focus:ring-black/10 text-start"
                         />
                         <div className="mt-2 flex justify-end">
                             <button
@@ -1152,14 +1153,14 @@ export default function StudioDetailPage() {
                                 disabled={addingNote || !newNote.trim()}
                                 className="px-4 py-2 bg-black text-white text-sm font-semibold rounded-xl hover:bg-gray-800 transition-colors disabled:opacity-40"
                             >
-                                {addingNote ? "שומר..." : "הוסף הערה"}
+                                {addingNote ? tx("שומר...") : tx("הוסף הערה")}
                             </button>
                         </div>
                     </div>
 
                     {/* Notes list */}
                     {notes.length === 0 ? (
-                        <p className="text-sm text-gray-400 text-center py-6">אין הערות עדיין</p>
+                        <p className="text-sm text-gray-400 text-center py-6">{tx("אין הערות עדיין")}</p>
                     ) : (
                         <div className="divide-y divide-gray-50">
                             {notes.map(n => (
@@ -1190,7 +1191,7 @@ export default function StudioDetailPage() {
             {extendModal && (
                 <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/40 px-4" onClick={() => setExtendModal(false)}>
                     <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full sm:max-w-sm p-6" onClick={e => e.stopPropagation()}>
-                        <h3 className="text-base font-bold text-gray-900 mb-4">הארך תוכנית — {detail.name}</h3>
+                        <h3 className="text-base font-bold text-gray-900 mb-4">{tx("הארך תוכנית — ")}{detail.name}</h3>
 
                         <div className="grid grid-cols-4 gap-2 mb-4">
                             {[7, 14, 30, 90].map(d => (
@@ -1199,36 +1200,36 @@ export default function StudioDetailPage() {
                                     onClick={() => setExtendDays(d)}
                                     className={`py-2 text-sm font-semibold rounded-xl transition-colors ${extendDays === d ? "bg-black text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
                                 >
-                                    {d}י׳
+                                    {d}{tx("י׳")}
                                 </button>
                             ))}
                         </div>
 
                         <div className="mb-4">
-                            <label className="text-xs text-gray-500 block mb-1">ימים מותאמים אישית</label>
+                            <label className="text-xs text-gray-500 block mb-1">{tx("ימים מותאמים אישית")}</label>
                             <input
                                 type="number"
                                 min={1}
                                 value={extendDays}
                                 onChange={e => setExtendDays(Number(e.target.value))}
-                                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-right focus:outline-none focus:ring-2 focus:ring-black/10"
+                                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-start focus:outline-none focus:ring-2 focus:ring-black/10"
                             />
                         </div>
 
                         {detail.plan_expires_at && (
                             <p className="text-xs text-gray-400 mb-4 text-center">
-                                תוקף חדש: {fmtDate(new Date(Math.max(new Date(detail.plan_expires_at).getTime(), Date.now()) + extendDays * 86_400_000).toISOString())}
+                                {tx("תוקף חדש:")} {fmtDate(new Date(Math.max(new Date(detail.plan_expires_at).getTime(), Date.now()) + extendDays * 86_400_000).toISOString())}
                             </p>
                         )}
 
                         <div className="flex gap-2">
-                            <button onClick={() => setExtendModal(false)} className="flex-1 py-2.5 text-sm font-semibold rounded-xl bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors">ביטול</button>
+                            <button onClick={() => setExtendModal(false)} className="flex-1 py-2.5 text-sm font-semibold rounded-xl bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors">{tx("ביטול")}</button>
                             <button
                                 onClick={handleExtend}
                                 disabled={extending}
                                 className="flex-1 py-2.5 text-sm font-semibold rounded-xl bg-black text-white hover:bg-gray-800 transition-colors disabled:opacity-50"
                             >
-                                {extending ? "מאריך..." : `הארך ${extendDays} ימים`}
+                                {extending ? tx("מאריך...") : tx("הארך {0} ימים", { 0: extendDays })}
                             </button>
                         </div>
                     </div>

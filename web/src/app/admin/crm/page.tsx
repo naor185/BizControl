@@ -9,6 +9,7 @@ import { whatsappNumber } from "@/lib/format";
 import { ComposeMessage, CrmSentLog, CrmTemplates } from "@/components/admin/CrmMessages";
 import { CrmBilling } from "@/components/admin/CrmBilling";
 
+import { tx, intl } from "@/lib/i18n";
 // The superadmin's CRM — every business using BizControl, with its plan, activity and a retention signal
 // (GET /api/admin/crm/customers; the rules are app/services/platform_crm.py). A row opens the business's page.
 // Messages from the company to the owners — the chosen businesses or everyone the filter shows — and the templates
@@ -24,24 +25,24 @@ type Customer = {
 };
 
 const SIGNAL: Record<Customer["signal"], { label: string; cls: string }> = {
-    active:   { label: "פעיל",    cls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
-    at_risk:  { label: "בסיכון",  cls: "bg-amber-50 text-amber-800 border-amber-200" },
-    inactive: { label: "לא פעיל", cls: "bg-rose-50 text-rose-700 border-rose-200" },
+    active:   { label: tx("פעיל"),    cls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+    at_risk:  { label: tx("בסיכון"),  cls: "bg-amber-50 text-amber-800 border-amber-200" },
+    inactive: { label: tx("לא פעיל"), cls: "bg-rose-50 text-rose-700 border-rose-200" },
 };
 const STATUS: Record<string, string> = {
-    trial: "חודש חינם", active: "פעיל", past_due: "באיחור תשלום", grace_period: "תקופת חסד",
-    suspended: "מושהה", canceled: "בוטל", expired: "הסתיים",
+    trial: tx("חודש חינם"), active: tx("פעיל"), past_due: tx("באיחור תשלום"), grace_period: tx("תקופת חסד"),
+    suspended: tx("מושהה"), canceled: tx("בוטל"), expired: tx("הסתיים"),
 };
 type Filter = "all" | "at_risk" | "inactive" | "trial_week" | `plan:${string}`;
 type Tab = "customers" | "billing" | "sent" | "templates";
 const TABS: { key: Tab; label: string }[] = [
-    { key: "customers", label: "עסקים" }, { key: "billing", label: "תשלומים" }, { key: "sent", label: "הודעות שנשלחו" }, { key: "templates", label: "תבניות הודעה" },
+    { key: "customers", label: tx("עסקים") }, { key: "billing", label: tx("תשלומים") }, { key: "sent", label: tx("הודעות שנשלחו") }, { key: "templates", label: tx("תבניות הודעה") },
 ];
 
 function ago(iso: string | null): string {
     if (!iso) return "—";
     const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
-    return days <= 0 ? "היום" : days === 1 ? "אתמול" : `לפני ${days} ימים`;
+    return days <= 0 ? tx("היום") : days === 1 ? tx("אתמול") : tx("לפני {0} ימים", { 0: days });
 }
 
 export default function AdminCrmPage() {
@@ -57,7 +58,7 @@ export default function AdminCrmPage() {
     const load = useCallback(() => {
         apiFetch<Customer[]>("/api/admin/crm/customers")
             .then(r => { setRows(r); setErr(null); })
-            .catch(e => { setRows([]); setErr(e instanceof Error ? e.message : "הטעינה נכשלה"); });
+            .catch(e => { setRows([]); setErr(e instanceof Error ? e.message : tx("הטעינה נכשלה")); });
     }, []);
     useEffect(() => { load(); }, [load]);
 
@@ -88,23 +89,23 @@ export default function AdminCrmPage() {
     const chip = (key: Filter, label: string, n?: number) => (
         <button key={key} type="button" onClick={() => setFilter(key)} aria-pressed={filter === key}
             className={`px-3 py-1.5 rounded-full text-sm font-semibold border transition-colors ${filter === key ? "bg-slate-900 text-white border-slate-900" : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"}`}>
-            {label}{n !== undefined && <span className="mr-1 opacity-70 tabular-nums">{n}</span>}
+            {label}{n !== undefined && <span className="ms-1 opacity-70 tabular-nums">{n}</span>}
         </button>
     );
 
     return (
-        <div className="max-w-7xl mx-auto py-8 px-4 space-y-6" dir="rtl">
+        <div className="max-w-7xl mx-auto py-8 px-4 space-y-6">
             <Link href="/admin" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-900">
-                <ArrowRight className="h-4 w-4" /> חזרה לאדמין
+                <ArrowRight className="ltr:-scale-x-100 h-4 w-4" /> {tx("חזרה לאדמין")}
             </Link>
 
             <div className="flex items-start justify-between gap-4 flex-wrap">
                 <div>
-                    <h1 className="text-2xl font-black text-slate-900">הלקוחות שלי</h1>
-                    <p className="text-slate-500 text-sm mt-1">כל העסקים שמשתמשים ב-BizControl — מסלול, פעילות וסימן שימור. לחיצה על עסק פותחת את הכרטיס שלו.</p>
+                    <h1 className="text-2xl font-black text-slate-900">{tx("הלקוחות שלי")}</h1>
+                    <p className="text-slate-500 text-sm mt-1">{tx("כל העסקים שמשתמשים ב-BizControl — מסלול, פעילות וסימן שימור. לחיצה על עסק פותחת את הכרטיס שלו.")}</p>
                 </div>
                 <button onClick={load} className="px-4 py-2 text-sm font-bold bg-slate-100 hover:bg-slate-200 rounded-xl flex items-center gap-2 text-slate-700">
-                    <RefreshCw className="h-4 w-4" /> רענון
+                    <RefreshCw className="h-4 w-4" /> {tx("רענון")}
                 </button>
             </div>
 
@@ -125,12 +126,12 @@ export default function AdminCrmPage() {
             {/* the picture at a glance */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
                 {[
-                    { label: "עסקים", value: all.length },
-                    { label: "פעילים", value: count("active"), tone: "text-emerald-700" },
-                    { label: "בסיכון", value: count("at_risk"), tone: "text-amber-700" },
-                    { label: "לא פעילים", value: count("inactive"), tone: "text-rose-700" },
-                    { label: "חודש חינם נגמר השבוע", value: trialWeek, tone: trialWeek ? "text-amber-700" : undefined },
-                    { label: "צפי הכנסה חודשי", value: `₪${monthly.toLocaleString("he-IL")}` },
+                    { label: tx("עסקים"), value: all.length },
+                    { label: tx("פעילים"), value: count("active"), tone: "text-emerald-700" },
+                    { label: tx("בסיכון"), value: count("at_risk"), tone: "text-amber-700" },
+                    { label: tx("לא פעילים"), value: count("inactive"), tone: "text-rose-700" },
+                    { label: tx("חודש חינם נגמר השבוע"), value: trialWeek, tone: trialWeek ? "text-amber-700" : undefined },
+                    { label: tx("צפי הכנסה חודשי"), value: `₪${monthly.toLocaleString(intl())}` },
                 ].map(t => (
                     <div key={t.label} className="bg-white border border-slate-200 rounded-2xl px-4 py-3">
                         <div className={`text-2xl font-black tabular-nums ${t.tone ?? "text-slate-900"}`}>{t.value}</div>
@@ -140,15 +141,15 @@ export default function AdminCrmPage() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-                {chip("all", "הכול", all.length)}
-                {chip("at_risk", "בסיכון", count("at_risk"))}
-                {chip("inactive", "לא פעילים", count("inactive"))}
-                {chip("trial_week", "חודש חינם נגמר השבוע", trialWeek)}
+                {chip("all", tx("הכול"), all.length)}
+                {chip("at_risk", tx("בסיכון"), count("at_risk"))}
+                {chip("inactive", tx("לא פעילים"), count("inactive"))}
+                {chip("trial_week", tx("חודש חינם נגמר השבוע"), trialWeek)}
                 {plans.map(([id, label]) => chip(`plan:${id}`, label))}
-                <label className="relative mr-auto">
-                    <Search className="h-4 w-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2" aria-hidden />
-                    <input value={q} onChange={e => setQ(e.target.value)} placeholder="חיפוש: עסק, בעלים, טלפון, מייל"
-                        className="border border-slate-200 rounded-xl pr-9 pl-3 py-2 text-sm w-64 max-w-full bg-white" />
+                <label className="relative ms-auto">
+                    <Search className="h-4 w-4 text-slate-400 absolute start-3 top-1/2 -translate-y-1/2" aria-hidden />
+                    <input value={q} onChange={e => setQ(e.target.value)} placeholder={tx("חיפוש: עסק, בעלים, טלפון, מייל")}
+                        className="border border-slate-200 rounded-xl ps-9 pe-3 py-2 text-sm w-64 max-w-full bg-white" />
                 </label>
             </div>
 
@@ -156,27 +157,27 @@ export default function AdminCrmPage() {
                 <button onClick={() => setComposing(true)} disabled={recipients.length === 0}
                     className="px-4 py-2 text-sm font-bold bg-slate-900 text-white rounded-xl hover:bg-slate-800 disabled:opacity-40 flex items-center gap-2">
                     <Send className="h-4 w-4" />
-                    {picked.size ? `הודעה ל-${picked.size} שנבחרו` : `הודעה לכל ${shown.length} שבסינון`}
+                    {picked.size ? tx("הודעה ל-{0} שנבחרו", { 0: picked.size }) : tx("הודעה לכל {0} שבסינון", { 0: shown.length })}
                 </button>
                 {picked.size > 0 && (
-                    <button onClick={() => setPicked(new Set())} className="text-sm text-slate-500 hover:text-slate-900">ניקוי הבחירה</button>
+                    <button onClick={() => setPicked(new Set())} className="text-sm text-slate-500 hover:text-slate-900">{tx("ניקוי הבחירה")}</button>
                 )}
             </div>
 
             {err && <p className="text-sm text-rose-600">{err}</p>}
 
             {rows === null ? (
-                <p className="text-center text-slate-400 py-12">טוען...</p>
+                <p className="text-center text-slate-400 py-12">{tx("טוען...")}</p>
             ) : (
                 <div className="bg-white border border-slate-200 rounded-2xl overflow-x-auto">
                     <table className="w-full text-sm">
                         <thead>
                             <tr className="text-slate-500 border-b border-slate-100">
                                 <th className="px-4 py-3 w-10">
-                                    <input type="checkbox" checked={allShownPicked} onChange={toggleShown} aria-label="לבחור את כל העסקים שבסינון" className="h-4 w-4 accent-slate-900" />
+                                    <input type="checkbox" checked={allShownPicked} onChange={toggleShown} aria-label={tx("לבחור את כל העסקים שבסינון")} className="h-4 w-4 accent-slate-900" />
                                 </th>
-                                {["עסק", "בעל העסק", "מסלול", "מצב", "נכנס לאחרונה", "תורים 30 יום", "WhatsApp החודש", "שימור"].map(h => (
-                                    <th key={h} className="text-right font-semibold px-4 py-3 whitespace-nowrap">{h}</th>
+                                {[tx("עסק"), tx("בעל העסק"), tx("מסלול"), tx("מצב"), tx("נכנס לאחרונה"), tx("תורים 30 יום"), tx("WhatsApp החודש"), tx("שימור")].map(h => (
+                                    <th key={h} className="text-start font-semibold px-4 py-3 whitespace-nowrap">{h}</th>
                                 ))}
                             </tr>
                         </thead>
@@ -185,11 +186,11 @@ export default function AdminCrmPage() {
                                 <tr key={c.id} onClick={() => router.push(`/admin/studios/${c.id}`)}
                                     className={`border-b border-slate-50 last:border-0 hover:bg-slate-50 cursor-pointer align-top ${picked.has(c.id) ? "bg-slate-50" : ""}`}>
                                     <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
-                                        <input type="checkbox" checked={picked.has(c.id)} onChange={() => toggle(c.id)} aria-label={`לבחור את ${c.name}`} className="h-4 w-4 accent-slate-900" />
+                                        <input type="checkbox" checked={picked.has(c.id)} onChange={() => toggle(c.id)} aria-label={tx("לבחור את {0}", { 0: c.name })} className="h-4 w-4 accent-slate-900" />
                                     </td>
                                     <td className="px-4 py-3">
                                         <div className="font-bold text-slate-900">{c.name}</div>
-                                        <div className="text-xs text-slate-400">הצטרף {c.joined ? new Date(c.joined).toLocaleDateString("he-IL") : "—"} · {c.clients} לקוחות</div>
+                                        <div className="text-xs text-slate-400">{tx("הצטרף ")}{c.joined ? new Date(c.joined).toLocaleDateString(intl()) : "—"} · {c.clients}{tx(" לקוחות")}</div>
                                     </td>
                                     <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                                         <div className="text-slate-800">{c.owner_name || "—"}</div>
@@ -209,13 +210,13 @@ export default function AdminCrmPage() {
                                     </td>
                                     <td className="px-4 py-3 whitespace-nowrap">
                                         <div className="text-slate-800 font-semibold">{c.plan_label}</div>
-                                        <div className="text-xs text-slate-400 tabular-nums">{c.monthly_ils ? `₪${c.monthly_ils} לחודש` : "ללא תשלום"}</div>
+                                        <div className="text-xs text-slate-400 tabular-nums">{c.monthly_ils ? tx("₪{0} לחודש", { 0: c.monthly_ils }) : tx("ללא תשלום")}</div>
                                     </td>
                                     <td className="px-4 py-3 whitespace-nowrap">
-                                        <div className="text-slate-800">{STATUS[c.status] ?? c.status}{c.cancel_at_period_end ? " · מבוטל בסוף התקופה" : ""}</div>
+                                        <div className="text-slate-800">{STATUS[c.status] ?? c.status}{c.cancel_at_period_end ? tx(" · מבוטל בסוף התקופה") : ""}</div>
                                         {c.days_left !== null && c.status !== "expired" && (
                                             <div className={`text-xs tabular-nums ${c.days_left <= 7 ? "text-amber-700 font-semibold" : "text-slate-400"}`}>
-                                                {c.days_left < 0 ? "הסתיים" : c.days_left === 0 ? "נגמר היום" : `נשארו ${c.days_left} ימים`}
+                                                {c.days_left < 0 ? tx("הסתיים") : c.days_left === 0 ? tx("נגמר היום") : tx("נשארו {0} ימים", { 0: c.days_left })}
                                             </div>
                                         )}
                                     </td>
@@ -229,7 +230,7 @@ export default function AdminCrmPage() {
                                 </tr>
                             ))}
                             {shown.length === 0 && (
-                                <tr><td colSpan={9} className="text-center text-slate-400 py-10">אין עסקים שמתאימים לסינון</td></tr>
+                                <tr><td colSpan={9} className="text-center text-slate-400 py-10">{tx("אין עסקים שמתאימים לסינון")}</td></tr>
                             )}
                         </tbody>
                     </table>

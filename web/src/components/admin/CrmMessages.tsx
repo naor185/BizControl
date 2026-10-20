@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Check, Mail, MessageCircle, Send, X } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
+import { tx, intl } from "@/lib/i18n";
 // Messages from the company to the businesses' owners — the superadmin's CRM, part ב
 // (app/services/platform_outreach.py, /api/admin/crm/templates|send|sent): the compose window, the templates, and the log.
 
@@ -19,17 +20,17 @@ type Sent = {
 type Channel = "whatsapp" | "email" | "both";
 
 const CHANNELS: { key: Channel; label: string }[] = [
-    { key: "whatsapp", label: "WhatsApp" }, { key: "email", label: "מייל" }, { key: "both", label: "WhatsApp + מייל" },
+    { key: "whatsapp", label: "WhatsApp" }, { key: "email", label: tx("מייל") }, { key: "both", label: tx("WhatsApp + מייל") },
 ];
 const FIELDS = [
-    { key: "owner_name", label: "שם בעל העסק" }, { key: "business_name", label: "שם העסק" },
-    { key: "plan", label: "המסלול" }, { key: "days_left", label: "ימים שנשארו" },
+    { key: "owner_name", label: tx("שם בעל העסק") }, { key: "business_name", label: tx("שם העסק") },
+    { key: "plan", label: tx("המסלול") }, { key: "days_left", label: tx("ימים שנשארו") },
 ];
 const STATUS: Record<string, { label: string; cls: string }> = {
-    pending:  { label: "ממתין", cls: "bg-slate-100 text-slate-600" },
-    sent:     { label: "נשלח",  cls: "bg-emerald-50 text-emerald-700" },
-    failed:   { label: "נכשל",  cls: "bg-rose-50 text-rose-700" },
-    canceled: { label: "בוטל",  cls: "bg-slate-100 text-slate-500" },
+    pending:  { label: tx("ממתין"), cls: "bg-slate-100 text-slate-600" },
+    sent:     { label: tx("נשלח"),  cls: "bg-emerald-50 text-emerald-700" },
+    failed:   { label: tx("נכשל"),  cls: "bg-rose-50 text-rose-700" },
+    canceled: { label: tx("בוטל"),  cls: "bg-slate-100 text-slate-500" },
 };
 const input = "w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-slate-300";
 
@@ -78,7 +79,7 @@ export function ComposeMessage({ recipients, onClose }: { recipients: CrmRecipie
                 body: JSON.stringify({ studio_ids: recipients.map(r => r.id), channel, body: body.trim(), subject: email ? subject.trim() || null : null }),
             }));
         } catch (e) {
-            setErr(e instanceof Error ? e.message : "השליחה נכשלה");
+            setErr(e instanceof Error ? e.message : tx("השליחה נכשלה"));
         } finally {
             setSending(false); setConfirming(false);
         }
@@ -86,31 +87,31 @@ export function ComposeMessage({ recipients, onClose }: { recipients: CrmRecipie
 
     return (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true">
-            <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90dvh] flex flex-col shadow-xl" dir="rtl">
+            <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90dvh] flex flex-col shadow-xl">
                 <div className="flex items-center justify-between px-6 pt-5 pb-3 border-b border-slate-100">
                     <div>
-                        <h3 className="font-black text-lg text-slate-900">הודעה לבעלי העסקים</h3>
+                        <h3 className="font-black text-lg text-slate-900">{tx("הודעה לבעלי העסקים")}</h3>
                         <p className="text-xs text-slate-500 mt-0.5">
-                            {recipients.length === 1 ? recipients[0].name : `${recipients.length} עסקים`} · נשלחת מהמספר והמייל של BizControl
+                            {recipients.length === 1 ? recipients[0].name : tx("{0} עסקים", { 0: recipients.length })} {tx("· נשלחת מהמספר והמייל של BizControl")}
                         </p>
                     </div>
-                    <button onClick={onClose} aria-label="סגירה" className="text-slate-400 hover:text-slate-900"><X className="h-5 w-5" /></button>
+                    <button onClick={onClose} aria-label={tx("סגירה")} className="text-slate-400 hover:text-slate-900"><X className="h-5 w-5" /></button>
                 </div>
 
                 {result ? (
                     <div className="p-6 space-y-4">
                         <div className="flex items-center gap-2 text-emerald-700 font-bold">
-                            <Check className="h-5 w-5" /> {result.queued} הודעות בדרך — נשלחות בדקה הקרובה
+                            <Check className="h-5 w-5" /> {result.queued} {tx("הודעות בדרך — נשלחות בדקה הקרובה")}
                         </div>
                         {result.skipped.length > 0 && (
                             <div className="text-sm">
-                                <p className="font-semibold text-slate-700 mb-1">לא נשלח ל-{result.skipped.length}:</p>
+                                <p className="font-semibold text-slate-700 mb-1">{tx("לא נשלח ל-")}{result.skipped.length}:</p>
                                 <ul className="text-slate-500 space-y-0.5 max-h-40 overflow-y-auto">
                                     {result.skipped.map((s, i) => <li key={i}>{s.name} — {s.reason}</li>)}
                                 </ul>
                             </div>
                         )}
-                        <button onClick={onClose} className="w-full bg-slate-900 text-white font-bold py-2.5 rounded-xl">סגירה</button>
+                        <button onClick={onClose} className="w-full bg-slate-900 text-white font-bold py-2.5 rounded-xl">{tx("סגירה")}</button>
                     </div>
                 ) : (
                     <>
@@ -126,7 +127,7 @@ export function ComposeMessage({ recipients, onClose }: { recipients: CrmRecipie
 
                             {templates.length > 0 && (
                                 <div>
-                                    <p className="text-xs font-semibold text-slate-500 mb-1.5">להתחיל מתבנית</p>
+                                    <p className="text-xs font-semibold text-slate-500 mb-1.5">{tx("להתחיל מתבנית")}</p>
                                     <div className="flex flex-wrap gap-1.5">
                                         {templates.map(t => (
                                             <button key={t.key} type="button" onClick={() => pickTemplate(t)}
@@ -138,17 +139,17 @@ export function ComposeMessage({ recipients, onClose }: { recipients: CrmRecipie
 
                             {email && (
                                 <label className="block">
-                                    <span className="text-xs font-semibold text-slate-500">נושא המייל</span>
+                                    <span className="text-xs font-semibold text-slate-500">{tx("נושא המייל")}</span>
                                     <input className={`${input} mt-1`} value={subject} onChange={e => setSubject(e.target.value)} placeholder="הודעה מ-BizControl" maxLength={160} />
                                 </label>
                             )}
                             <label className="block">
-                                <span className="text-xs font-semibold text-slate-500">ההודעה</span>
+                                <span className="text-xs font-semibold text-slate-500">{tx("ההודעה")}</span>
                                 <textarea ref={bodyRef} className={`${input} mt-1 min-h-[140px] leading-relaxed`} value={body} maxLength={2000}
                                     onChange={e => { setBody(e.target.value); setConfirming(false); }} />
                             </label>
                             <div className="flex flex-wrap items-center gap-1.5 text-xs">
-                                <span className="text-slate-500">להוסיף להודעה:</span>
+                                <span className="text-slate-500">{tx("להוסיף להודעה:")}</span>
                                 {FIELDS.map(f => (
                                     <button key={f.key} type="button" onClick={() => insert(f.key)}
                                         className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 hover:bg-slate-200">{f.label}</button>
@@ -157,7 +158,7 @@ export function ComposeMessage({ recipients, onClose }: { recipients: CrmRecipie
 
                             {sample && body.trim() && (
                                 <div className="rounded-xl bg-slate-50 border border-slate-100 p-3">
-                                    <p className="text-xs font-semibold text-slate-500 mb-1">כך יקבל/תקבל {sample.owner_name || sample.name}:</p>
+                                    <p className="text-xs font-semibold text-slate-500 mb-1">{tx("כך יקבל/תקבל ")}{sample.owner_name || sample.name}:</p>
                                     {email && <p className="text-sm font-bold text-slate-800 mb-1">{fillFor(subject || "הודעה מ-BizControl", sample)}</p>}
                                     <p className="text-sm text-slate-700 whitespace-pre-wrap">{fillFor(body, sample)}</p>
                                 </div>
@@ -165,8 +166,8 @@ export function ComposeMessage({ recipients, onClose }: { recipients: CrmRecipie
 
                             {(noPhone > 0 || noEmail > 0) && (
                                 <p className="text-xs text-amber-700">
-                                    {noPhone > 0 && `ל-${noPhone} אין טלפון — לא יקבלו WhatsApp. `}
-                                    {noEmail > 0 && `ל-${noEmail} אין מייל — לא יקבלו מייל.`}
+                                    {noPhone > 0 && tx("ל-{0} אין טלפון — לא יקבלו WhatsApp. ", { 0: noPhone })}
+                                    {noEmail > 0 && tx("ל-{0} אין מייל — לא יקבלו מייל.", { 0: noEmail })}
                                 </p>
                             )}
                             {err && <p className="text-sm text-rose-600">{err}</p>}
@@ -177,17 +178,17 @@ export function ComposeMessage({ recipients, onClose }: { recipients: CrmRecipie
                                 <>
                                     <button onClick={send} disabled={sending}
                                         className="flex-1 bg-rose-600 hover:bg-rose-700 text-white font-bold py-2.5 rounded-xl disabled:opacity-50 flex items-center justify-center gap-2">
-                                        <Send className="h-4 w-4" /> {sending ? "שולח..." : `כן, לשלוח ל-${recipients.length} עסקים`}
+                                        <Send className="h-4 w-4" /> {sending ? tx("שולח...") : tx("כן, לשלוח ל-{0} עסקים", { 0: recipients.length })}
                                     </button>
-                                    <button onClick={() => setConfirming(false)} className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-sm">חזרה</button>
+                                    <button onClick={() => setConfirming(false)} className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-sm">{tx("חזרה")}</button>
                                 </>
                             ) : (
                                 <>
                                     <button onClick={() => setConfirming(true)} disabled={!body.trim()}
                                         className="flex-1 bg-slate-900 hover:bg-slate-800 text-white font-bold py-2.5 rounded-xl disabled:opacity-40 flex items-center justify-center gap-2">
-                                        <Send className="h-4 w-4" /> שליחה
+                                        <Send className="h-4 w-4" /> {tx("שליחה")}
                                     </button>
-                                    <button onClick={onClose} className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-sm">ביטול</button>
+                                    <button onClick={onClose} className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-sm">{tx("ביטול")}</button>
                                 </>
                             )}
                         </div>
@@ -203,7 +204,7 @@ export function CrmTemplates() {
     const [saved, setSaved] = useState<string | null>(null);
     const [err, setErr] = useState<string | null>(null);
 
-    useEffect(() => { apiFetch<Template[]>("/api/admin/crm/templates").then(setRows).catch(e => { setRows([]); setErr(e instanceof Error ? e.message : "הטעינה נכשלה"); }); }, []);
+    useEffect(() => { apiFetch<Template[]>("/api/admin/crm/templates").then(setRows).catch(e => { setRows([]); setErr(e instanceof Error ? e.message : tx("הטעינה נכשלה")); }); }, []);
 
     const edit = (key: string, patch: Partial<Template>) => setRows(rs => (rs ?? []).map(t => t.key === key ? { ...t, ...patch } : t));
     const save = async (t: Template) => {
@@ -212,30 +213,30 @@ export function CrmTemplates() {
             await apiFetch(`/api/admin/crm/templates/${t.key}`, { method: "PUT", body: JSON.stringify({ name: t.name, email_subject: t.email_subject, body: t.body }) });
             setSaved(t.key);
         } catch (e) {
-            setErr(e instanceof Error ? e.message : "השמירה נכשלה");
+            setErr(e instanceof Error ? e.message : tx("השמירה נכשלה"));
         }
     };
 
-    if (rows === null) return <p className="text-center text-slate-400 py-12">טוען...</p>;
+    if (rows === null) return <p className="text-center text-slate-400 py-12">{tx("טוען...")}</p>;
     return (
         <div className="space-y-4">
             <p className="text-sm text-slate-500">
-                ההודעות המוכנות שבוחרים מהן בחלון השליחה. אפשר לכתוב בהן {"{owner_name}"} {"{business_name}"} {"{plan}"} {"{days_left}"} — וכל בעל עסק יקבל את הפרטים שלו.
+                {tx("ההודעות המוכנות שבוחרים מהן בחלון השליחה. אפשר לכתוב בהן")} {"{owner_name}"} {"{business_name}"} {"{plan}"} {"{days_left}"} {tx("— וכל בעל עסק יקבל את הפרטים שלו.")}
             </p>
             {err && <p className="text-sm text-rose-600">{err}</p>}
             <div className="grid gap-4 lg:grid-cols-2">
                 {rows.map(t => (
                     <div key={t.key} className="bg-white border border-slate-200 rounded-2xl p-4 space-y-2">
-                        <input className={`${input} font-bold`} value={t.name} maxLength={80} aria-label="שם התבנית"
+                        <input className={`${input} font-bold`} value={t.name} maxLength={80} aria-label={tx("שם התבנית")}
                             onChange={e => { edit(t.key, { name: e.target.value }); setSaved(null); }} />
-                        <input className={input} value={t.email_subject} maxLength={160} placeholder="נושא המייל" aria-label="נושא המייל"
+                        <input className={input} value={t.email_subject} maxLength={160} placeholder={tx("נושא המייל")} aria-label={tx("נושא המייל")}
                             onChange={e => { edit(t.key, { email_subject: e.target.value }); setSaved(null); }} />
-                        <textarea className={`${input} min-h-[120px] leading-relaxed`} value={t.body} maxLength={2000} aria-label="ההודעה"
+                        <textarea className={`${input} min-h-[120px] leading-relaxed`} value={t.body} maxLength={2000} aria-label={tx("ההודעה")}
                             onChange={e => { edit(t.key, { body: e.target.value }); setSaved(null); }} />
                         <div className="flex items-center justify-end gap-3">
-                            {saved === t.key && <span className="text-xs text-emerald-700 flex items-center gap-1"><Check className="h-3.5 w-3.5" /> נשמר</span>}
+                            {saved === t.key && <span className="text-xs text-emerald-700 flex items-center gap-1"><Check className="h-3.5 w-3.5" />{tx(" נשמר")}</span>}
                             <button onClick={() => save(t)} disabled={!t.name.trim() || !t.body.trim()}
-                                className="px-4 py-1.5 text-sm font-bold bg-slate-900 text-white rounded-xl disabled:opacity-40">שמירה</button>
+                                className="px-4 py-1.5 text-sm font-bold bg-slate-900 text-white rounded-xl disabled:opacity-40">{tx("שמירה")}</button>
                         </div>
                     </div>
                 ))}
@@ -252,15 +253,15 @@ export function CrmSentLog({ studioId }: { studioId?: string }) {
     }, [studioId]);
 
     const box = "bg-white border border-slate-200 rounded-2xl";
-    if (rows === null) return <p className={`${box} text-center text-sm text-slate-400 py-8`}>טוען...</p>;
-    if (rows.length === 0) return <p className={`${box} text-center text-sm text-slate-400 py-8`}>עוד לא נשלחו הודעות מהחברה{studioId ? " לעסק הזה" : ""}</p>;
+    if (rows === null) return <p className={`${box} text-center text-sm text-slate-400 py-8`}>{tx("טוען...")}</p>;
+    if (rows.length === 0) return <p className={`${box} text-center text-sm text-slate-400 py-8`}>{tx("עוד לא נשלחו הודעות מהחברה")}{studioId ? tx(" לעסק הזה") : ""}</p>;
     return (
         <div className={`${box} overflow-x-auto`}>
             <table className="w-full text-sm">
                 <thead>
                     <tr className="text-slate-500 border-b border-slate-100">
-                        {["מתי", ...(studioId ? [] : ["עסק"]), "איך", "אל", "ההודעה", "מצב"].map(h => (
-                            <th key={h} className="text-right font-semibold px-4 py-3 whitespace-nowrap">{h}</th>
+                        {[tx("מתי"), ...(studioId ? [] : [tx("עסק")]), tx("איך"), tx("אל"), tx("ההודעה"), tx("מצב")].map(h => (
+                            <th key={h} className="text-start font-semibold px-4 py-3 whitespace-nowrap">{h}</th>
                         ))}
                     </tr>
                 </thead>
@@ -270,13 +271,13 @@ export function CrmSentLog({ studioId }: { studioId?: string }) {
                         return (
                             <tr key={m.id} className="border-b border-slate-50 last:border-0 align-top">
                                 <td className="px-4 py-3 whitespace-nowrap text-slate-600 tabular-nums">
-                                    {m.created_at ? new Date(m.created_at).toLocaleString("he-IL", { dateStyle: "short", timeStyle: "short" }) : "—"}
+                                    {m.created_at ? new Date(m.created_at).toLocaleString(intl(), { dateStyle: "short", timeStyle: "short" }) : "—"}
                                 </td>
                                 {!studioId && <td className="px-4 py-3 font-semibold text-slate-800 whitespace-nowrap">{m.studio_name}</td>}
                                 <td className="px-4 py-3">
                                     {m.channel === "whatsapp"
                                         ? <MessageCircle className="h-4 w-4 text-emerald-700" aria-label="WhatsApp" />
-                                        : <Mail className="h-4 w-4 text-slate-500" aria-label="מייל" />}
+                                        : <Mail className="h-4 w-4 text-slate-500" aria-label={tx("מייל")} />}
                                 </td>
                                 <td className="px-4 py-3 text-slate-500 whitespace-nowrap" dir="ltr">{m.to}</td>
                                 <td className="px-4 py-3 text-slate-700 max-w-md">

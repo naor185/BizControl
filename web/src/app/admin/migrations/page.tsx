@@ -6,6 +6,7 @@ import { ArrowRight, RefreshCw } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { toast } from "@/lib/toast";
 
+import { tx, intl } from "@/lib/i18n";
 type ConnectorStat = {
     slug: string;
     name: string;
@@ -35,10 +36,10 @@ type RecentMigration = {
     created_at: string;
 };
 
-const AUTH_LABELS: Record<string, string> = { file: "העלאת קובץ", api_key: "מפתח API", oauth: "OAuth", api: "API", manual: "ידני" };
+const AUTH_LABELS: Record<string, string> = { file: tx("העלאת קובץ"), api_key: tx("מפתח API"), oauth: "OAuth", api: "API", manual: tx("ידני") };
 const STATUS_LABELS: Record<string, string> = {
-    draft: "מיפוי", scanning: "סורק", preview: "תצוגה מקדימה", importing: "מייבא",
-    completed: "הושלם", partial: "חלקי", failed: "נכשל", rolled_back: "בוטל",
+    draft: tx("מיפוי"), scanning: tx("סורק"), preview: tx("תצוגה מקדימה"), importing: tx("מייבא"),
+    completed: tx("הושלם"), partial: tx("חלקי"), failed: tx("נכשל"), rolled_back: tx("בוטל"),
 };
 
 // Super Admin: every connector, whether it is on, how its imports ended, and recent imports across studios.
@@ -50,7 +51,7 @@ export default function AdminMigrationsPage() {
     const load = useCallback(() => {
         apiFetch<{ connectors: ConnectorStat[]; recent: RecentMigration[] }>("/api/admin/migrations/overview")
             .then(d => { setData(d); setError(null); })
-            .catch(e => setError(e instanceof Error ? e.message : "הטעינה נכשלה"));
+            .catch(e => setError(e instanceof Error ? e.message : tx("הטעינה נכשלה")));
     }, []);
 
     useEffect(() => { load(); }, [load]);
@@ -60,23 +61,23 @@ export default function AdminMigrationsPage() {
             await apiFetch(`/api/admin/migrations/connectors/${c.slug}`, { method: "PATCH", body: JSON.stringify({ enabled: !c.enabled }) });
             load();
         } catch (e) {
-            toast.error(e instanceof Error ? e.message : "השינוי נכשל");
+            toast.error(e instanceof Error ? e.message : tx("השינוי נכשל"));
         }
     }
 
     return (
-        <div className="max-w-6xl mx-auto py-8 px-4 space-y-8" dir="rtl">
+        <div className="max-w-6xl mx-auto py-8 px-4 space-y-8">
             <Link href="/admin" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-900">
-                <ArrowRight className="h-4 w-4" /> חזרה לאדמין
+                <ArrowRight className="ltr:-scale-x-100 h-4 w-4" /> {tx("חזרה לאדמין")}
             </Link>
 
             <div className="flex items-start justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-black text-slate-900">ייבוא נתונים — Connectors</h1>
-                    <p className="text-slate-500 text-sm mt-1">מקורות הייבוא, מצבם, וכל הייבואים האחרונים בכל העסקים. בלי נתוני לקוחות ובלי פרטי התחברות.</p>
+                    <h1 className="text-2xl font-black text-slate-900">{tx("ייבוא נתונים — Connectors")}</h1>
+                    <p className="text-slate-500 text-sm mt-1">{tx("מקורות הייבוא, מצבם, וכל הייבואים האחרונים בכל העסקים. בלי נתוני לקוחות ובלי פרטי התחברות.")}</p>
                 </div>
                 <button onClick={load} className="px-4 py-2 text-sm font-bold bg-slate-100 hover:bg-slate-200 rounded-xl flex items-center gap-2 text-slate-700">
-                    <RefreshCw className="h-4 w-4" /> רענן
+                    <RefreshCw className="h-4 w-4" /> {tx("רענן")}
                 </button>
             </div>
 
@@ -100,13 +101,13 @@ export default function AdminMigrationsPage() {
                                             onClick={() => toggle(c)}
                                             className={`px-3 py-1.5 rounded-lg text-xs font-bold ${c.enabled ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-slate-100 text-slate-500 border border-slate-200"}`}
                                         >
-                                            {c.enabled ? "פעיל — לחץ לכיבוי" : "כבוי — לחץ להפעלה"}
+                                            {c.enabled ? tx("פעיל — לחץ לכיבוי") : tx("כבוי — לחץ להפעלה")}
                                         </button>
                                     </div>
                                     <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 text-center">
                                         {[
-                                            ["סה״כ", c.total, "text-slate-900"], ["הושלמו", c.completed, "text-emerald-700"], ["חלקי", c.partial, "text-amber-700"],
-                                            ["נכשלו", c.failed, "text-rose-700"], ["בוטלו", c.rolled_back, "text-slate-500"], ["בתהליך", c.in_progress, "text-sky-700"],
+                                            [tx("סה״כ"), c.total, "text-slate-900"], [tx("הושלמו"), c.completed, "text-emerald-700"], [tx("חלקי"), c.partial, "text-amber-700"],
+                                            [tx("נכשלו"), c.failed, "text-rose-700"], [tx("בוטלו"), c.rolled_back, "text-slate-500"], [tx("בתהליך"), c.in_progress, "text-sky-700"],
                                         ].map(([label, n, cls]) => (
                                             <div key={label as string} className="rounded-xl bg-slate-50 py-2">
                                                 <div className={`text-lg font-extrabold tabular-nums ${cls}`}>{n as number}</div>
@@ -116,7 +117,7 @@ export default function AdminMigrationsPage() {
                                     </div>
                                     {c.last_error && (
                                         <div className="text-xs text-rose-700 bg-rose-50 rounded-lg px-3 py-2">
-                                            שגיאה אחרונה ({new Date(c.last_error.at).toLocaleString("he-IL")}): {c.last_error.error}
+                                            {tx("שגיאה אחרונה (")}{new Date(c.last_error.at).toLocaleString(intl())}): {c.last_error.error}
                                         </div>
                                     )}
                                 </div>
@@ -125,16 +126,16 @@ export default function AdminMigrationsPage() {
                     </section>
 
                     <section className="space-y-3">
-                        <h2 className="font-bold text-slate-800">ייבואים אחרונים</h2>
+                        <h2 className="font-bold text-slate-800">{tx("ייבואים אחרונים")}</h2>
                         {data.recent.length === 0 ? (
-                            <p className="text-sm text-slate-500">עוד לא בוצעו ייבואים.</p>
+                            <p className="text-sm text-slate-500">{tx("עוד לא בוצעו ייבואים.")}</p>
                         ) : (
                             <div className="bg-white rounded-2xl border border-slate-200 overflow-x-auto">
                                 <table className="w-full text-sm">
                                     <thead className="bg-slate-50 text-slate-500 text-xs">
                                         <tr>
-                                            {["קוד", "עסק", "מקור", "מה", "מצב", "שורות", "תוצאה", "נוצר", "שגיאה"].map(h => (
-                                                <th key={h} className="text-right font-semibold px-3 py-2 whitespace-nowrap">{h}</th>
+                                            {[tx("קוד"), tx("עסק"), tx("מקור"), tx("מה"), tx("מצב"), tx("שורות"), tx("תוצאה"), tx("נוצר"), tx("שגיאה")].map(h => (
+                                                <th key={h} className="text-start font-semibold px-3 py-2 whitespace-nowrap">{h}</th>
                                             ))}
                                         </tr>
                                     </thead>
@@ -148,9 +149,9 @@ export default function AdminMigrationsPage() {
                                                 <td className="px-3 py-2 whitespace-nowrap">{STATUS_LABELS[m.status] || m.status}</td>
                                                 <td className="px-3 py-2 tabular-nums">{m.rows}</td>
                                                 <td className="px-3 py-2 text-xs text-slate-600 whitespace-nowrap">
-                                                    {m.result ? `נוצרו ${m.result.created || 0} · עודכנו ${m.result.updated || 0} · נכשלו ${m.result.failed || 0}` : "—"}
+                                                    {m.result ? tx("נוצרו {0} · עודכנו {1} · נכשלו {2}", { 0: m.result.created || 0, 1: m.result.updated || 0, 2: m.result.failed || 0 }) : "—"}
                                                 </td>
-                                                <td className="px-3 py-2 text-xs whitespace-nowrap">{new Date(m.created_at).toLocaleString("he-IL")}</td>
+                                                <td className="px-3 py-2 text-xs whitespace-nowrap">{new Date(m.created_at).toLocaleString(intl())}</td>
                                                 <td className="px-3 py-2 text-xs text-rose-700 max-w-xs truncate" title={m.error || ""}>{m.error || ""}</td>
                                             </tr>
                                         ))}

@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
 
+import { tx } from "@/lib/i18n";
 interface PlatformData {
     mrr_ils: number;
     appts_today: number;
@@ -23,27 +24,27 @@ export default function PlatformAnalyticsPage() {
     }, []);
 
     const cards = data ? [
-        { label: "MRR החודש", value: "₪" + data.mrr_ils.toLocaleString(), icon: "💰", color: "#4ade80" },
-        { label: "תורים היום", value: String(data.appts_today), icon: "📅", color: "#a78bfa" },
-        { label: "הודעות החודש", value: data.messages_sent_month.toLocaleString(), icon: "💬", color: "#f59e0b" },
-        { label: "תורים החודש", value: data.appts_month.toLocaleString(), icon: "📊", color: "#34d399" },
-        { label: "סה׳׳כ לקוחות", value: data.total_clients.toLocaleString(), icon: "👥", color: "#818cf8" },
-        { label: "סטודיוים בסיכון", value: String(data.at_risk_studios), icon: "⚠", color: "#f87171" },
-        { label: "סוגי חבילות", value: String(data.plan_distribution.length), icon: "📦", color: "#fbbf24" },
+        { label: tx("MRR החודש"), value: "₪" + data.mrr_ils.toLocaleString(), icon: "💰", color: "#4ade80" },
+        { label: tx("תורים היום"), value: String(data.appts_today), icon: "📅", color: "#a78bfa" },
+        { label: tx("הודעות החודש"), value: data.messages_sent_month.toLocaleString(), icon: "💬", color: "#f59e0b" },
+        { label: tx("תורים החודש"), value: data.appts_month.toLocaleString(), icon: "📊", color: "#34d399" },
+        { label: tx("סה׳׳כ לקוחות"), value: data.total_clients.toLocaleString(), icon: "👥", color: "#818cf8" },
+        { label: tx("סטודיוים בסיכון"), value: String(data.at_risk_studios), icon: "⚠", color: "#f87171" },
+        { label: tx("סוגי חבילות"), value: String(data.plan_distribution.length), icon: "📦", color: "#fbbf24" },
     ] : [];
 
     return (
-        <div style={{ minHeight: "100vh", background: "linear-gradient(135deg,#0f172a,#1e1b4b)", padding: "2rem", fontFamily: "sans-serif", direction: "rtl", color: "#fff" }}>
+        <div style={{ minHeight: "100vh", background: "linear-gradient(135deg,#0f172a,#1e1b4b)", padding: "2rem", fontFamily: "sans-serif", color: "#fff" }}>
             <div style={{ maxWidth: 1100, margin: "0 auto" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "2rem" }}>
-                    <a href="/admin" style={{ color: "#a78bfa", textDecoration: "none", fontSize: "0.9rem" }}>← חזרה לאדמין</a>
+                    <a href="/admin" style={{ color: "#a78bfa", textDecoration: "none", fontSize: "0.9rem" }}>{tx("← חזרה לאדמין")}</a>
                     <h1 style={{ fontSize: "1.8rem", fontWeight: 800, margin: 0 }}>📊 Platform Analytics</h1>
                 </div>
 
                 {loading ? (
-                    <div style={{ textAlign: "center", padding: "4rem", color: "#64748b" }}>⏳ טוען...</div>
+                    <div style={{ textAlign: "center", padding: "4rem", color: "#64748b" }}>{tx("⏳ טוען...")}</div>
                 ) : !data ? (
-                    <div style={{ textAlign: "center", padding: "4rem", color: "#f87171" }}>שגיאה בטעינת נתונים</div>
+                    <div style={{ textAlign: "center", padding: "4rem", color: "#f87171" }}>{tx("שגיאה בטעינת נתונים")}</div>
                 ) : (
                     <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
                         {/* KPI Cards */}
@@ -60,9 +61,9 @@ export default function PlatformAnalyticsPage() {
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem" }}>
                             {/* Top Studios */}
                             <div style={{ background: "rgba(255,255,255,.05)", border: "1px solid rgba(255,255,255,.1)", borderRadius: 16, padding: "1.5rem" }}>
-                                <div style={{ fontWeight: 700, marginBottom: "1rem" }}>🏆 Top סטודיוים (הכנסות החודש)</div>
+                                <div style={{ fontWeight: 700, marginBottom: "1rem" }}>{tx("🏆 Top סטודיוים (הכנסות החודש)")}</div>
                                 {data.top_studios.length === 0 ? (
-                                    <div style={{ color: "#64748b", fontSize: "0.85rem" }}>אין נתונים</div>
+                                    <div style={{ color: "#64748b", fontSize: "0.85rem" }}>{tx("אין נתונים")}</div>
                                 ) : data.top_studios.map((s, i) => (
                                     <div key={s.slug} style={{ display: "flex", justifyContent: "space-between", padding: "0.5rem 0", borderBottom: "1px solid rgba(255,255,255,.05)" }}>
                                         <span style={{ color: "#cbd5e1" }}>{"#" + (i + 1)} {s.name}</span>
@@ -73,7 +74,7 @@ export default function PlatformAnalyticsPage() {
 
                             {/* Plan distribution */}
                             <div style={{ background: "rgba(255,255,255,.05)", border: "1px solid rgba(255,255,255,.1)", borderRadius: 16, padding: "1.5rem" }}>
-                                <div style={{ fontWeight: 700, marginBottom: "1rem" }}>📦 פילוג חבילות</div>
+                                <div style={{ fontWeight: 700, marginBottom: "1rem" }}>{tx("📦 פילוג חבילות")}</div>
                                 {data.plan_distribution.map(p => (
                                     <div key={p.plan} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.5rem 0", borderBottom: "1px solid rgba(255,255,255,.05)" }}>
                                         <span style={{ color: "#cbd5e1", textTransform: "capitalize" }}>{p.plan}</span>
@@ -82,7 +83,7 @@ export default function PlatformAnalyticsPage() {
                                 ))}
                                 {data.at_risk_studios > 0 && (
                                     <div style={{ marginTop: "1rem", background: "rgba(239,68,68,.1)", border: "1px solid rgba(239,68,68,.2)", borderRadius: 10, padding: "0.75rem", color: "#fca5a5", fontSize: "0.85rem" }}>
-                                        {String(data.at_risk_studios) + " סטודיוים ללא פעילות ב-30 יום"}
+                                        {String(data.at_risk_studios) + tx(" סטודיוים ללא פעילות ב-30 יום")}
                                     </div>
                                 )}
                             </div>
@@ -90,9 +91,9 @@ export default function PlatformAnalyticsPage() {
 
                         {/* Quick links */}
                         <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
-                            <a href="/admin/packages" style={{ background: "#7c3aed", color: "#fff", textDecoration: "none", padding: "0.65rem 1.25rem", borderRadius: 12, fontWeight: 600, fontSize: "0.9rem" }}>📦 עורך חבילות</a>
-                            <a href="/admin/modules" style={{ background: "rgba(255,255,255,.1)", color: "#fff", textDecoration: "none", padding: "0.65rem 1.25rem", borderRadius: 12, fontWeight: 600, fontSize: "0.9rem" }}>🧩 מודולים</a>
-                            <a href="/admin/invoice-scans" style={{ background: "rgba(255,255,255,.1)", color: "#fff", textDecoration: "none", padding: "0.65rem 1.25rem", borderRadius: 12, fontWeight: 600, fontSize: "0.9rem" }}>📄 סריקות AI</a>
+                            <a href="/admin/packages" style={{ background: "#7c3aed", color: "#fff", textDecoration: "none", padding: "0.65rem 1.25rem", borderRadius: 12, fontWeight: 600, fontSize: "0.9rem" }}>{tx("📦 עורך חבילות")}</a>
+                            <a href="/admin/modules" style={{ background: "rgba(255,255,255,.1)", color: "#fff", textDecoration: "none", padding: "0.65rem 1.25rem", borderRadius: 12, fontWeight: 600, fontSize: "0.9rem" }}>{tx("🧩 מודולים")}</a>
+                            <a href="/admin/invoice-scans" style={{ background: "rgba(255,255,255,.1)", color: "#fff", textDecoration: "none", padding: "0.65rem 1.25rem", borderRadius: 12, fontWeight: 600, fontSize: "0.9rem" }}>{tx("📄 סריקות AI")}</a>
                         </div>
                     </div>
                 )}

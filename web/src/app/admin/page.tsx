@@ -16,6 +16,7 @@ import BizFindDesign from "@/components/admin/BizFindDesign";
 import BizFindHero from "@/components/admin/BizFindHero";
 import { Flag, Inbox, Tags, Users } from "lucide-react";
 
+import { tx, intl } from "@/lib/i18n";
 type Tab = "studios" | "audit" | "bizcontrol" | "bizfind" | "leads" | "contacts" | "health";
 
 type Stats = {
@@ -106,7 +107,7 @@ type GlobalAppointment = {
 };
 
 const PLAN_LABELS: Record<string, { label: string; color: string }> = {
-    free:     { label: "חינמי",   color: "bg-slate-100 text-slate-600" },
+    free:     { label: tx("חינמי"),   color: "bg-slate-100 text-slate-600" },
     starter:  { label: "Starter", color: "bg-blue-100 text-blue-700" },
     pro:      { label: "Pro",     color: "bg-purple-100 text-purple-700" },
     studio:   { label: "Studio",  color: "bg-emerald-100 text-emerald-700" },
@@ -248,7 +249,7 @@ export default function AdminPage() {
             if (e?.message?.includes("403") || e?.message?.includes("401")) {
                 router.replace("/login");
             } else {
-                setErr(e?.message || "שגיאה בטעינה");
+                setErr(e?.message || tx("שגיאה בטעינה"));
             }
         } finally {
             setLoading(false);
@@ -269,7 +270,7 @@ export default function AdminPage() {
             setForm({ studio_name: "", slug: "", owner_email: "", owner_password: "", owner_phone: "", owner_display_name: "", subscription_plan: "starter", plan_days: 30 });
             await load();
         } catch (e: any) {
-            setCreateErr(e?.message || "שגיאה ביצירה");
+            setCreateErr(e?.message || tx("שגיאה ביצירה"));
         } finally {
             setCreating(false);
         }
@@ -331,7 +332,7 @@ export default function AdminPage() {
             if (!rawRes.ok) {
                 let detail = `HTTP ${rawRes.status}`;
                 try { const j = await rawRes.json(); detail = j.detail || detail; } catch { /* ignore */ }
-                alert(`שגיאת כניסה (${rawRes.status}): ${detail}`);
+                alert(tx("שגיאת כניסה ({0}): {1}", { 0: rawRes.status, 1: detail }));
                 return;
             }
             const data = await rawRes.json();
@@ -341,7 +342,7 @@ export default function AdminPage() {
             setToken(data.access_token);
             window.location.href = "/calendar";
         } catch (e: any) {
-            alert("שגיאת רשת: " + (e?.message || "לא ידוע"));
+            alert(tx("שגיאת רשת: ") + (e?.message || tx("לא ידוע")));
         } finally {
             setImpersonating(null);
         }
@@ -432,9 +433,9 @@ export default function AdminPage() {
                 method: "POST",
                 body: JSON.stringify({ phone: testPhone.trim() }),
             });
-            setTestResult({ ok: true, msg: "✅ ההודעה נשלחה! בדוק את הWhatsApp שלך." });
+            setTestResult({ ok: true, msg: tx("✅ ההודעה נשלחה! בדוק את הWhatsApp שלך.") });
         } catch (e: any) {
-            setTestResult({ ok: false, msg: `❌ ${e?.message || "שליחה נכשלה"}` });
+            setTestResult({ ok: false, msg: `❌ ${e?.message || tx("שליחה נכשלה")}` });
         } finally {
             setTestSending(false);
         }
@@ -448,13 +449,13 @@ export default function AdminPage() {
                 body: JSON.stringify(platformForm),
             });
             setPlatformSettings({ ...platformForm });
-            toast.error("✅ הגדרות נשמרו בהצלחה!");
+            toast.error(tx("✅ הגדרות נשמרו בהצלחה!"));
         } catch (e: any) { toast.error(e?.message); }
         finally { setPlatformSaving(false); }
     };
 
     const handleSavePlatformGreenAPI = async () => {
-        if (!platformWAInstance.trim()) { toast.error("הכנס Instance ID"); return; }
+        if (!platformWAInstance.trim()) { toast.error(tx("הכנס Instance ID")); return; }
         setPlatformWASaving(true);
         try {
             const body: Record<string,string|null> = { instance_id: platformWAInstance.trim() };
@@ -465,7 +466,7 @@ export default function AdminPage() {
             setPlatformWAInstance(d.instance_id || "");
             setPlatformWATokenSet(d.token_set);
             setPlatformWAToken("");
-            toast.success("✅ Green API הפלטפורמה נשמר!");
+            toast.success(tx("✅ Green API הפלטפורמה נשמר!"));
         } catch (e:any) { toast.error(e?.message); }
         finally { setPlatformWASaving(false); }
     };
@@ -476,8 +477,8 @@ export default function AdminPage() {
             await apiFetch("/api/admin/platform-green-api/test", {
                 method: "POST", body: JSON.stringify({ phone: platformWATestPhone.trim() }),
             });
-            setPlatformWATestResult({ ok: true, msg: "✅ הודעת בדיקה נשלחה!" });
-        } catch (e:any) { setPlatformWATestResult({ ok: false, msg: e?.message || "שגיאה" }); }
+            setPlatformWATestResult({ ok: true, msg: tx("✅ הודעת בדיקה נשלחה!") });
+        } catch (e:any) { setPlatformWATestResult({ ok: false, msg: e?.message || tx("שגיאה") }); }
     };
 
 
@@ -488,7 +489,7 @@ export default function AdminPage() {
                 method: "POST", body: JSON.stringify({ studio_id: systemWASelected || null }),
             });
             setSystemWA(data);
-            toast.success("✅ WhatsApp מרכזי עודכן!");
+            toast.success(tx("✅ WhatsApp מרכזי עודכן!"));
         } catch (e: any) { toast.error(e?.message); }
         finally { setSystemWASaving(false); }
     };
@@ -500,7 +501,7 @@ export default function AdminPage() {
                 method: "POST", body: JSON.stringify({ otp_studio_id: bizfindSelected || null }),
             });
             setBizfindSettings(data);
-            toast.success("✅ הגדרות BizFind נשמרו!");
+            toast.success(tx("✅ הגדרות BizFind נשמרו!"));
         } catch (e: any) { toast.error(e?.message); }
         finally { setBizfindSaving(false); }
     };
@@ -511,9 +512,9 @@ export default function AdminPage() {
             await apiFetch("/api/admin/bizfind-settings/test-otp", {
                 method: "POST", body: JSON.stringify({ phone: bizfindTestPhone.trim() }),
             });
-            setBizfindTestResult({ ok: true, msg: "✅ הודעת בדיקה נשלחה!" });
+            setBizfindTestResult({ ok: true, msg: tx("✅ הודעת בדיקה נשלחה!") });
         } catch (e: any) {
-            setBizfindTestResult({ ok: false, msg: e?.message || "שגיאה" });
+            setBizfindTestResult({ ok: false, msg: e?.message || tx("שגיאה") });
         }
     };
 
@@ -585,7 +586,7 @@ export default function AdminPage() {
             setEditModal(null);
             await load();
         } catch (e: any) {
-            setEditErr(e?.message || "שגיאה בשמירה");
+            setEditErr(e?.message || tx("שגיאה בשמירה"));
         } finally {
             setEditSaving(false);
         }
@@ -616,7 +617,7 @@ export default function AdminPage() {
             setStudioUsers(prev => [...prev, u]);
             setAddUserForm({ email: "", display_name: "", role: "staff", phone: "" });
         } catch (e: any) {
-            setAddUserErr(e?.message || "שגיאה בהוספה");
+            setAddUserErr(e?.message || tx("שגיאה בהוספה"));
         } finally {
             setAddingUser(false);
         }
@@ -640,7 +641,7 @@ export default function AdminPage() {
         setResetingPw(user.id);
         try {
             await apiFetch(`/api/admin/users/${user.id}/reset-password`, { method: "POST" });
-            toast.error(`✅ קישור איפוס סיסמה נשלח ל-${user.email}`);
+            toast.error(tx("✅ קישור איפוס סיסמה נשלח ל-{0}", { 0: user.email }));
         } catch (e: any) { toast.error(e?.message); }
         finally { setResetingPw(null); }
     };
@@ -701,7 +702,7 @@ export default function AdminPage() {
             setDeleteModal(null);
             await load();
         } catch (e: any) {
-            setDeleteErr(e?.message || "שגיאה במחיקה");
+            setDeleteErr(e?.message || tx("שגיאה במחיקה"));
         } finally {
             setDeleting(false);
         }
@@ -737,7 +738,7 @@ export default function AdminPage() {
     );
 
     return (
-        <div className="min-h-screen bg-slate-950 text-white" dir="rtl">
+        <div className="min-h-screen bg-slate-950 text-white">
 
             {/* Header */}
             <header className="border-b border-white/10 px-6 py-4 flex items-center justify-between">
@@ -753,10 +754,10 @@ export default function AdminPage() {
                         onClick={() => { setShowNew(true); setCreateErr(null); }}
                         className="bg-white text-slate-900 text-sm font-bold px-5 py-2 rounded-xl hover:bg-slate-100 transition-colors"
                     >
-                        + הוסף סטודיו חדש
+                        {tx("+ הוסף סטודיו חדש")}
                     </button>
                     <button onClick={handleLogout} className="text-sm text-slate-400 hover:text-white transition-colors px-3 py-2">
-                        התנתקות
+                        {tx("התנתקות")}
                     </button>
                 </div>
             </header>
@@ -773,7 +774,7 @@ export default function AdminPage() {
                                 tab === t ? "bg-white text-slate-900" : "text-slate-400 hover:text-white"
                             }`}
                         >
-                            {t === "studios" ? "🏢 סטודיואים" : t === "contacts" ? "👥 אנשי קשר" : t === "leads" ? "📥 לידים" : t === "audit" ? "📋 לוג פעולות" : t === "bizcontrol" ? "⚙️ הגדרות BizControl" : t === "bizfind" ? "🔎 הגדרות BizFind" : "🚨 התראות"}
+                            {t === "studios" ? tx("🏢 סטודיואים") : t === "contacts" ? tx("👥 אנשי קשר") : t === "leads" ? tx("📥 לידים") : t === "audit" ? tx("📋 לוג פעולות") : t === "bizcontrol" ? tx("⚙️ הגדרות BizControl") : t === "bizfind" ? tx("🔎 הגדרות BizFind") : tx("🚨 התראות")}
                         </button>
                     ))}
                     <a
@@ -786,37 +787,37 @@ export default function AdminPage() {
                         href="/admin/crm"
                         className="px-4 py-2 rounded-xl text-sm font-semibold transition-colors text-slate-400 hover:text-white inline-flex items-center gap-1.5"
                     >
-                        <Users className="h-4 w-4" /> הלקוחות שלי
+                        <Users className="h-4 w-4" /> {tx("הלקוחות שלי")}
                     </a>
                     <a
                         href="/admin/messages"
                         className="px-4 py-2 rounded-xl text-sm font-semibold transition-colors text-slate-400 hover:text-white inline-flex items-center gap-1.5"
                     >
-                        <Inbox className="h-4 w-4" /> תור הודעות
+                        <Inbox className="h-4 w-4" /> {tx("תור הודעות")}
                     </a>
                     <a
                         href="/admin/review-reports"
                         className="px-4 py-2 rounded-xl text-sm font-semibold transition-colors text-slate-400 hover:text-white inline-flex items-center gap-1.5"
                     >
-                        <Flag className="h-4 w-4" /> ביקורות שדווחו
+                        <Flag className="h-4 w-4" /> {tx("ביקורות שדווחו")}
                     </a>
                     <a
                         href="/admin/invoice-scans"
                         className="px-4 py-2 rounded-xl text-sm font-semibold transition-colors text-slate-400 hover:text-white"
                     >
-                        📄 סריקות AI
+                        {tx("📄 סריקות AI")}
                     </a>
                     <a
                         href="/admin/modules"
                         className="px-4 py-2 rounded-xl text-sm font-semibold transition-colors text-slate-400 hover:text-white"
                     >
-                        🧩 מודולים
+                        {tx("🧩 מודולים")}
                     </a>
                     <a
                         href="/admin/packages"
                         className="px-4 py-2 rounded-xl text-sm font-semibold transition-colors text-slate-400 hover:text-white"
                     >
-                        📦 חבילות
+                        {tx("📦 חבילות")}
                     </a>
                     <a
                         href="/admin/email-center"
@@ -834,19 +835,19 @@ export default function AdminPage() {
                         href="/admin/migrations"
                         className="px-4 py-2 rounded-xl text-sm font-semibold transition-colors text-slate-400 hover:text-white"
                     >
-                        📥 ייבוא נתונים
+                        {tx("📥 ייבוא נתונים")}
                     </a>
                     <a
                         href="/admin/business-import"
                         className="px-4 py-2 rounded-xl text-sm font-semibold transition-colors text-slate-400 hover:text-white"
                     >
-                        🗺️ ייבוא עסקים
+                        {tx("🗺️ ייבוא עסקים")}
                     </a>
                     <a
                         href="/admin/business-types"
                         className="px-4 py-2 rounded-xl text-sm font-semibold transition-colors text-slate-400 hover:text-white inline-flex items-center gap-1.5"
                     >
-                        <Tags className="h-4 w-4" /> תחומי עסק
+                        <Tags className="h-4 w-4" /> {tx("תחומי עסק")}
                     </a>
                 </div>
 
@@ -858,12 +859,12 @@ export default function AdminPage() {
                 {tab === "studios" && stats && (
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
                         {[
-                            { label: "סטודיואים", value: stats.total_studios, icon: "🏢", color: "" },
-                            { label: "פעילים", value: stats.active_studios, icon: "✅", color: "" },
-                            { label: "חדשים החודש", value: stats.new_studios_month, icon: "🆕", color: "" },
-                            { label: "בניסיון (<14י׳)", value: trialCount, icon: "🔬", color: trialCount > 0 ? "border-amber-500/40 bg-amber-500/10" : "" },
-                            { label: "פג תוקף", value: expiredCount, icon: "⏰", color: expiredCount > 0 ? "border-red-500/40 bg-red-500/10" : "" },
-                            { label: "טרם הגדירו", value: incompleteSetupStudios.length, icon: "⚙️", color: incompleteSetupStudios.length > 0 ? "border-orange-500/40 bg-orange-500/10" : "" },
+                            { label: tx("סטודיואים"), value: stats.total_studios, icon: "🏢", color: "" },
+                            { label: tx("פעילים"), value: stats.active_studios, icon: "✅", color: "" },
+                            { label: tx("חדשים החודש"), value: stats.new_studios_month, icon: "🆕", color: "" },
+                            { label: tx("בניסיון (<14י׳)"), value: trialCount, icon: "🔬", color: trialCount > 0 ? "border-amber-500/40 bg-amber-500/10" : "" },
+                            { label: tx("פג תוקף"), value: expiredCount, icon: "⏰", color: expiredCount > 0 ? "border-red-500/40 bg-red-500/10" : "" },
+                            { label: tx("טרם הגדירו"), value: incompleteSetupStudios.length, icon: "⚙️", color: incompleteSetupStudios.length > 0 ? "border-orange-500/40 bg-orange-500/10" : "" },
                         ].map(k => (
                             <div key={k.label} className={`bg-white/5 border border-white/10 rounded-2xl p-4 ${k.color}`}>
                                 <div className="text-2xl mb-2">{k.icon}</div>
@@ -876,7 +877,7 @@ export default function AdminPage() {
 
                 {/* Charts */}
                 {tab === "studios" && charts && (() => {
-                    const HE_MONTHS = ["", "ינו׳", "פבר׳", "מרץ", "אפר׳", "מאי", "יוני", "יולי", "אוג׳", "ספט׳", "אוק׳", "נוב׳", "דצמ׳"];
+                    const HE_MONTHS = ["", tx("ינו׳"), tx("פבר׳"), tx("מרץ"), tx("אפר׳"), tx("מאי"), tx("יוני"), tx("יולי"), tx("אוג׳"), tx("ספט׳"), tx("אוק׳"), tx("נוב׳"), tx("דצמ׳")];
                     const fmtMonth = (m: string) => {
                         const [y, mo] = m.split("-");
                         return `${HE_MONTHS[parseInt(mo)]} ${y.slice(2)}`;
@@ -886,9 +887,9 @@ export default function AdminPage() {
                     const planColors: Record<string, string> = { free: "#64748b", starter: "#3b82f6", pro: "#8b5cf6", studio: "#10b981" };
                     const planPie = Object.entries(charts.plan_distribution).map(([k, v]) => ({ name: k, value: v, fill: planColors[k] || "#94a3b8" }));
                     const statusPie = [
-                        { name: "פעיל", value: charts.status_breakdown.active, fill: "#10b981" },
-                        { name: "ניסיון", value: charts.status_breakdown.trial, fill: "#f59e0b" },
-                        { name: "פג תוקף", value: charts.status_breakdown.expired, fill: "#ef4444" },
+                        { name: tx("פעיל"), value: charts.status_breakdown.active, fill: "#10b981" },
+                        { name: tx("ניסיון"), value: charts.status_breakdown.trial, fill: "#f59e0b" },
+                        { name: tx("פג תוקף"), value: charts.status_breakdown.expired, fill: "#ef4444" },
                     ].filter(x => x.value > 0);
 
                     const tooltipStyle = { backgroundColor: "#1e293b", border: "1px solid #334155", borderRadius: 8, color: "#f1f5f9", fontSize: 12 };
@@ -897,33 +898,33 @@ export default function AdminPage() {
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                             {/* Studios growth */}
                             <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
-                                <h3 className="font-bold text-sm text-slate-300 mb-4">📈 סטודיואים חדשים — 12 חודשים</h3>
+                                <h3 className="font-bold text-sm text-slate-300 mb-4">{tx("📈 סטודיואים חדשים — 12 חודשים")}</h3>
                                 <ResponsiveContainer width="100%" height={180}>
                                     <LineChart data={studiosChart}>
                                         <XAxis dataKey="name" tick={{ fill: "#94a3b8", fontSize: 11 }} axisLine={false} tickLine={false} />
                                         <YAxis allowDecimals={false} tick={{ fill: "#94a3b8", fontSize: 11 }} axisLine={false} tickLine={false} width={25} />
                                         <Tooltip contentStyle={tooltipStyle} />
-                                        <Line type="monotone" dataKey="count" name="סטודיואים" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3, fill: "#3b82f6" }} />
+                                        <Line type="monotone" dataKey="count" name={tx("סטודיואים")} stroke="#3b82f6" strokeWidth={2} dot={{ r: 3, fill: "#3b82f6" }} />
                                     </LineChart>
                                 </ResponsiveContainer>
                             </div>
 
                             {/* Appointments trend */}
                             <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
-                                <h3 className="font-bold text-sm text-slate-300 mb-4">📅 תורים — 12 חודשים</h3>
+                                <h3 className="font-bold text-sm text-slate-300 mb-4">{tx("📅 תורים — 12 חודשים")}</h3>
                                 <ResponsiveContainer width="100%" height={180}>
                                     <BarChart data={apptsChart}>
                                         <XAxis dataKey="name" tick={{ fill: "#94a3b8", fontSize: 11 }} axisLine={false} tickLine={false} />
                                         <YAxis allowDecimals={false} tick={{ fill: "#94a3b8", fontSize: 11 }} axisLine={false} tickLine={false} width={30} />
                                         <Tooltip contentStyle={tooltipStyle} />
-                                        <Bar dataKey="count" name="תורים" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
+                                        <Bar dataKey="count" name={tx("תורים")} fill="#8b5cf6" radius={[4, 4, 0, 0]} />
                                     </BarChart>
                                 </ResponsiveContainer>
                             </div>
 
                             {/* Plan distribution */}
                             <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
-                                <h3 className="font-bold text-sm text-slate-300 mb-4">💳 התפלגות תוכניות</h3>
+                                <h3 className="font-bold text-sm text-slate-300 mb-4">{tx("💳 התפלגות תוכניות")}</h3>
                                 {planPie.length > 0 ? (
                                     <div className="flex items-center gap-6">
                                         <ResponsiveContainer width={140} height={140}>
@@ -944,12 +945,12 @@ export default function AdminPage() {
                                             ))}
                                         </div>
                                     </div>
-                                ) : <p className="text-slate-500 text-sm text-center py-8">אין נתונים</p>}
+                                ) : <p className="text-slate-500 text-sm text-center py-8">{tx("אין נתונים")}</p>}
                             </div>
 
                             {/* Status breakdown */}
                             <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
-                                <h3 className="font-bold text-sm text-slate-300 mb-4">🔍 סטטוס סטודיואים</h3>
+                                <h3 className="font-bold text-sm text-slate-300 mb-4">{tx("🔍 סטטוס סטודיואים")}</h3>
                                 {statusPie.length > 0 ? (
                                     <div className="flex items-center gap-6">
                                         <ResponsiveContainer width={140} height={140}>
@@ -970,7 +971,7 @@ export default function AdminPage() {
                                             ))}
                                         </div>
                                     </div>
-                                ) : <p className="text-slate-500 text-sm text-center py-8">אין נתונים</p>}
+                                ) : <p className="text-slate-500 text-sm text-center py-8">{tx("אין נתונים")}</p>}
                             </div>
                         </div>
                     );
@@ -981,7 +982,7 @@ export default function AdminPage() {
                     <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl px-5 py-4">
                         <div className="flex items-center gap-3 mb-3">
                             <span className="text-xl">⚠️</span>
-                            <span className="font-bold text-amber-300">{incompleteSetupStudios.length} סטודיו{incompleteSetupStudios.length === 1 ? "" : "אים"} לא השלימו הגדרה</span>
+                            <span className="font-bold text-amber-300">{incompleteSetupStudios.length}{tx(" סטודיו")}{incompleteSetupStudios.length === 1 ? "" : tx("אים")}{tx(" לא השלימו הגדרה")}</span>
                         </div>
                         <div className="flex flex-wrap gap-2">
                             {incompleteSetupStudios.map(s => (
@@ -991,11 +992,11 @@ export default function AdminPage() {
                                         <span title="WhatsApp" className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${s.has_whatsapp ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400"}`}>
                                             {s.has_whatsapp ? "✓" : "✗"} WA
                                         </span>
-                                        <span title="מיתוג" className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${s.has_branding ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400"}`}>
-                                            {s.has_branding ? "✓" : "✗"} מיתוג
+                                        <span title={tx("מיתוג")} className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${s.has_branding ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400"}`}>
+                                            {s.has_branding ? "✓" : "✗"} {tx("מיתוג")}
                                         </span>
-                                        <span title="פעילות" className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${s.has_activity ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400"}`}>
-                                            {s.has_activity ? "✓" : "✗"} לקוחות
+                                        <span title={tx("פעילות")} className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${s.has_activity ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400"}`}>
+                                            {s.has_activity ? "✓" : "✗"} {tx("לקוחות")}
                                         </span>
                                     </div>
                                 </div>
@@ -1007,31 +1008,31 @@ export default function AdminPage() {
                 {/* Studios Table */}
                 {tab === "studios" && <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
                     <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between">
-                        <h2 className="font-bold text-lg">כל הסטודיואים ({studios.length})</h2>
+                        <h2 className="font-bold text-lg">{tx("כל הסטודיואים (")}{studios.length})</h2>
                         <button onClick={load} className="text-xs text-slate-400 hover:text-white transition-colors">
-                            ↻ רענן
+                            {tx("↻ רענן")}
                         </button>
                     </div>
 
                     {studios.length === 0 ? (
                         <div className="py-16 text-center text-slate-500">
                             <div className="text-4xl mb-3">🏢</div>
-                            <p>אין סטודיואים עדיין. לחץ "הוסף סטודיו חדש" כדי להתחיל.</p>
+                            <p>{tx("אין סטודיואים עדיין. לחץ \"הוסף סטודיו חדש\" כדי להתחיל.")}</p>
                         </div>
                     ) : (
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm">
                                 <thead>
                                     <tr className="border-b border-white/10 text-slate-400 text-xs uppercase">
-                                        <th className="text-right px-6 py-3 font-medium">שם / Slug</th>
-                                        <th className="text-right px-4 py-3 font-medium">בעלים</th>
-                                        <th className="text-right px-4 py-3 font-medium">תוכנית</th>
-                                        <th className="text-right px-4 py-3 font-medium">מנוי</th>
-                                        <th className="text-right px-4 py-3 font-medium">לקוחות</th>
-                                        <th className="text-right px-4 py-3 font-medium">תורים החודש</th>
-                                        <th className="text-right px-4 py-3 font-medium">הגדרה</th>
-                                        <th className="text-right px-4 py-3 font-medium">סטטוס</th>
-                                        <th className="text-right px-4 py-3 font-medium">פעולות</th>
+                                        <th className="text-start px-6 py-3 font-medium">{tx("שם / Slug")}</th>
+                                        <th className="text-start px-4 py-3 font-medium">{tx("בעלים")}</th>
+                                        <th className="text-start px-4 py-3 font-medium">{tx("תוכנית")}</th>
+                                        <th className="text-start px-4 py-3 font-medium">{tx("מנוי")}</th>
+                                        <th className="text-start px-4 py-3 font-medium">{tx("לקוחות")}</th>
+                                        <th className="text-start px-4 py-3 font-medium">{tx("תורים החודש")}</th>
+                                        <th className="text-start px-4 py-3 font-medium">{tx("הגדרה")}</th>
+                                        <th className="text-start px-4 py-3 font-medium">{tx("סטטוס")}</th>
+                                        <th className="text-start px-4 py-3 font-medium">{tx("פעולות")}</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-white/5">
@@ -1052,29 +1053,29 @@ export default function AdminPage() {
                                                 </td>
                                                 <td className="px-4 py-4">
                                                     {days === null ? (
-                                                        <span className="text-slate-500 text-xs">ללא הגבלה</span>
+                                                        <span className="text-slate-500 text-xs">{tx("ללא הגבלה")}</span>
                                                     ) : days <= 0 ? (
-                                                        <span className="text-red-400 text-xs font-bold">⏰ פג תוקף</span>
+                                                        <span className="text-red-400 text-xs font-bold">{tx("⏰ פג תוקף")}</span>
                                                     ) : days <= 7 ? (
-                                                        <span className="text-amber-400 text-xs font-bold">⚠️ {days} ימים</span>
+                                                        <span className="text-amber-400 text-xs font-bold">⚠️ {days}{tx(" ימים")}</span>
                                                     ) : days <= 14 ? (
-                                                        <span className="text-yellow-300 text-xs font-bold">🔬 ניסיון {days}י׳</span>
+                                                        <span className="text-yellow-300 text-xs font-bold">{tx("🔬 ניסיון ")}{days}{tx("י׳")}</span>
                                                     ) : (
-                                                        <span className="text-slate-300 text-xs">{days} ימים</span>
+                                                        <span className="text-slate-300 text-xs">{days}{tx(" ימים")}</span>
                                                     )}
                                                 </td>
                                                 <td className="px-4 py-4 text-slate-300">{s.client_count}</td>
                                                 <td className="px-4 py-4 text-slate-300">{s.appointment_count_month}</td>
                                                 <td className="px-4 py-4">
                                                     <div className="flex gap-1">
-                                                        <span title="WhatsApp מחובר" className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${s.has_whatsapp ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400"}`}>W</span>
-                                                        <span title="מיתוג הוגדר" className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${s.has_branding ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400"}`}>B</span>
-                                                        <span title="יש לקוחות" className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${s.has_activity ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400"}`}>A</span>
+                                                        <span title={tx("WhatsApp מחובר")} className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${s.has_whatsapp ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400"}`}>W</span>
+                                                        <span title={tx("מיתוג הוגדר")} className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${s.has_branding ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400"}`}>B</span>
+                                                        <span title={tx("יש לקוחות")} className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${s.has_activity ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400"}`}>A</span>
                                                     </div>
                                                 </td>
                                                 <td className="px-4 py-4">
                                                     <span className={`text-xs font-bold px-2 py-1 rounded-full ${s.is_active ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400"}`}>
-                                                        {s.is_active ? "פעיל" : "מושבת"}
+                                                        {s.is_active ? tx("פעיל") : tx("מושבת")}
                                                     </span>
                                                 </td>
                                                 <td className="px-4 py-4">
@@ -1083,45 +1084,45 @@ export default function AdminPage() {
                                                             onClick={() => openEditModal(s)}
                                                             className="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg transition-colors"
                                                         >
-                                                            ✏️ ערוך
+                                                            {tx("✏️ ערוך")}
                                                         </button>
                                                         <button
                                                             onClick={() => openUsersModal(s)}
                                                             className="text-xs bg-slate-600 hover:bg-slate-500 text-white px-3 py-1.5 rounded-lg transition-colors"
                                                         >
-                                                            👤 משתמשים
+                                                            {tx("👤 משתמשים")}
                                                         </button>
                                                         <button
                                                             onClick={() => handleImpersonate(s)}
                                                             disabled={impersonating === s.id}
                                                             className="text-xs bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg transition-colors"
                                                         >
-                                                            {impersonating === s.id ? "..." : "כנס"}
+                                                            {impersonating === s.id ? "..." : tx("כנס")}
                                                         </button>
                                                         <button
                                                             onClick={() => handleQuickTrial(s)}
                                                             className="text-xs bg-amber-500/20 hover:bg-amber-500/40 text-amber-300 border border-amber-500/30 px-3 py-1.5 rounded-lg transition-colors font-bold"
-                                                            title="הענק 14 ימי ניסיון מהיום"
+                                                            title={tx("הענק 14 ימי ניסיון מהיום")}
                                                         >
-                                                            🔬 14י׳
+                                                            {tx("🔬 14י׳")}
                                                         </button>
                                                         <button
                                                             onClick={() => handleExtend(s)}
                                                             className="text-xs bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded-lg transition-colors"
                                                         >
-                                                            הארך
+                                                            {tx("הארך")}
                                                         </button>
                                                         <button
                                                             onClick={() => handleToggleActive(s)}
                                                             className={`text-xs px-3 py-1.5 rounded-lg transition-colors ${s.is_active ? "bg-amber-600/30 hover:bg-amber-600/50 text-amber-300" : "bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-300"}`}
                                                         >
-                                                            {s.is_active ? "השבת" : "הפעל"}
+                                                            {s.is_active ? tx("השבת") : tx("הפעל")}
                                                         </button>
                                                         <button
                                                             onClick={() => handleDelete(s)}
                                                             className="text-xs bg-red-600/20 hover:bg-red-600/40 text-red-400 px-3 py-1.5 rounded-lg transition-colors"
                                                         >
-                                                            מחק
+                                                            {tx("מחק")}
                                                         </button>
                                                     </div>
                                                 </td>
@@ -1138,12 +1139,12 @@ export default function AdminPage() {
                 {tab === "audit" && (
                     <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
                         <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between">
-                            <h2 className="font-bold text-lg">📋 לוג פעולות אדמין</h2>
+                            <h2 className="font-bold text-lg">{tx("📋 לוג פעולות אדמין")}</h2>
                             <button
                                 onClick={() => { setAuditLog(null); loadAuditLog(); }}
                                 className="text-xs text-slate-400 hover:text-white transition-colors px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10"
                             >
-                                רענן
+                                {tx("רענן")}
                             </button>
                         </div>
                         {auditLoading && (
@@ -1152,25 +1153,25 @@ export default function AdminPage() {
                             </div>
                         )}
                         {auditLog && auditLog.length === 0 && (
-                            <div className="text-center text-slate-500 py-12">אין פעולות רשומות עדיין</div>
+                            <div className="text-center text-slate-500 py-12">{tx("אין פעולות רשומות עדיין")}</div>
                         )}
                         {auditLog && auditLog.length > 0 && (
                             <div className="overflow-x-auto">
                                 <table className="w-full text-sm">
                                     <thead>
-                                        <tr className="text-right text-slate-400 text-xs border-b border-white/10">
-                                            <th className="px-6 py-3 font-medium">תאריך ושעה</th>
-                                            <th className="px-6 py-3 font-medium">פעולה</th>
-                                            <th className="px-6 py-3 font-medium">סטודיו</th>
-                                            <th className="px-6 py-3 font-medium">פרטים</th>
-                                            <th className="px-6 py-3 font-medium">מבוצע על ידי</th>
+                                        <tr className="text-start text-slate-400 text-xs border-b border-white/10">
+                                            <th className="px-6 py-3 font-medium">{tx("תאריך ושעה")}</th>
+                                            <th className="px-6 py-3 font-medium">{tx("פעולה")}</th>
+                                            <th className="px-6 py-3 font-medium">{tx("סטודיו")}</th>
+                                            <th className="px-6 py-3 font-medium">{tx("פרטים")}</th>
+                                            <th className="px-6 py-3 font-medium">{tx("מבוצע על ידי")}</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-white/5">
                                         {auditLog.map(entry => (
                                             <tr key={entry.id} className="hover:bg-white/5 transition-colors">
                                                 <td className="px-6 py-3 text-slate-400 whitespace-nowrap">
-                                                    {new Date(entry.created_at).toLocaleString("he-IL", { dateStyle: "short", timeStyle: "short" })}
+                                                    {new Date(entry.created_at).toLocaleString(intl(), { dateStyle: "short", timeStyle: "short" })}
                                                 </td>
                                                 <td className="px-6 py-3 font-medium">{entry.action}</td>
                                                 <td className="px-6 py-3 text-slate-300">
@@ -1197,19 +1198,19 @@ export default function AdminPage() {
                             <div className="flex items-center gap-3">
                                 <div className="w-12 h-12 rounded-2xl bg-violet-500/20 border border-violet-500/30 flex items-center justify-center text-2xl">🎨</div>
                                 <div>
-                                    <h2 className="text-lg font-bold">עיצוב BizControl</h2>
-                                    <p className="text-slate-400 text-sm mt-0.5">חל רק על BizControl — המערכת של בעלי העסקים. הלוגו נשאר של כל עסק. ל-BizFind יש עיצוב משלו — בלשונית "הגדרות BizFind".</p>
+                                    <h2 className="text-lg font-bold">{tx("עיצוב BizControl")}</h2>
+                                    <p className="text-slate-400 text-sm mt-0.5">{tx("חל רק על BizControl — המערכת של בעלי העסקים. הלוגו נשאר של כל עסק. ל-BizFind יש עיצוב משלו — בלשונית \"הגדרות BizFind\".")}</p>
                                 </div>
                             </div>
 
                             {/* BizControl's own — BizFind has its look apart (components/admin/BizFindDesign.tsx) */}
                             <div className="space-y-2">
-                                <span className="text-xs font-bold text-slate-300">צבעי מותג</span>
+                                <span className="text-xs font-bold text-slate-300">{tx("צבעי מותג")}</span>
                                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                                     {([
-                                        ["theme_primary_color", "ראשי"],
-                                        ["theme_secondary_color", "משני"],
-                                        ["theme_accent_color", "הדגשה"],
+                                        ["theme_primary_color", tx("ראשי")],
+                                        ["theme_secondary_color", tx("משני")],
+                                        ["theme_accent_color", tx("הדגשה")],
                                     ] as const).map(([key, label]) => (
                                         <div key={key} className="space-y-1.5">
                                             <label className="text-xs text-slate-400 block">{label}</label>
@@ -1233,13 +1234,13 @@ export default function AdminPage() {
                             </div>
 
                             <div className="space-y-2">
-                                <span className="text-xs font-bold text-slate-300">רקע וטקסט</span>
+                                <span className="text-xs font-bold text-slate-300">{tx("רקע וטקסט")}</span>
                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                                     {([
-                                        ["theme_background_color", "רקע"],
-                                        ["theme_surface_color", "כרטיסים"],
-                                        ["theme_text_color", "טקסט"],
-                                        ["theme_text_muted_color", "טקסט משני"],
+                                        ["theme_background_color", tx("רקע")],
+                                        ["theme_surface_color", tx("כרטיסים")],
+                                        ["theme_text_color", tx("טקסט")],
+                                        ["theme_text_muted_color", tx("טקסט משני")],
                                     ] as const).map(([key, label]) => (
                                         <div key={key} className="space-y-1.5">
                                             <label className="text-xs text-slate-400 block">{label}</label>
@@ -1263,10 +1264,10 @@ export default function AdminPage() {
                             </div>
 
                             <div className="space-y-2">
-                                <span className="text-xs font-bold text-slate-300">פונטים</span>
+                                <span className="text-xs font-bold text-slate-300">{tx("פונטים")}</span>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-1.5">
-                                        <label className="text-xs text-slate-400 block">פונט כותרות</label>
+                                        <label className="text-xs text-slate-400 block">{tx("פונט כותרות")}</label>
                                         <select
                                             value={platformForm.theme_heading_font}
                                             onChange={e => setPlatformForm(f => ({ ...f, theme_heading_font: e.target.value }))}
@@ -1277,7 +1278,7 @@ export default function AdminPage() {
                                         </select>
                                     </div>
                                     <div className="space-y-1.5">
-                                        <label className="text-xs text-slate-400 block">פונט גוף טקסט</label>
+                                        <label className="text-xs text-slate-400 block">{tx("פונט גוף טקסט")}</label>
                                         <select
                                             value={platformForm.theme_body_font}
                                             onChange={e => setPlatformForm(f => ({ ...f, theme_body_font: e.target.value }))}
@@ -1292,7 +1293,7 @@ export default function AdminPage() {
 
                             {/* Live preview #1 — public landing page, same isLive={false} mock automation/page.tsx's branding tab already uses */}
                             <div>
-                                <div className="text-xs text-slate-400 mb-2">תצוגה מקדימה — דף נחיתה ציבורי (BizControl)</div>
+                                <div className="text-xs text-slate-400 mb-2">{tx("תצוגה מקדימה — דף נחיתה ציבורי (BizControl)")}</div>
                                 <div className="w-full h-64 relative bg-white rounded-2xl shadow-xl overflow-hidden border border-white/10">
                                     <div className="h-8 bg-slate-100 border-b border-slate-200 flex items-center px-3 gap-1.5">
                                         <div className="w-2.5 h-2.5 rounded-full bg-red-400" />
@@ -1305,8 +1306,8 @@ export default function AdminPage() {
                                                 themePrimary={platformForm.theme_primary_color}
                                                 themeSecondary={platformForm.theme_secondary_color}
                                                 logoUrl={null}
-                                                title="שם העסק שלך"
-                                                description="תיאור קצר של העסק יופיע כאן, בדיוק כמו שיראה כל לקוח."
+                                                title={tx("שם העסק שלך")}
+                                                description={tx("תיאור קצר של העסק יופיע כאן, בדיוק כמו שיראה כל לקוח.")}
                                                 templateId={1}
                                                 titleFont={platformForm.theme_heading_font}
                                                 descFont={platformForm.theme_body_font}
@@ -1319,15 +1320,15 @@ export default function AdminPage() {
 
                             {/* Live preview #2 — the authenticated app's own sidebar chrome (a materially different surface than the public landing page) */}
                             <div>
-                                <div className="text-xs text-slate-400 mb-2">תצוגה מקדימה — סרגל ניווט (BizControl)</div>
+                                <div className="text-xs text-slate-400 mb-2">{tx("תצוגה מקדימה — סרגל ניווט (BizControl)")}</div>
                                 <div
                                     className="w-48 rounded-2xl border border-white/10 p-2.5 space-y-1"
                                     style={{ background: platformForm.theme_surface_color }}
                                 >
                                     {[
-                                        ["📅", "יומן תורים"],
-                                        ["📊", "לוח בקרה"],
-                                        ["👥", "לקוחות"],
+                                        ["📅", tx("יומן תורים")],
+                                        ["📊", tx("לוח בקרה")],
+                                        ["👥", tx("לקוחות")],
                                     ].map(([icon, label], i) => (
                                         <div
                                             key={label}
@@ -1350,7 +1351,7 @@ export default function AdminPage() {
                                 className="w-full py-3 rounded-xl font-bold text-sm transition-all text-white disabled:opacity-60"
                                 style={{ background: platformForm.theme_primary_color }}
                             >
-                                {platformSaving ? "שומר..." : "💾 שמירת העיצוב של BizControl"}
+                                {platformSaving ? tx("שומר...") : tx("💾 שמירת העיצוב של BizControl")}
                             </button>
                         </div>
 
@@ -1358,45 +1359,45 @@ export default function AdminPage() {
                         {webhookConfig && (
                             <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-5">
                                 <div>
-                                    <h2 className="text-lg font-bold">🔗 חיבור פלטפורמות — Meta Webhook</h2>
-                                    <p className="text-slate-400 text-sm mt-1">הכנס את הפרטים האלה בקונסול Meta Developer כדי לקבל הודעות מ-WhatsApp, Facebook ו-Instagram.</p>
+                                    <h2 className="text-lg font-bold">{tx("🔗 חיבור פלטפורמות — Meta Webhook")}</h2>
+                                    <p className="text-slate-400 text-sm mt-1">{tx("הכנס את הפרטים האלה בקונסול Meta Developer כדי לקבל הודעות מ-WhatsApp, Facebook ו-Instagram.")}</p>
                                 </div>
 
                                 <div className="space-y-3">
                                     <div>
-                                        <label className="text-xs text-slate-400 block mb-1.5">Callback URL (הכנס ב-Meta → Webhooks)</label>
+                                        <label className="text-xs text-slate-400 block mb-1.5">{tx("Callback URL (הכנס ב-Meta → Webhooks)")}</label>
                                         <div className="flex gap-2">
                                             <input readOnly value={webhookConfig.webhook_url} dir="ltr"
                                                 className="flex-1 bg-black/30 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-mono" />
                                             <button onClick={() => navigator.clipboard.writeText(webhookConfig.webhook_url)}
-                                                className="px-3 py-2 bg-white/10 hover:bg-white/20 rounded-xl text-xs text-slate-300 transition-colors">העתק</button>
+                                                className="px-3 py-2 bg-white/10 hover:bg-white/20 rounded-xl text-xs text-slate-300 transition-colors">{tx("העתק")}</button>
                                         </div>
                                     </div>
                                     <div>
-                                        <label className="text-xs text-slate-400 block mb-1.5">Verify Token (הכנס ב-Meta → Webhooks)</label>
+                                        <label className="text-xs text-slate-400 block mb-1.5">{tx("Verify Token (הכנס ב-Meta → Webhooks)")}</label>
                                         <div className="flex gap-2">
                                             <input readOnly value={webhookConfig.verify_token} dir="ltr"
                                                 className="flex-1 bg-black/30 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-mono" />
                                             <button onClick={() => navigator.clipboard.writeText(webhookConfig.verify_token)}
-                                                className="px-3 py-2 bg-white/10 hover:bg-white/20 rounded-xl text-xs text-slate-300 transition-colors">העתק</button>
+                                                className="px-3 py-2 bg-white/10 hover:bg-white/20 rounded-xl text-xs text-slate-300 transition-colors">{tx("העתק")}</button>
                                         </div>
                                     </div>
                                 </div>
 
                                 {/* Platform connection status */}
                                 <div>
-                                    <div className="text-xs text-slate-400 mb-3">פלטפורמות מחוברות — BizControl</div>
+                                    <div className="text-xs text-slate-400 mb-3">{tx("פלטפורמות מחוברות — BizControl")}</div>
                                     <div className="grid grid-cols-3 gap-3">
                                         {[
-                                            { icon: "💬", name: "WhatsApp", connected: !!platformSettings?.whatsapp_phone_id, detail: platformSettings?.whatsapp_phone_id ? `ID: ${platformSettings.whatsapp_phone_id}` : "לא מוגדר" },
-                                            { icon: "📘", name: "Facebook", connected: false, detail: "הגדר Page ID בסטודיו" },
-                                            { icon: "📸", name: "Instagram", connected: false, detail: "הגדר Account ID בסטודיו" },
+                                            { icon: "💬", name: "WhatsApp", connected: !!platformSettings?.whatsapp_phone_id, detail: platformSettings?.whatsapp_phone_id ? `ID: ${platformSettings.whatsapp_phone_id}` : tx("לא מוגדר") },
+                                            { icon: "📘", name: "Facebook", connected: false, detail: tx("הגדר Page ID בסטודיו") },
+                                            { icon: "📸", name: "Instagram", connected: false, detail: tx("הגדר Account ID בסטודיו") },
                                         ].map(p => (
                                             <div key={p.name} className={`rounded-xl p-3 border text-center ${p.connected ? "bg-green-900/20 border-green-500/30" : "bg-white/5 border-white/10"}`}>
                                                 <div className="text-2xl mb-1">{p.icon}</div>
                                                 <div className="text-xs font-semibold text-white">{p.name}</div>
                                                 <div className={`text-xs mt-1 ${p.connected ? "text-green-400" : "text-slate-500"}`}>
-                                                    {p.connected ? "✅ מחובר" : "⚪ לא מחובר"}
+                                                    {p.connected ? tx("✅ מחובר") : tx("⚪ לא מחובר")}
                                                 </div>
                                                 <div className="text-xs text-slate-600 mt-0.5 truncate">{p.detail}</div>
                                             </div>
@@ -1406,16 +1407,16 @@ export default function AdminPage() {
 
                                 {/* Instructions */}
                                 <details className="group">
-                                    <summary className="text-xs text-blue-300 cursor-pointer hover:text-blue-200 transition-colors">📋 הוראות חיבור ב-Meta Developer Console</summary>
+                                    <summary className="text-xs text-blue-300 cursor-pointer hover:text-blue-200 transition-colors">{tx("📋 הוראות חיבור ב-Meta Developer Console")}</summary>
                                     <ol className="mt-3 space-y-2 text-xs text-slate-400 list-decimal list-inside leading-relaxed">
-                                        <li>כנס ל-<span className="text-blue-300">developers.facebook.com</span> → האפליקציה שלך</li>
-                                        <li>בתפריט שמאל: <strong className="text-slate-300">WhatsApp → Configuration</strong> (או Messenger/Instagram)</li>
-                                        <li>לחץ <strong className="text-slate-300">Edit</strong> ב-Webhook</li>
-                                        <li>הכנס את ה-<strong className="text-slate-300">Callback URL</strong> וה-<strong className="text-slate-300">Verify Token</strong> מלמעלה</li>
-                                        <li>לחץ <strong className="text-slate-300">Verify and Save</strong></li>
-                                        <li>עבור לטאב <strong className="text-slate-300">Webhook Fields</strong> → Subscribe ל: <code className="bg-white/10 px-1 rounded">messages</code></li>
-                                        <li>חזור על הפעולה עבור כל פלטפורמה (WhatsApp, Messenger, Instagram)</li>
-                                        <li>הוסף <code className="bg-white/10 px-1 rounded">META_WEBHOOK_VERIFY_TOKEN</code> ו-<code className="bg-white/10 px-1 rounded">BACKEND_URL</code> ב-Railway Environment Variables</li>
+                                        <li>{tx("כנס ל-")}<span className="text-blue-300">developers.facebook.com</span>{tx(" → האפליקציה שלך")}</li>
+                                        <li>{tx("בתפריט שמאל: ")}<strong className="text-slate-300">WhatsApp → Configuration</strong>{tx(" (או Messenger/Instagram)")}</li>
+                                        <li>{tx("לחץ ")}<strong className="text-slate-300">Edit</strong>{tx(" ב-Webhook")}</li>
+                                        <li>{tx("הכנס את ה-")}<strong className="text-slate-300">Callback URL</strong>{tx(" וה-")}<strong className="text-slate-300">Verify Token</strong>{tx(" מלמעלה")}</li>
+                                        <li>{tx("לחץ ")}<strong className="text-slate-300">Verify and Save</strong></li>
+                                        <li>{tx("עבור לטאב ")}<strong className="text-slate-300">Webhook Fields</strong>{tx(" → Subscribe ל: ")}<code className="bg-white/10 px-1 rounded">messages</code></li>
+                                        <li>{tx("חזור על הפעולה עבור כל פלטפורמה (WhatsApp, Messenger, Instagram)")}</li>
+                                        <li>{tx("הוסף ")}<code className="bg-white/10 px-1 rounded">META_WEBHOOK_VERIFY_TOKEN</code>{tx(" ו-")}<code className="bg-white/10 px-1 rounded">BACKEND_URL</code>{tx(" ב-Railway Environment Variables")}</li>
                                     </ol>
                                 </details>
                             </div>
@@ -1427,8 +1428,8 @@ export default function AdminPage() {
                             <div className="flex items-center gap-3">
                                 <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-2xl">💬</div>
                                 <div>
-                                    <h2 className="text-lg font-bold text-white">WhatsApp מרכזי — BizControl</h2>
-                                    <p className="text-slate-400 text-sm mt-0.5">מספר אחד לכל הפלטפורמה — OTP, הודעות, וסטודיואים ללא מספר משלהם</p>
+                                    <h2 className="text-lg font-bold text-white">{tx("WhatsApp מרכזי — BizControl")}</h2>
+                                    <p className="text-slate-400 text-sm mt-0.5">{tx("מספר אחד לכל הפלטפורמה — OTP, הודעות, וסטודיואים ללא מספר משלהם")}</p>
                                 </div>
                             </div>
 
@@ -1436,43 +1437,43 @@ export default function AdminPage() {
                             <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-sm font-semibold ${platformWAInstance && platformWATokenSet ? "bg-emerald-900/40 border-emerald-500/40 text-emerald-300" : "bg-amber-900/20 border-amber-500/30 text-amber-300"}`}>
                                 <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${platformWAInstance && platformWATokenSet ? "bg-emerald-400 animate-pulse" : "bg-amber-400"}`} />
                                 {platformWAInstance && platformWATokenSet
-                                    ? `✅ מחובר — Instance: ${platformWAInstance}`
-                                    : "⚠️ לא מוגדר — הגדר Instance ID ו-Token"}
+                                    ? tx("✅ מחובר — Instance: {0}", { 0: platformWAInstance })
+                                    : tx("⚠️ לא מוגדר — הגדר Instance ID ו-Token")}
                             </div>
 
                             {/* Credentials */}
                             <div className="grid grid-cols-1 gap-3">
                                 <div>
-                                    <label className="block text-xs font-bold text-slate-300 mb-1.5">🔑 Instance ID <span className="text-slate-500 font-normal">(מ-green-api.com)</span></label>
+                                    <label className="block text-xs font-bold text-slate-300 mb-1.5">🔑 Instance ID <span className="text-slate-500 font-normal">{tx("(מ-green-api.com)")}</span></label>
                                     <input value={platformWAInstance} onChange={e => setPlatformWAInstance(e.target.value)}
                                         placeholder="7107619924" dir="ltr"
                                         className="w-full bg-black/30 border border-white/15 rounded-xl px-4 py-3 text-sm text-white font-mono placeholder:text-slate-600 focus:outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400" />
                                 </div>
                                 <div>
                                     <label className="block text-xs font-bold text-slate-300 mb-1.5">
-                                        🔐 API Token {platformWATokenSet && <span className="text-emerald-400 font-normal mr-1">✓ שמור</span>}
+                                        🔐 API Token {platformWATokenSet && <span className="text-emerald-400 font-normal ms-1">{tx("✓ שמור")}</span>}
                                     </label>
                                     <PasswordInput value={platformWAToken} onChange={e => setPlatformWAToken(e.target.value)}
                                         dir="ltr"
                                         iconClassName="text-white/70 hover:text-white"
-                                        placeholder={platformWATokenSet ? "השאר ריק כדי לשמור על הToken הקיים" : "הדבק את ה-API Token מ-Green API..."}
+                                        placeholder={platformWATokenSet ? tx("השאר ריק כדי לשמור על הToken הקיים") : tx("הדבק את ה-API Token מ-Green API...")}
                                         className="w-full bg-black/30 border border-white/15 rounded-xl px-4 py-3 text-sm text-white font-mono placeholder:text-slate-600 focus:outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400" />
                                 </div>
                             </div>
 
                             {/* What this number does */}
                             <div className="bg-black/20 rounded-xl p-4 space-y-2">
-                                <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">המספר הזה ישמש ל:</div>
+                                <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">{tx("המספר הזה ישמש ל:")}</div>
                                 {[
-                                    ["📲 OTP ב-BizFind", "קודי אימות ללקוחות שנרשמים לאתר"],
-                                    ["📩 סטודיואים ללא WhatsApp", "הודעות תזכורות ואוטומציה עבורם"],
-                                    ["🔔 הודעות מערכת", "שליחות פלטפורמה כלליות"],
+                                    [tx("📲 OTP ב-BizFind"), tx("קודי אימות ללקוחות שנרשמים לאתר")],
+                                    [tx("📩 סטודיואים ללא WhatsApp"), tx("הודעות תזכורות ואוטומציה עבורם")],
+                                    [tx("🔔 הודעות מערכת"), tx("שליחות פלטפורמה כלליות")],
                                 ].map(([title, desc]) => (
                                     <div key={title} className="flex items-start gap-2">
                                         <span className="text-emerald-400 text-xs mt-0.5">✓</span>
                                         <div>
                                             <span className="text-white text-xs font-semibold">{title}</span>
-                                            <span className="text-slate-500 text-xs mr-1">— {desc}</span>
+                                            <span className="text-slate-500 text-xs ms-1">— {desc}</span>
                                         </div>
                                     </div>
                                 ))}
@@ -1481,7 +1482,7 @@ export default function AdminPage() {
                             {/* Hint when token not yet saved */}
                             {!platformWATokenSet && !platformWAToken.trim() && platformWAInstance.trim() && (
                                 <div className="text-xs text-slate-400 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5">
-                                    💡 Instance ID ישמר. הוסף גם API Token כדי להפעיל שליחת הודעות.
+                                    {tx("💡 Instance ID ישמר. הוסף גם API Token כדי להפעיל שליחת הודעות.")}
                                 </div>
                             )}
                             <button
@@ -1490,20 +1491,20 @@ export default function AdminPage() {
                                 disabled={platformWASaving || !platformWAInstance.trim()}
                                 className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white font-black py-3 rounded-xl text-sm transition-colors shadow-lg shadow-emerald-900/40"
                             >
-                                {platformWASaving ? "שומר..." : "💾 שמור והפעל"}
+                                {platformWASaving ? tx("שומר...") : tx("💾 שמור והפעל")}
                             </button>
 
                             {/* Test */}
                             {platformWAInstance && platformWATokenSet && (
                                 <div className="border-t border-white/10 pt-4">
-                                    <div className="text-xs text-slate-400 mb-2">בדוק שהמספר עובד — שלח הודעת טסט:</div>
+                                    <div className="text-xs text-slate-400 mb-2">{tx("בדוק שהמספר עובד — שלח הודעת טסט:")}</div>
                                     <div className="flex gap-2">
                                         <input value={platformWATestPhone} onChange={e => { setPlatformWATestPhone(e.target.value); setPlatformWATestResult(null); }}
                                             placeholder="050-0000000" type="tel" dir="ltr"
                                             className="flex-1 bg-black/30 border border-white/15 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-white/30" />
                                         <button type="button" onClick={handleTestPlatformGreenAPI} disabled={!platformWATestPhone.trim()}
                                             className="px-5 py-2.5 bg-emerald-700 hover:bg-emerald-600 disabled:opacity-40 text-white text-sm font-bold rounded-xl transition-colors">
-                                            שלח טסט
+                                            {tx("שלח טסט")}
                                         </button>
                                     </div>
                                     {platformWATestResult && (
@@ -1518,8 +1519,8 @@ export default function AdminPage() {
                         {/* Change Password Card */}
                         <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-4">
                             <div>
-                                <h2 className="text-lg font-bold">🔐 שינוי סיסמה</h2>
-                                <p className="text-slate-400 text-sm mt-1">שנה את סיסמת חשבון הסופר-אדמין שלך.</p>
+                                <h2 className="text-lg font-bold">{tx("🔐 שינוי סיסמה")}</h2>
+                                <p className="text-slate-400 text-sm mt-1">{tx("שנה את סיסמת חשבון הסופר-אדמין שלך.")}</p>
                             </div>
                             <ChangePasswordForm tone="dark" />
                         </div>
@@ -1540,8 +1541,8 @@ export default function AdminPage() {
                             <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center text-xl">💬</div>
                                 <div>
-                                    <h2 className="text-lg font-bold">BizFind — WhatsApp לשליחת OTP</h2>
-                                    <p className="text-slate-400 text-sm mt-0.5">OTP נשלח ללקוחות BizFind בעת הרשמה, מהמספר המרכזי של הפלטפורמה.</p>
+                                    <h2 className="text-lg font-bold">{tx("BizFind — WhatsApp לשליחת OTP")}</h2>
+                                    <p className="text-slate-400 text-sm mt-0.5">{tx("OTP נשלח ללקוחות BizFind בעת הרשמה, מהמספר המרכזי של הפלטפורמה.")}</p>
                                 </div>
                             </div>
 
@@ -1551,13 +1552,13 @@ export default function AdminPage() {
                                 <div>
                                     <div className="font-bold">
                                         {platformWAInstance && platformWATokenSet
-                                            ? `מחובר — Instance: ${platformWAInstance}`
-                                            : "לא מוגדר — הגדר Platform Green API למעלה"}
+                                            ? tx("מחובר — Instance: {0}", { 0: platformWAInstance })
+                                            : tx("לא מוגדר — הגדר Platform Green API למעלה")}
                                     </div>
                                     <div className="text-xs opacity-70 mt-1">
                                         {platformWAInstance && platformWATokenSet
-                                            ? "OTP יישלח ממספר הפלטפורמה אוטומטית — הכל תקין ✓"
-                                            : "יש להגדיר Platform Green API כדי לשלוח OTP"}
+                                            ? tx("OTP יישלח ממספר הפלטפורמה אוטומטית — הכל תקין ✓")
+                                            : tx("יש להגדיר Platform Green API כדי לשלוח OTP")}
                                     </div>
                                 </div>
                             </div>
@@ -1566,9 +1567,9 @@ export default function AdminPage() {
 
                         {/* The rest of BizFind's screens */}
                         <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-3">
-                            <h2 className="text-lg font-bold">עוד ב-BizFind</h2>
+                            <h2 className="text-lg font-bold">{tx("עוד ב-BizFind")}</h2>
                             <div className="flex flex-wrap gap-2">
-                                {([["/admin/review-reports", "ביקורות שדווחו"], ["/admin/business-import", "ייבוא עסקים למדריך"], ["/admin/business-types", "תחומי עסק"]] as const).map(([href, label]) => (
+                                {([["/admin/review-reports", tx("ביקורות שדווחו")], ["/admin/business-import", tx("ייבוא עסקים למדריך")], ["/admin/business-types", tx("תחומי עסק")]] as const).map(([href, label]) => (
                                     <a key={href} href={href} className="px-4 py-2 rounded-xl text-sm font-semibold bg-white/10 hover:bg-white/15 text-slate-200">{label}</a>
                                 ))}
                             </div>
@@ -1584,7 +1585,7 @@ export default function AdminPage() {
                             {(["clients", "appointments"] as const).map(st => (
                                 <button key={st} onClick={() => setContactsSubTab(st)}
                                     className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-colors ${contactsSubTab === st ? "bg-white text-slate-900" : "text-slate-400 hover:text-white"}`}>
-                                    {st === "clients" ? "👥 לקוחות" : "📅 תורים"}
+                                    {st === "clients" ? tx("👥 לקוחות") : tx("📅 תורים")}
                                 </button>
                             ))}
                         </div>
@@ -1593,31 +1594,30 @@ export default function AdminPage() {
                         {contactsSubTab === "clients" && (
                             <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
                                 <div className="px-6 py-4 border-b border-white/10 flex items-center gap-3">
-                                    <h2 className="font-bold text-lg flex-1">כל הלקוחות ({contacts.length})</h2>
+                                    <h2 className="font-bold text-lg flex-1">{tx("כל הלקוחות (")}{contacts.length})</h2>
                                     <input
-                                        placeholder="חיפוש שם / טלפון / אימייל..."
+                                        placeholder={tx("חיפוש שם / טלפון / אימייל...")}
                                         value={contactsSearch}
                                         onChange={e => { setContactsSearch(e.target.value); loadContacts(e.target.value); }}
                                         className="bg-white/10 border border-white/10 rounded-xl px-3 py-1.5 text-sm text-white placeholder:text-slate-500 outline-none focus:border-white/30 w-64"
-                                        dir="rtl"
                                     />
-                                    <button onClick={() => loadContacts()} className="text-xs text-slate-400 hover:text-white transition-colors">↻ רענן</button>
+                                    <button onClick={() => loadContacts()} className="text-xs text-slate-400 hover:text-white transition-colors">{tx("↻ רענן")}</button>
                                 </div>
                                 {contactsLoading ? (
                                     <div className="flex justify-center py-12"><div className="animate-spin w-8 h-8 border-4 border-white/20 border-t-white rounded-full" /></div>
                                 ) : contacts.length === 0 ? (
-                                    <div className="text-center text-slate-500 py-12">אין לקוחות</div>
+                                    <div className="text-center text-slate-500 py-12">{tx("אין לקוחות")}</div>
                                 ) : (
                                     <div className="overflow-x-auto">
                                         <table className="w-full text-sm">
                                             <thead>
                                                 <tr className="border-b border-white/10 text-slate-400 text-xs uppercase">
-                                                    <th className="text-right px-6 py-3 font-medium">שם</th>
-                                                    <th className="text-right px-4 py-3 font-medium">טלפון</th>
-                                                    <th className="text-right px-4 py-3 font-medium">אימייל</th>
-                                                    <th className="text-right px-4 py-3 font-medium">סטודיו</th>
-                                                    <th className="text-right px-4 py-3 font-medium">הצטרף</th>
-                                                    <th className="text-right px-4 py-3 font-medium">סטטוס</th>
+                                                    <th className="text-start px-6 py-3 font-medium">{tx("שם")}</th>
+                                                    <th className="text-start px-4 py-3 font-medium">{tx("טלפון")}</th>
+                                                    <th className="text-start px-4 py-3 font-medium">{tx("אימייל")}</th>
+                                                    <th className="text-start px-4 py-3 font-medium">{tx("סטודיו")}</th>
+                                                    <th className="text-start px-4 py-3 font-medium">{tx("הצטרף")}</th>
+                                                    <th className="text-start px-4 py-3 font-medium">{tx("סטטוס")}</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-white/5">
@@ -1630,11 +1630,11 @@ export default function AdminPage() {
                                                             <span className="text-xs bg-white/10 rounded-lg px-2 py-0.5 text-slate-300">{c.studio_name}</span>
                                                         </td>
                                                         <td className="px-4 py-3 text-slate-500 text-xs whitespace-nowrap">
-                                                            {new Date(c.created_at).toLocaleDateString("he-IL")}
+                                                            {new Date(c.created_at).toLocaleDateString(intl())}
                                                         </td>
                                                         <td className="px-4 py-3">
                                                             <span className={`text-xs px-2 py-0.5 rounded-full ${c.is_active ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400"}`}>
-                                                                {c.is_active ? "פעיל" : "לא פעיל"}
+                                                                {c.is_active ? tx("פעיל") : tx("לא פעיל")}
                                                             </span>
                                                         </td>
                                                     </tr>
@@ -1650,52 +1650,51 @@ export default function AdminPage() {
                         {contactsSubTab === "appointments" && (
                             <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
                                 <div className="px-6 py-4 border-b border-white/10 flex items-center gap-3 flex-wrap">
-                                    <h2 className="font-bold text-lg flex-1">כל התורים ({appts.length})</h2>
+                                    <h2 className="font-bold text-lg flex-1">{tx("כל התורים (")}{appts.length})</h2>
                                     <input
-                                        placeholder="חיפוש שם / טלפון..."
+                                        placeholder={tx("חיפוש שם / טלפון...")}
                                         value={apptsSearch}
                                         onChange={e => { setApptsSearch(e.target.value); loadAppts(e.target.value, apptsStatus); }}
                                         className="bg-white/10 border border-white/10 rounded-xl px-3 py-1.5 text-sm text-white placeholder:text-slate-500 outline-none focus:border-white/30 w-52"
-                                        dir="rtl"
                                     />
                                     <select
                                         value={apptsStatus}
                                         onChange={e => { setApptsStatus(e.target.value); loadAppts(apptsSearch, e.target.value); }}
                                         className="bg-white/10 border border-white/10 rounded-xl px-3 py-1.5 text-sm text-white outline-none scheme-dark"
                                     >
-                                        <option value="" style={OPTION_STYLE}>כל הסטטוסים</option>
-                                        <option value="scheduled" style={OPTION_STYLE}>מתוכנן</option>
-                                        <option value="done" style={OPTION_STYLE}>הסתיים</option>
-                                        <option value="canceled" style={OPTION_STYLE}>בוטל</option>
-                                        <option value="no_show" style={OPTION_STYLE}>לא הגיע</option>
+                                        <option value="" style={OPTION_STYLE}>{tx("כל הסטטוסים")}</option>
+                                        <option value="scheduled" style={OPTION_STYLE}>{tx("מתוכנן")}</option>
+                                        <option value="done" style={OPTION_STYLE}>{tx("הסתיים")}</option>
+                                        <option value="canceled" style={OPTION_STYLE}>{tx("בוטל")}</option>
+                                        <option value="no_show" style={OPTION_STYLE}>{tx("לא הגיע")}</option>
                                     </select>
-                                    <button onClick={() => loadAppts()} className="text-xs text-slate-400 hover:text-white transition-colors">↻ רענן</button>
+                                    <button onClick={() => loadAppts()} className="text-xs text-slate-400 hover:text-white transition-colors">{tx("↻ רענן")}</button>
                                 </div>
                                 {apptsLoading ? (
                                     <div className="flex justify-center py-12"><div className="animate-spin w-8 h-8 border-4 border-white/20 border-t-white rounded-full" /></div>
                                 ) : appts.length === 0 ? (
-                                    <div className="text-center text-slate-500 py-12">אין תורים</div>
+                                    <div className="text-center text-slate-500 py-12">{tx("אין תורים")}</div>
                                 ) : (
                                     <div className="overflow-x-auto">
                                         <table className="w-full text-sm">
                                             <thead>
                                                 <tr className="border-b border-white/10 text-slate-400 text-xs uppercase">
-                                                    <th className="text-right px-6 py-3 font-medium">לקוח</th>
-                                                    <th className="text-right px-4 py-3 font-medium">טלפון</th>
-                                                    <th className="text-right px-4 py-3 font-medium">שירות</th>
-                                                    <th className="text-right px-4 py-3 font-medium">סטודיו</th>
-                                                    <th className="text-right px-4 py-3 font-medium">תאריך ושעה</th>
-                                                    <th className="text-right px-4 py-3 font-medium">סטטוס</th>
-                                                    <th className="text-right px-4 py-3 font-medium">מחיר</th>
+                                                    <th className="text-start px-6 py-3 font-medium">{tx("לקוח")}</th>
+                                                    <th className="text-start px-4 py-3 font-medium">{tx("טלפון")}</th>
+                                                    <th className="text-start px-4 py-3 font-medium">{tx("שירות")}</th>
+                                                    <th className="text-start px-4 py-3 font-medium">{tx("סטודיו")}</th>
+                                                    <th className="text-start px-4 py-3 font-medium">{tx("תאריך ושעה")}</th>
+                                                    <th className="text-start px-4 py-3 font-medium">{tx("סטטוס")}</th>
+                                                    <th className="text-start px-4 py-3 font-medium">{tx("מחיר")}</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-white/5">
                                                 {appts.map(a => {
                                                     const statusMap: Record<string, { label: string; color: string }> = {
-                                                        scheduled: { label: "מתוכנן", color: "bg-blue-500/20 text-blue-300" },
-                                                        done: { label: "הסתיים", color: "bg-emerald-500/20 text-emerald-400" },
-                                                        canceled: { label: "בוטל", color: "bg-red-500/20 text-red-400" },
-                                                        no_show: { label: "לא הגיע", color: "bg-amber-500/20 text-amber-400" },
+                                                        scheduled: { label: tx("מתוכנן"), color: "bg-blue-500/20 text-blue-300" },
+                                                        done: { label: tx("הסתיים"), color: "bg-emerald-500/20 text-emerald-400" },
+                                                        canceled: { label: tx("בוטל"), color: "bg-red-500/20 text-red-400" },
+                                                        no_show: { label: tx("לא הגיע"), color: "bg-amber-500/20 text-amber-400" },
                                                     };
                                                     const st = statusMap[a.status] || { label: a.status, color: "bg-slate-500/20 text-slate-400" };
                                                     return (
@@ -1707,7 +1706,7 @@ export default function AdminPage() {
                                                                 <span className="text-xs bg-white/10 rounded-lg px-2 py-0.5 text-slate-300">{a.studio_name}</span>
                                                             </td>
                                                             <td className="px-4 py-3 text-slate-300 text-xs whitespace-nowrap">
-                                                                {new Date(a.starts_at).toLocaleString("he-IL", { dateStyle: "short", timeStyle: "short" })}
+                                                                {new Date(a.starts_at).toLocaleString(intl(), { dateStyle: "short", timeStyle: "short" })}
                                                             </td>
                                                             <td className="px-4 py-3">
                                                                 <span className={`text-xs px-2 py-0.5 rounded-full ${st.color}`}>{st.label}</span>
@@ -1736,56 +1735,55 @@ export default function AdminPage() {
                             {/* Open full page button */}
                             <button onClick={() => router.push("/admin/leads")}
                                 className="w-full text-center text-xs text-slate-400 hover:text-white border border-white/10 rounded-xl py-1.5 transition-colors">
-                                ↗ פתח אינבוקס מלא
+                                {tx("↗ פתח אינבוקס מלא")}
                             </button>
                             {/* Filters */}
                             <div className="flex gap-2">
                                 <input
-                                    placeholder="חיפוש שם / טלפון..."
+                                    placeholder={tx("חיפוש שם / טלפון...")}
                                     value={leadsFilter.search}
                                     onChange={e => { const f = { ...leadsFilter, search: e.target.value }; setLeadsFilter(f); loadLeads(f); }}
                                     className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder:text-slate-500 outline-none focus:border-white/30"
-                                    dir="rtl"
                                 />
                             </div>
                             <div className="flex gap-2">
                                 <select value={leadsFilter.source} onChange={e => { const f = { ...leadsFilter, source: e.target.value }; setLeadsFilter(f); loadLeads(f); }}
                                     className="flex-1 bg-white/5 border border-white/10 rounded-xl px-2 py-1.5 text-xs text-white outline-none scheme-dark">
-                                    <option value="" style={OPTION_STYLE}>כל המקורות</option>
+                                    <option value="" style={OPTION_STYLE}>{tx("כל המקורות")}</option>
                                     <option value="whatsapp" style={OPTION_STYLE}>WhatsApp</option>
                                     <option value="facebook" style={OPTION_STYLE}>Facebook</option>
                                     <option value="instagram" style={OPTION_STYLE}>Instagram</option>
-                                    <option value="manual" style={OPTION_STYLE}>ידני</option>
+                                    <option value="manual" style={OPTION_STYLE}>{tx("ידני")}</option>
                                 </select>
                                 <select value={leadsFilter.status} onChange={e => { const f = { ...leadsFilter, status: e.target.value }; setLeadsFilter(f); loadLeads(f); }}
                                     className="flex-1 bg-white/5 border border-white/10 rounded-xl px-2 py-1.5 text-xs text-white outline-none scheme-dark">
-                                    <option value="" style={OPTION_STYLE}>כל הסטטוסים</option>
-                                    <option value="new" style={OPTION_STYLE}>חדש</option>
-                                    <option value="contacted" style={OPTION_STYLE}>נענה</option>
-                                    <option value="interested" style={OPTION_STYLE}>מעוניין</option>
-                                    <option value="booked" style={OPTION_STYLE}>נקבע תור</option>
-                                    <option value="lost" style={OPTION_STYLE}>אבוד</option>
+                                    <option value="" style={OPTION_STYLE}>{tx("כל הסטטוסים")}</option>
+                                    <option value="new" style={OPTION_STYLE}>{tx("חדש")}</option>
+                                    <option value="contacted" style={OPTION_STYLE}>{tx("נענה")}</option>
+                                    <option value="interested" style={OPTION_STYLE}>{tx("מעוניין")}</option>
+                                    <option value="booked" style={OPTION_STYLE}>{tx("נקבע תור")}</option>
+                                    <option value="lost" style={OPTION_STYLE}>{tx("אבוד")}</option>
                                 </select>
                             </div>
 
                             {/* Lead list */}
-                            <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pl-1">
-                                {leadsLoading && <div className="text-slate-400 text-sm text-center py-8">טוען...</div>}
-                                {!leadsLoading && leads.length === 0 && <div className="text-slate-500 text-sm text-center py-8">אין לידים</div>}
+                            <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pe-1">
+                                {leadsLoading && <div className="text-slate-400 text-sm text-center py-8">{tx("טוען...")}</div>}
+                                {!leadsLoading && leads.length === 0 && <div className="text-slate-500 text-sm text-center py-8">{tx("אין לידים")}</div>}
                                 {leads.map(lead => {
                                     const srcIcon = lead.source === "whatsapp" ? "💬" : lead.source === "facebook" ? "📘" : lead.source === "instagram" ? "📸" : "✏️";
                                     const statusColor = lead.status === "new" ? "bg-blue-500/20 text-blue-300" : lead.status === "contacted" ? "bg-yellow-500/20 text-yellow-300" : lead.status === "interested" ? "bg-orange-500/20 text-orange-300" : lead.status === "booked" ? "bg-green-500/20 text-green-300" : "bg-red-500/20 text-red-300";
-                                    const statusLabel = lead.status === "new" ? "חדש" : lead.status === "contacted" ? "נענה" : lead.status === "interested" ? "מעוניין" : lead.status === "booked" ? "נקבע תור" : "אבוד";
+                                    const statusLabel = lead.status === "new" ? tx("חדש") : lead.status === "contacted" ? tx("נענה") : lead.status === "interested" ? tx("מעוניין") : lead.status === "booked" ? tx("נקבע תור") : tx("אבוד");
                                     return (
                                         <button key={lead.id} onClick={() => { setSelectedLead(lead); setLeadNote(lead.notes || ""); }}
-                                            className={`w-full text-right rounded-xl p-3 border transition-all ${selectedLead?.id === lead.id ? "bg-white/15 border-white/30" : "bg-white/5 border-white/10 hover:bg-white/10"}`}>
+                                            className={`w-full text-start rounded-xl p-3 border transition-all ${selectedLead?.id === lead.id ? "bg-white/15 border-white/30" : "bg-white/5 border-white/10 hover:bg-white/10"}`}>
                                             <div className="flex items-center justify-between mb-1">
                                                 <span className="text-xs text-slate-400">{srcIcon} {lead.studio_name}</span>
                                                 <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColor}`}>{statusLabel}</span>
                                             </div>
                                             <div className="font-semibold text-sm text-white truncate">{lead.name}</div>
                                             <div className="text-xs text-slate-500 mt-0.5">{lead.phone || lead.email || "—"}</div>
-                                            <div className="text-xs text-slate-600 mt-0.5">{new Date(lead.created_at).toLocaleDateString("he-IL")}</div>
+                                            <div className="text-xs text-slate-600 mt-0.5">{new Date(lead.created_at).toLocaleDateString(intl())}</div>
                                         </button>
                                     );
                                 })}
@@ -1797,45 +1795,45 @@ export default function AdminPage() {
                             {!selectedLead ? (
                                 <div className="h-full flex flex-col items-center justify-center text-slate-500">
                                     <div className="text-5xl mb-3">📥</div>
-                                    <p className="text-sm">בחר ליד מהרשימה לצפייה בפרטים</p>
+                                    <p className="text-sm">{tx("בחר ליד מהרשימה לצפייה בפרטים")}</p>
                                 </div>
                             ) : (
-                                <div className="space-y-5" dir="rtl">
+                                <div className="space-y-5">
                                     {/* Header */}
                                     <div className="flex items-start justify-between">
                                         <div>
                                             <h2 className="text-xl font-bold text-white">{selectedLead.name}</h2>
                                             <p className="text-sm text-slate-400 mt-0.5">
-                                                {selectedLead.source === "whatsapp" ? "💬 WhatsApp" : selectedLead.source === "facebook" ? "📘 Facebook" : selectedLead.source === "instagram" ? "📸 Instagram" : "✏️ ידני"}
-                                                {" · "}סטודיו: <span className="text-slate-300">{selectedLead.studio_name}</span>
+                                                {selectedLead.source === "whatsapp" ? "💬 WhatsApp" : selectedLead.source === "facebook" ? "📘 Facebook" : selectedLead.source === "instagram" ? "📸 Instagram" : tx("✏️ ידני")}
+                                                {" · "}{tx("סטודיו: ")}<span className="text-slate-300">{selectedLead.studio_name}</span>
                                             </p>
                                         </div>
-                                        <div className="text-xs text-slate-500">{new Date(selectedLead.created_at).toLocaleString("he-IL")}</div>
+                                        <div className="text-xs text-slate-500">{new Date(selectedLead.created_at).toLocaleString(intl())}</div>
                                     </div>
 
                                     {/* Contact Info */}
                                     <div className="grid grid-cols-2 gap-3">
                                         {selectedLead.phone && (
                                             <div className="bg-white/5 rounded-xl px-4 py-3">
-                                                <div className="text-xs text-slate-500 mb-1">טלפון</div>
+                                                <div className="text-xs text-slate-500 mb-1">{tx("טלפון")}</div>
                                                 <div className="text-sm text-white font-mono">{selectedLead.phone}</div>
                                             </div>
                                         )}
                                         {selectedLead.email && (
                                             <div className="bg-white/5 rounded-xl px-4 py-3">
-                                                <div className="text-xs text-slate-500 mb-1">אימייל</div>
+                                                <div className="text-xs text-slate-500 mb-1">{tx("אימייל")}</div>
                                                 <div className="text-sm text-white">{selectedLead.email}</div>
                                             </div>
                                         )}
                                         {selectedLead.service_interest && (
                                             <div className="bg-white/5 rounded-xl px-4 py-3">
-                                                <div className="text-xs text-slate-500 mb-1">עניין בשירות</div>
+                                                <div className="text-xs text-slate-500 mb-1">{tx("עניין בשירות")}</div>
                                                 <div className="text-sm text-white">{selectedLead.service_interest}</div>
                                             </div>
                                         )}
                                         {selectedLead.campaign_name && (
                                             <div className="bg-white/5 rounded-xl px-4 py-3">
-                                                <div className="text-xs text-slate-500 mb-1">קמפיין</div>
+                                                <div className="text-xs text-slate-500 mb-1">{tx("קמפיין")}</div>
                                                 <div className="text-sm text-white">{selectedLead.campaign_name}</div>
                                             </div>
                                         )}
@@ -1843,14 +1841,14 @@ export default function AdminPage() {
 
                                     {/* Status */}
                                     <div>
-                                        <div className="text-xs text-slate-400 mb-2">סטטוס טיפול</div>
+                                        <div className="text-xs text-slate-400 mb-2">{tx("סטטוס טיפול")}</div>
                                         <div className="flex flex-wrap gap-2">
                                             {[
-                                                { v: "new", label: "חדש", color: "bg-blue-500/20 text-blue-300 border-blue-500/30" },
-                                                { v: "contacted", label: "נענה", color: "bg-yellow-500/20 text-yellow-300 border-yellow-500/30" },
-                                                { v: "interested", label: "מעוניין", color: "bg-orange-500/20 text-orange-300 border-orange-500/30" },
-                                                { v: "booked", label: "✅ נקבע תור", color: "bg-green-500/20 text-green-300 border-green-500/30" },
-                                                { v: "lost", label: "❌ אבוד", color: "bg-red-500/20 text-red-300 border-red-500/30" },
+                                                { v: "new", label: tx("חדש"), color: "bg-blue-500/20 text-blue-300 border-blue-500/30" },
+                                                { v: "contacted", label: tx("נענה"), color: "bg-yellow-500/20 text-yellow-300 border-yellow-500/30" },
+                                                { v: "interested", label: tx("מעוניין"), color: "bg-orange-500/20 text-orange-300 border-orange-500/30" },
+                                                { v: "booked", label: tx("✅ נקבע תור"), color: "bg-green-500/20 text-green-300 border-green-500/30" },
+                                                { v: "lost", label: tx("❌ אבוד"), color: "bg-red-500/20 text-red-300 border-red-500/30" },
                                             ].map(({ v, label, color }) => (
                                                 <button key={v}
                                                     onClick={() => handleLeadStatusChange(selectedLead, v)}
@@ -1864,21 +1862,20 @@ export default function AdminPage() {
 
                                     {/* Notes */}
                                     <div>
-                                        <div className="text-xs text-slate-400 mb-2">הערות פנימיות</div>
+                                        <div className="text-xs text-slate-400 mb-2">{tx("הערות פנימיות")}</div>
                                         <textarea
                                             value={leadNote}
                                             onChange={e => setLeadNote(e.target.value)}
                                             rows={4}
-                                            placeholder="הוסף הערה על הליד..."
+                                            placeholder={tx("הוסף הערה על הליד...")}
                                             className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-600 outline-none focus:border-white/30 resize-none"
-                                            dir="rtl"
                                         />
                                         <button
                                             onClick={handleLeadNoteSave}
                                             disabled={leadSaving || leadNote === (selectedLead.notes || "")}
                                             className="mt-2 px-4 py-2 bg-white text-slate-900 text-sm font-bold rounded-xl hover:bg-slate-100 disabled:opacity-40 transition-colors"
                                         >
-                                            {leadSaving ? "שומר..." : "שמור הערה"}
+                                            {leadSaving ? tx("שומר...") : tx("שמור הערה")}
                                         </button>
                                     </div>
                                 </div>
@@ -1892,43 +1889,43 @@ export default function AdminPage() {
             {/* Edit Studio + Owner Modal */}
             {editModal && (
                 <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-                    <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-lg max-h-[90dvh] flex flex-col" dir="rtl">
+                    <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-lg max-h-[90dvh] flex flex-col">
                         <div className="flex items-center justify-between p-6 pb-4 flex-shrink-0">
-                            <h3 className="font-bold text-lg">✏️ עריכת סטודיו — {editModal.name}</h3>
+                            <h3 className="font-bold text-lg">{tx("✏️ עריכת סטודיו — ")}{editModal.name}</h3>
                             <button onClick={() => setEditModal(null)} className="text-slate-400 hover:text-white text-xl">✕</button>
                         </div>
                         {editErr && <div className="mx-6 mb-2 text-sm text-red-400 bg-red-900/30 border border-red-500/20 rounded-xl px-3 py-2 flex-shrink-0">⚠️ {editErr}</div>}
                         <div className="overflow-y-auto flex-1 min-h-0 px-6 pb-2 space-y-5">
                             <div>
-                                <p className="text-xs text-slate-400 mb-3 font-semibold uppercase tracking-wide">פרטי הסטודיו</p>
+                                <p className="text-xs text-slate-400 mb-3 font-semibold uppercase tracking-wide">{tx("פרטי הסטודיו")}</p>
                                 <div className="space-y-3">
                                     <div>
-                                        <label className="text-xs text-slate-400 mb-1 block">שם הסטודיו</label>
+                                        <label className="text-xs text-slate-400 mb-1 block">{tx("שם הסטודיו")}</label>
                                         <input className="w-full bg-white/10 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-white/30"
                                             value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} />
                                     </div>
                                     <div>
-                                        <label className="text-xs text-slate-400 mb-1 block">Slug (מזהה ייחודי)</label>
+                                        <label className="text-xs text-slate-400 mb-1 block">{tx("Slug (מזהה ייחודי)")}</label>
                                         <input className="w-full bg-white/10 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-white/30 font-mono" dir="ltr"
                                             value={editForm.slug} onChange={e => setEditForm(f => ({ ...f, slug: e.target.value.toLowerCase().replace(/\s/g, "-") }))} />
                                     </div>
                                 </div>
                             </div>
                             <div>
-                                <p className="text-xs text-slate-400 mb-3 font-semibold uppercase tracking-wide">פרטי בעל העסק</p>
+                                <p className="text-xs text-slate-400 mb-3 font-semibold uppercase tracking-wide">{tx("פרטי בעל העסק")}</p>
                                 <div className="space-y-3">
                                     <div>
-                                        <label className="text-xs text-slate-400 mb-1 block">שם בעלים (השאר ריק לאי-שינוי)</label>
+                                        <label className="text-xs text-slate-400 mb-1 block">{tx("שם בעלים (השאר ריק לאי-שינוי)")}</label>
                                         <input className="w-full bg-white/10 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-white/30"
-                                            value={editForm.owner_display_name} onChange={e => setEditForm(f => ({ ...f, owner_display_name: e.target.value }))} placeholder="שם נוכחי" />
+                                            value={editForm.owner_display_name} onChange={e => setEditForm(f => ({ ...f, owner_display_name: e.target.value }))} placeholder={tx("שם נוכחי")} />
                                     </div>
                                     <div>
-                                        <label className="text-xs text-slate-400 mb-1 block">אימייל בעלים</label>
+                                        <label className="text-xs text-slate-400 mb-1 block">{tx("אימייל בעלים")}</label>
                                         <input className="w-full bg-white/10 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-white/30" dir="ltr"
                                             type="email" value={editForm.owner_email} onChange={e => setEditForm(f => ({ ...f, owner_email: e.target.value }))} />
                                     </div>
                                     <div>
-                                        <label className="text-xs text-slate-400 mb-1 block">טלפון בעלים (WhatsApp)</label>
+                                        <label className="text-xs text-slate-400 mb-1 block">{tx("טלפון בעלים (WhatsApp)")}</label>
                                         <input className="w-full bg-white/10 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-white/30" dir="ltr"
                                             type="tel" value={editForm.owner_phone} onChange={e => setEditForm(f => ({ ...f, owner_phone: e.target.value }))} placeholder="972521234567" />
                                     </div>
@@ -1938,9 +1935,9 @@ export default function AdminPage() {
                         <div className="flex gap-3 p-6 pt-4 flex-shrink-0">
                             <button onClick={handleEditSave} disabled={editSaving || !editForm.name || !editForm.slug}
                                 className="flex-1 bg-white text-slate-900 font-bold py-2.5 rounded-xl hover:bg-slate-100 disabled:opacity-40 transition-colors">
-                                {editSaving ? "שומר..." : "💾 שמור שינויים"}
+                                {editSaving ? tx("שומר...") : tx("💾 שמור שינויים")}
                             </button>
-                            <button onClick={() => setEditModal(null)} className="px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-sm transition-colors">ביטול</button>
+                            <button onClick={() => setEditModal(null)} className="px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-sm transition-colors">{tx("ביטול")}</button>
                         </div>
                     </div>
                 </div>
@@ -1949,9 +1946,9 @@ export default function AdminPage() {
             {/* Users Management Modal */}
             {usersModal && (
                 <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-                    <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-2xl max-h-[90dvh] flex flex-col" dir="rtl">
+                    <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-2xl max-h-[90dvh] flex flex-col">
                         <div className="flex items-center justify-between p-6 pb-4 flex-shrink-0">
-                            <h3 className="font-bold text-lg">👤 משתמשי הסטודיו — {usersModal.name}</h3>
+                            <h3 className="font-bold text-lg">{tx("👤 משתמשי הסטודיו — ")}{usersModal.name}</h3>
                             <button onClick={() => { setUsersModal(null); setEditingUser(null); }} className="text-slate-400 hover:text-white text-xl">✕</button>
                         </div>
                         <div className="overflow-y-auto flex-1 min-h-0 px-6 pb-6 space-y-5">
@@ -1966,19 +1963,19 @@ export default function AdminPage() {
                                                 <div className="flex items-center gap-2">
                                                     <span className="font-semibold text-sm">{u.display_name}</span>
                                                     <span className={`text-xs px-2 py-0.5 rounded-full ${u.role === "owner" ? "bg-purple-500/20 text-purple-300" : u.role === "admin" ? "bg-blue-500/20 text-blue-300" : u.role === "artist" ? "bg-pink-500/20 text-pink-300" : "bg-slate-500/20 text-slate-400"}`}>
-                                                        {u.role === "owner" ? "בעלים" : u.role === "admin" ? "מנהל" : u.role === "artist" ? "נותן/ת שירות" : "צוות"}
+                                                        {u.role === "owner" ? tx("בעלים") : u.role === "admin" ? tx("מנהל") : u.role === "artist" ? tx("נותן/ת שירות") : tx("צוות")}
                                                     </span>
-                                                    {!u.is_active && <span className="text-xs text-red-400">מושבת</span>}
+                                                    {!u.is_active && <span className="text-xs text-red-400">{tx("מושבת")}</span>}
                                                 </div>
                                                 <div className="text-xs text-slate-400 mt-0.5" dir="ltr">{u.email}</div>
                                                 {u.phone && <div className="text-xs text-slate-500 font-mono">{u.phone}</div>}
                                             </div>
                                             <div className="flex gap-1.5 flex-shrink-0">
                                                 <button onClick={() => { setEditingUser(u); setEditUserForm({ display_name: u.display_name, email: u.email, role: u.role, phone: u.phone || "", is_active: u.is_active }); }}
-                                                    className="text-xs bg-indigo-600/30 hover:bg-indigo-600/60 text-indigo-300 px-2.5 py-1.5 rounded-lg transition-colors">ערוך</button>
+                                                    className="text-xs bg-indigo-600/30 hover:bg-indigo-600/60 text-indigo-300 px-2.5 py-1.5 rounded-lg transition-colors">{tx("ערוך")}</button>
                                                 <button onClick={() => handleResetPassword(u)} disabled={resetingPw === u.id}
                                                     className="text-xs bg-amber-600/20 hover:bg-amber-600/40 text-amber-300 px-2.5 py-1.5 rounded-lg transition-colors disabled:opacity-40">
-                                                    {resetingPw === u.id ? "..." : "🔑 סיסמה"}
+                                                    {resetingPw === u.id ? "..." : tx("🔑 סיסמה")}
                                                 </button>
                                             </div>
                                         </div>
@@ -1989,81 +1986,81 @@ export default function AdminPage() {
                             {/* Edit user inline */}
                             {editingUser && (
                                 <div className="bg-indigo-900/20 border border-indigo-500/30 rounded-xl p-4 space-y-3">
-                                    <p className="text-sm font-bold text-indigo-300">עריכת {editingUser.display_name}</p>
+                                    <p className="text-sm font-bold text-indigo-300">{tx("עריכת ")}{editingUser.display_name}</p>
                                     <div className="grid grid-cols-2 gap-3">
                                         <div>
-                                            <label className="text-xs text-slate-400 mb-1 block">שם</label>
+                                            <label className="text-xs text-slate-400 mb-1 block">{tx("שם")}</label>
                                             <input className="w-full bg-white/10 border border-white/10 rounded-lg px-3 py-1.5 text-sm outline-none focus:border-white/30"
                                                 value={editUserForm.display_name} onChange={e => setEditUserForm(f => ({ ...f, display_name: e.target.value }))} />
                                         </div>
                                         <div>
-                                            <label className="text-xs text-slate-400 mb-1 block">אימייל</label>
+                                            <label className="text-xs text-slate-400 mb-1 block">{tx("אימייל")}</label>
                                             <input className="w-full bg-white/10 border border-white/10 rounded-lg px-3 py-1.5 text-sm outline-none focus:border-white/30" dir="ltr"
                                                 value={editUserForm.email} onChange={e => setEditUserForm(f => ({ ...f, email: e.target.value }))} />
                                         </div>
                                         <div>
-                                            <label className="text-xs text-slate-400 mb-1 block">תפקיד</label>
+                                            <label className="text-xs text-slate-400 mb-1 block">{tx("תפקיד")}</label>
                                             <select className="w-full bg-white/10 border border-white/10 rounded-lg px-3 py-1.5 text-sm outline-none scheme-dark"
                                                 value={editUserForm.role} onChange={e => setEditUserForm(f => ({ ...f, role: e.target.value }))}>
-                                                <option value="owner" style={OPTION_STYLE}>בעלים</option>
-                                                <option value="admin" style={OPTION_STYLE}>מנהל</option>
-                                                <option value="artist" style={OPTION_STYLE}>נותן/ת שירות</option>
-                                                <option value="staff" style={OPTION_STYLE}>צוות</option>
+                                                <option value="owner" style={OPTION_STYLE}>{tx("בעלים")}</option>
+                                                <option value="admin" style={OPTION_STYLE}>{tx("מנהל")}</option>
+                                                <option value="artist" style={OPTION_STYLE}>{tx("נותן/ת שירות")}</option>
+                                                <option value="staff" style={OPTION_STYLE}>{tx("צוות")}</option>
                                             </select>
                                         </div>
                                         <div>
-                                            <label className="text-xs text-slate-400 mb-1 block">טלפון</label>
+                                            <label className="text-xs text-slate-400 mb-1 block">{tx("טלפון")}</label>
                                             <input className="w-full bg-white/10 border border-white/10 rounded-lg px-3 py-1.5 text-sm outline-none focus:border-white/30" dir="ltr"
                                                 value={editUserForm.phone} onChange={e => setEditUserForm(f => ({ ...f, phone: e.target.value }))} />
                                         </div>
                                     </div>
                                     <label className="flex items-center gap-2 text-sm cursor-pointer">
                                         <input type="checkbox" checked={editUserForm.is_active} onChange={e => setEditUserForm(f => ({ ...f, is_active: e.target.checked }))} className="w-4 h-4 accent-indigo-400" />
-                                        <span className="text-slate-300">משתמש פעיל</span>
+                                        <span className="text-slate-300">{tx("משתמש פעיל")}</span>
                                     </label>
                                     <div className="flex gap-2">
                                         <button onClick={handleSaveUser} disabled={savingUser}
                                             className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold py-2 rounded-lg transition-colors disabled:opacity-40">
-                                            {savingUser ? "שומר..." : "💾 שמור"}
+                                            {savingUser ? tx("שומר...") : tx("💾 שמור")}
                                         </button>
-                                        <button onClick={() => setEditingUser(null)} className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-sm transition-colors">ביטול</button>
+                                        <button onClick={() => setEditingUser(null)} className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-sm transition-colors">{tx("ביטול")}</button>
                                     </div>
                                 </div>
                             )}
 
                             {/* Add new user */}
                             <div className="border-t border-white/10 pt-4 space-y-3">
-                                <p className="text-sm font-bold text-slate-300">+ הוסף משתמש חדש</p>
+                                <p className="text-sm font-bold text-slate-300">{tx("+ הוסף משתמש חדש")}</p>
                                 {addUserErr && <div className="text-xs text-red-400 bg-red-900/20 border border-red-500/20 rounded-lg px-3 py-2">⚠️ {addUserErr}</div>}
                                 <div className="grid grid-cols-2 gap-3">
                                     <div>
-                                        <label className="text-xs text-slate-400 mb-1 block">שם</label>
+                                        <label className="text-xs text-slate-400 mb-1 block">{tx("שם")}</label>
                                         <input className="w-full bg-white/10 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-white/30"
-                                            value={addUserForm.display_name} onChange={e => setAddUserForm(f => ({ ...f, display_name: e.target.value }))} placeholder="ישראל ישראלי" />
+                                            value={addUserForm.display_name} onChange={e => setAddUserForm(f => ({ ...f, display_name: e.target.value }))} placeholder={tx("ישראל ישראלי")} />
                                     </div>
                                     <div>
-                                        <label className="text-xs text-slate-400 mb-1 block">אימייל</label>
+                                        <label className="text-xs text-slate-400 mb-1 block">{tx("אימייל")}</label>
                                         <input className="w-full bg-white/10 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-white/30" dir="ltr"
                                             type="email" value={addUserForm.email} onChange={e => setAddUserForm(f => ({ ...f, email: e.target.value }))} placeholder="user@studio.com" />
                                     </div>
                                     <div>
-                                        <label className="text-xs text-slate-400 mb-1 block">תפקיד</label>
+                                        <label className="text-xs text-slate-400 mb-1 block">{tx("תפקיד")}</label>
                                         <select className="w-full bg-white/10 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none scheme-dark"
                                             value={addUserForm.role} onChange={e => setAddUserForm(f => ({ ...f, role: e.target.value }))}>
-                                            <option value="admin" style={OPTION_STYLE}>מנהל</option>
-                                            <option value="artist" style={OPTION_STYLE}>נותן/ת שירות</option>
-                                            <option value="staff" style={OPTION_STYLE}>צוות</option>
+                                            <option value="admin" style={OPTION_STYLE}>{tx("מנהל")}</option>
+                                            <option value="artist" style={OPTION_STYLE}>{tx("נותן/ת שירות")}</option>
+                                            <option value="staff" style={OPTION_STYLE}>{tx("צוות")}</option>
                                         </select>
                                     </div>
                                     <div>
-                                        <label className="text-xs text-slate-400 mb-1 block">טלפון (אופציונלי)</label>
+                                        <label className="text-xs text-slate-400 mb-1 block">{tx("טלפון (אופציונלי)")}</label>
                                         <input className="w-full bg-white/10 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-white/30" dir="ltr"
                                             type="tel" value={addUserForm.phone} onChange={e => setAddUserForm(f => ({ ...f, phone: e.target.value }))} placeholder="972521234567" />
                                     </div>
                                 </div>
                                 <button onClick={handleAddUser} disabled={addingUser || !addUserForm.email || !addUserForm.display_name}
                                     className="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold py-2.5 rounded-xl transition-colors disabled:opacity-40">
-                                    {addingUser ? "מוסיף..." : "✅ הוסף משתמש ושלח הזמנה"}
+                                    {addingUser ? tx("מוסיף...") : tx("✅ הוסף משתמש ושלח הזמנה")}
                                 </button>
                             </div>
                         </div>
@@ -2074,16 +2071,16 @@ export default function AdminPage() {
             {/* Delete Confirmation Modal */}
             {deleteModal && (
                 <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-                    <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-sm p-6" dir="rtl">
+                    <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-sm p-6">
                         <div className="flex items-center gap-3 mb-4">
                             <div className="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center text-xl">🗑️</div>
                             <div>
-                                <h3 className="font-bold text-lg text-white">מחיקת סטודיו</h3>
+                                <h3 className="font-bold text-lg text-white">{tx("מחיקת סטודיו")}</h3>
                                 <p className="text-sm text-slate-400">{deleteModal.name}</p>
                             </div>
                         </div>
                         <p className="text-sm text-slate-300 mb-5 leading-relaxed">
-                            פעולה זו <strong className="text-red-400">בלתי הפיכה</strong> — כל הנתונים, הלקוחות, התורים וההיסטוריה של הסטודיו יימחקו לצמיתות.
+                            {tx("פעולה זו")} <strong className="text-red-400">{tx("בלתי הפיכה")}</strong> {tx("— כל הנתונים, הלקוחות, התורים וההיסטוריה של הסטודיו יימחקו לצמיתות.")}
                         </p>
                         {deleteErr && (
                             <div className="text-sm text-red-300 bg-red-900/30 border border-red-500/20 rounded-xl px-3 py-2 mb-4">{deleteErr}</div>
@@ -2094,14 +2091,14 @@ export default function AdminPage() {
                                 disabled={deleting}
                                 className="flex-1 bg-red-600 hover:bg-red-500 text-white font-bold py-2.5 rounded-xl transition-colors disabled:opacity-50"
                             >
-                                {deleting ? "מוחק..." : "כן, מחק לצמיתות"}
+                                {deleting ? tx("מוחק...") : tx("כן, מחק לצמיתות")}
                             </button>
                             <button
                                 onClick={() => { setDeleteModal(null); setDeleteErr(null); }}
                                 disabled={deleting}
                                 className="px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-sm transition-colors disabled:opacity-50"
                             >
-                                ביטול
+                                {tx("ביטול")}
                             </button>
                         </div>
                     </div>
@@ -2111,12 +2108,12 @@ export default function AdminPage() {
             {/* Extend / Trial Modal */}
             {extendModal && (
                 <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-                    <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-sm p-6" dir="rtl">
+                    <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-sm p-6">
                         <div className="flex items-center justify-between mb-1">
-                            <h3 className="font-bold text-lg">הארכת מנוי</h3>
+                            <h3 className="font-bold text-lg">{tx("הארכת מנוי")}</h3>
                             <button onClick={() => setExtendModal(null)} className="text-slate-400 hover:text-white text-xl">✕</button>
                         </div>
-                        <p className="text-slate-400 text-sm mb-5">{extendModal.studio.name} — בחר לכמה ימים מהיום</p>
+                        <p className="text-slate-400 text-sm mb-5">{extendModal.studio.name}{tx(" — בחר לכמה ימים מהיום")}</p>
 
                         <div className="grid grid-cols-4 gap-2 mb-4">
                             {[7, 14, 30, 90].map(d => (
@@ -2125,13 +2122,13 @@ export default function AdminPage() {
                                     onClick={() => setExtendDays(d)}
                                     className={`py-3 rounded-xl text-sm font-bold transition-all ${extendDays === d ? "bg-white text-slate-900" : "bg-white/10 text-slate-300 hover:bg-white/20"}`}
                                 >
-                                    {d} ימים
+                                    {d} {tx("ימים")}
                                 </button>
                             ))}
                         </div>
 
                         <div className="mb-4">
-                            <label className="text-xs text-slate-400 mb-1 block">מספר ימים מותאם:</label>
+                            <label className="text-xs text-slate-400 mb-1 block">{tx("מספר ימים מותאם:")}</label>
                             <input
                                 type="number" min={1} max={365} dir="ltr"
                                 value={extendDays}
@@ -2141,9 +2138,9 @@ export default function AdminPage() {
                         </div>
 
                         <div className="bg-white/5 rounded-xl px-4 py-3 mb-5 text-sm">
-                            <div className="text-slate-400 text-xs mb-1">תאריך פקיעה חדש:</div>
+                            <div className="text-slate-400 text-xs mb-1">{tx("תאריך פקיעה חדש:")}</div>
                             <div className="font-bold text-emerald-400">
-                                {new Date(Date.now() + extendDays * 86400000).toLocaleDateString("he-IL", { day: "numeric", month: "long", year: "numeric" })}
+                                {new Date(Date.now() + extendDays * 86400000).toLocaleDateString(intl(), { day: "numeric", month: "long", year: "numeric" })}
                             </div>
                         </div>
 
@@ -2153,10 +2150,10 @@ export default function AdminPage() {
                                 disabled={extending || extendDays < 1}
                                 className="flex-1 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 text-white font-bold py-2.5 rounded-xl transition-colors"
                             >
-                                {extending ? "מעדכן..." : `✅ הענק ${extendDays} ימים`}
+                                {extending ? tx("מעדכן...") : tx("✅ הענק {0} ימים", { 0: extendDays })}
                             </button>
                             <button onClick={() => setExtendModal(null)} className="px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-sm transition-colors">
-                                ביטול
+                                {tx("ביטול")}
                             </button>
                         </div>
                     </div>
@@ -2166,9 +2163,9 @@ export default function AdminPage() {
             {/* New Studio Modal */}
             {showNew && (
                 <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-                    <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-lg max-h-[90dvh] flex flex-col" dir="rtl">
+                    <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-lg max-h-[90dvh] flex flex-col">
                         <div className="flex items-center justify-between p-6 pb-4 flex-shrink-0">
-                            <h3 className="font-bold text-lg">הקמת סטודיו חדש</h3>
+                            <h3 className="font-bold text-lg">{tx("הקמת סטודיו חדש")}</h3>
                             <button onClick={() => setShowNew(false)} className="text-slate-400 hover:text-white text-xl">✕</button>
                         </div>
 
@@ -2179,56 +2176,56 @@ export default function AdminPage() {
                         <div className="overflow-y-auto flex-1 min-h-0 px-6 pb-6 space-y-4">
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
-                                    <label className="text-xs text-slate-400 mb-1 block">שם הסטודיו</label>
+                                    <label className="text-xs text-slate-400 mb-1 block">{tx("שם הסטודיו")}</label>
                                     <input className="w-full bg-white/10 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-white/30"
-                                        value={form.studio_name} onChange={e => setForm(f => ({ ...f, studio_name: e.target.value }))} placeholder="סטודיו XYZ" />
+                                        value={form.studio_name} onChange={e => setForm(f => ({ ...f, studio_name: e.target.value }))} placeholder={tx("סטודיו XYZ")} />
                                 </div>
                                 <div>
-                                    <label className="text-xs text-slate-400 mb-1 block">Slug (ייחודי)</label>
+                                    <label className="text-xs text-slate-400 mb-1 block">{tx("Slug (ייחודי)")}</label>
                                     <input className="w-full bg-white/10 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-white/30 font-mono" dir="ltr"
                                         value={form.slug} onChange={e => setForm(f => ({ ...f, slug: e.target.value.toLowerCase().replace(/\s/g, "-") }))} placeholder="studio-xyz" />
                                 </div>
                             </div>
 
                             <div>
-                                <label className="text-xs text-slate-400 mb-1 block">שם בעל העסק</label>
+                                <label className="text-xs text-slate-400 mb-1 block">{tx("שם בעל העסק")}</label>
                                 <input className="w-full bg-white/10 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-white/30"
-                                    value={form.owner_display_name} onChange={e => setForm(f => ({ ...f, owner_display_name: e.target.value }))} placeholder="ישראל ישראלי" />
+                                    value={form.owner_display_name} onChange={e => setForm(f => ({ ...f, owner_display_name: e.target.value }))} placeholder={tx("ישראל ישראלי")} />
                             </div>
 
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
-                                    <label className="text-xs text-slate-400 mb-1 block">מייל בעלים</label>
+                                    <label className="text-xs text-slate-400 mb-1 block">{tx("מייל בעלים")}</label>
                                     <input className="w-full bg-white/10 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-white/30" dir="ltr"
                                         type="email" value={form.owner_email} onChange={e => setForm(f => ({ ...f, owner_email: e.target.value }))} placeholder="owner@studio.com" />
                                 </div>
                                 <div>
-                                    <label className="text-xs text-slate-400 mb-1 block">סיסמה ראשונית</label>
+                                    <label className="text-xs text-slate-400 mb-1 block">{tx("סיסמה ראשונית")}</label>
                                     <input className="w-full bg-white/10 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-white/30" dir="ltr"
                                         type="text" value={form.owner_password} onChange={e => setForm(f => ({ ...f, owner_password: e.target.value }))} placeholder="password123" />
                                 </div>
                             </div>
 
                             <div>
-                                <label className="text-xs text-slate-400 mb-1 block">טלפון בעלים (WhatsApp) — אופציונלי</label>
+                                <label className="text-xs text-slate-400 mb-1 block">{tx("טלפון בעלים (WhatsApp) — אופציונלי")}</label>
                                 <input className="w-full bg-white/10 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-white/30" dir="ltr"
                                     type="tel" value={form.owner_phone} onChange={e => setForm(f => ({ ...f, owner_phone: e.target.value }))} placeholder="972521234567" />
-                                <p className="text-xs text-slate-500 mt-0.5">פורמט בינלאומי ללא + (לשליחת פרטי כניסה ב-WhatsApp)</p>
+                                <p className="text-xs text-slate-500 mt-0.5">{tx("פורמט בינלאומי ללא + (לשליחת פרטי כניסה ב-WhatsApp)")}</p>
                             </div>
 
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
-                                    <label className="text-xs text-slate-400 mb-1 block">תוכנית</label>
+                                    <label className="text-xs text-slate-400 mb-1 block">{tx("תוכנית")}</label>
                                     <select className="w-full bg-white/10 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-white/30 scheme-dark"
                                         value={form.subscription_plan} onChange={e => setForm(f => ({ ...f, subscription_plan: e.target.value }))}>
-                                        <option value="starter" style={OPTION_STYLE}>Starter — 99₪/חודש</option>
-                                        <option value="pro" style={OPTION_STYLE}>Pro — 199₪/חודש</option>
-                                        <option value="studio" style={OPTION_STYLE}>Studio — 349₪/חודש</option>
-                                        <option value="free" style={OPTION_STYLE}>חינמי</option>
+                                        <option value="starter" style={OPTION_STYLE}>{tx("Starter — 99₪/חודש")}</option>
+                                        <option value="pro" style={OPTION_STYLE}>{tx("Pro — 199₪/חודש")}</option>
+                                        <option value="studio" style={OPTION_STYLE}>{tx("Studio — 349₪/חודש")}</option>
+                                        <option value="free" style={OPTION_STYLE}>{tx("חינמי")}</option>
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="text-xs text-slate-400 mb-1 block">ימי מנוי ראשוניים</label>
+                                    <label className="text-xs text-slate-400 mb-1 block">{tx("ימי מנוי ראשוניים")}</label>
                                     <input className="w-full bg-white/10 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-white/30" dir="ltr"
                                         type="number" min={1} value={form.plan_days} onChange={e => setForm(f => ({ ...f, plan_days: Number(e.target.value) }))} />
                                 </div>
@@ -2241,10 +2238,10 @@ export default function AdminPage() {
                                 disabled={creating || !form.studio_name || !form.slug || !form.owner_email || !form.owner_password}
                                 className="flex-1 bg-white text-slate-900 font-bold py-2.5 rounded-xl hover:bg-slate-100 disabled:opacity-40 transition-colors"
                             >
-                                {creating ? "יוצר..." : "צור סטודיו"}
+                                {creating ? tx("יוצר...") : tx("צור סטודיו")}
                             </button>
                             <button onClick={() => setShowNew(false)} className="px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-sm transition-colors">
-                                ביטול
+                                {tx("ביטול")}
                             </button>
                         </div>
                     </div>
@@ -2255,20 +2252,20 @@ export default function AdminPage() {
                 {tab === "health" && (
                     <div className="space-y-4">
                         <div className="flex items-center justify-between">
-                            <h2 className="text-xl font-bold text-white">🚨 התראות מערכת</h2>
+                            <h2 className="text-xl font-bold text-white">{tx("🚨 התראות מערכת")}</h2>
                             <button
                                 onClick={() => { setHealthData(null); setHealthLoading(true); apiFetch<typeof healthData>("/api/admin/health").then(d => setHealthData(d)).catch(() => {}).finally(() => setHealthLoading(false)); }}
                                 className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white text-sm font-semibold rounded-xl transition-colors"
                             >
-                                🔄 רענן
+                                {tx("🔄 רענן")}
                             </button>
                         </div>
                         {/* Manual birthday sweep */}
                         <div className="bg-white/5 border border-white/10 rounded-2xl px-6 py-4 space-y-3">
                             <div className="flex items-center justify-between flex-wrap gap-3">
                                 <div>
-                                    <div className="font-bold text-white text-sm">🎂 שליחת הודעות יומולדת ידנית</div>
-                                    <div className="text-xs text-slate-400 mt-0.5">שולח לכל חברי מועדון עם יומולדת בחודש הבא (מונע כפילויות)</div>
+                                    <div className="font-bold text-white text-sm">{tx("🎂 שליחת הודעות יומולדת ידנית")}</div>
+                                    <div className="text-xs text-slate-400 mt-0.5">{tx("שולח לכל חברי מועדון עם יומולדת בחודש הבא (מונע כפילויות)")}</div>
                                 </div>
                                 <button
                                     type="button"
@@ -2287,24 +2284,24 @@ export default function AdminPage() {
                                     }}
                                     className="px-4 py-2 bg-pink-600 hover:bg-pink-500 disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition-colors"
                                 >
-                                    {birthdaySweeping ? "שולח..." : "שלח עכשיו"}
+                                    {birthdaySweeping ? tx("שולח...") : tx("שלח עכשיו")}
                                 </button>
                             </div>
                             {birthdaySweepResult && (
                                 <div className={`text-sm font-semibold ${birthdaySweepResult.ok ? "text-emerald-400" : "text-red-400"}`}>
                                     {birthdaySweepResult.ok
-                                        ? `✅ נשלחו ${birthdaySweepResult.messages_enqueued} הודעות בהצלחה`
-                                        : "❌ שגיאה בשליחה"}
+                                        ? tx("✅ נשלחו {0} הודעות בהצלחה", { 0: birthdaySweepResult.messages_enqueued })
+                                        : tx("❌ שגיאה בשליחה")}
                                 </div>
                             )}
                         </div>
 
-                        {healthLoading && <p className="text-slate-400 text-sm">בודק סטטוס...</p>}
+                        {healthLoading && <p className="text-slate-400 text-sm">{tx("בודק סטטוס...")}</p>}
                         {healthData && (
                             <>
                                 {healthData.filter(s => s.has_alert).length === 0 && (
                                     <div className="bg-emerald-900/30 border border-emerald-500/30 rounded-2xl px-6 py-4 text-emerald-300 font-semibold">
-                                        ✅ כל המערכות תקינות — אין התראות פעילות
+                                        {tx("✅ כל המערכות תקינות — אין התראות פעילות")}
                                     </div>
                                 )}
                                 <div className="space-y-3">
@@ -2323,27 +2320,27 @@ export default function AdminPage() {
                                                 </div>
                                                 <div className="flex gap-2 flex-wrap items-center">
                                                     <span className={`text-xs font-bold px-2 py-1 rounded-full ${s.wa_status === "connected" ? "bg-emerald-700/50 text-emerald-300" : s.wa_status === "not_configured" ? "bg-slate-700/50 text-slate-400" : "bg-red-700/50 text-red-300"}`}>
-                                                        📱 {s.wa_status === "connected" ? "WhatsApp מחובר" : s.wa_status === "not_configured" ? "WhatsApp לא מוגדר" : `WhatsApp מנותק: ${s.wa_status.replace("disconnected:", "")}`}
+                                                        📱 {s.wa_status === "connected" ? tx("WhatsApp מחובר") : s.wa_status === "not_configured" ? tx("WhatsApp לא מוגדר") : tx("WhatsApp מנותק: {0}", { 0: s.wa_status.replace("disconnected:", "") })}
                                                     </span>
                                                     {s.failed_jobs_24h > 0 && (
                                                         <span className="text-xs font-bold px-2 py-1 rounded-full bg-orange-700/50 text-orange-300">
-                                                            ⚠️ {s.failed_jobs_24h} הודעות נכשלו (24ש׳)
+                                                            ⚠️ {s.failed_jobs_24h} {tx("הודעות נכשלו (24ש׳)")}
                                                         </span>
                                                     )}
                                                     {s.stuck_pending_jobs > 0 && (
                                                         <span className="text-xs font-bold px-2 py-1 rounded-full bg-yellow-700/50 text-yellow-300">
-                                                            ⏳ {s.stuck_pending_jobs} הודעות תקועות
+                                                            ⏳ {s.stuck_pending_jobs} {tx("הודעות תקועות")}
                                                         </span>
                                                     )}
                                                     {!s.has_alert && (
-                                                        <span className="text-xs font-bold px-2 py-1 rounded-full bg-emerald-700/50 text-emerald-300">✅ תקין</span>
+                                                        <span className="text-xs font-bold px-2 py-1 rounded-full bg-emerald-700/50 text-emerald-300">{tx("✅ תקין")}</span>
                                                     )}
                                                     <button
                                                         type="button"
                                                         onClick={() => router.push(`/admin/studios/${s.studio_id}`)}
                                                         className="text-xs px-2 py-1 rounded-full bg-white/10 text-slate-300 hover:bg-white/20 transition-colors"
                                                     >
-                                                        ⚙️ ערוך
+                                                        {tx("⚙️ ערוך")}
                                                     </button>
                                                 </div>
                                             </div>

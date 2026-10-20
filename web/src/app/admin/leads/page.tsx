@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 
+import { tx } from "@/lib/i18n";
 type Lead = {
     id: string;
     studio_id: string;
@@ -38,7 +39,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 const STATUSES = ["new", "contacted", "converted", "lost"];
-const STATUS_LABELS: Record<string, string> = { new: "חדש", contacted: "נצור קשר", converted: "הפך ללקוח", lost: "אבוד" };
+const STATUS_LABELS: Record<string, string> = { new: tx("חדש"), contacted: tx("נצור קשר"), converted: tx("הפך ללקוח"), lost: tx("אבוד") };
 
 function initials(name: string) {
     return name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
@@ -53,10 +54,10 @@ function avatarColor(name: string) {
 
 function timeAgo(iso: string) {
     const diff = (Date.now() - new Date(iso).getTime()) / 1000;
-    if (diff < 60) return "עכשיו";
-    if (diff < 3600) return `לפני ${Math.floor(diff / 60)}ד'`;
-    if (diff < 86400) return `לפני ${Math.floor(diff / 3600)}ש'`;
-    return `לפני ${Math.floor(diff / 86400)} ימים`;
+    if (diff < 60) return tx("עכשיו");
+    if (diff < 3600) return tx("לפני {0}ד'", { 0: Math.floor(diff / 60) });
+    if (diff < 86400) return tx("לפני {0}ש'", { 0: Math.floor(diff / 3600) });
+    return tx("לפני {0} ימים", { 0: Math.floor(diff / 86400) });
 }
 
 function DetailPanel({ lead, onClose, onUpdate }: { lead: Lead; onClose: () => void; onUpdate: (l: Lead) => void }) {
@@ -75,7 +76,7 @@ function DetailPanel({ lead, onClose, onUpdate }: { lead: Lead; onClose: () => v
     };
 
     return (
-        <div className="flex flex-col h-full bg-white" dir="rtl">
+        <div className="flex flex-col h-full bg-white">
             {/* Header */}
             <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-100">
                 <div className={`w-11 h-11 rounded-full flex items-center justify-center text-white font-bold text-sm ${avatarColor(lead.name)}`}>
@@ -117,11 +118,11 @@ function DetailPanel({ lead, onClose, onUpdate }: { lead: Lead; onClose: () => v
             {/* Note input */}
             <div className="px-4 pb-4 pt-2 border-t border-slate-100">
                 <div className="flex gap-2">
-                    <input value={note} onChange={e => setNote(e.target.value)} placeholder="הוסף הערה..."
+                    <input value={note} onChange={e => setNote(e.target.value)} placeholder={tx("הוסף הערה...")}
                         className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-400" />
                     <button onClick={() => save()} disabled={saving || !note.trim()}
                         className="bg-sky-600 hover:bg-sky-700 text-white px-4 py-2 rounded-xl text-sm font-semibold disabled:opacity-40 transition-all">
-                        שמור
+                        {tx("שמור")}
                     </button>
                 </div>
             </div>
@@ -165,33 +166,33 @@ export default function AdminLeadsPage() {
     };
 
     return (
-        <div className="h-screen flex flex-col bg-slate-50" dir="rtl">
+        <div className="h-screen flex flex-col bg-slate-50">
             {/* Top bar */}
             <div className="bg-white border-b border-slate-200 px-4 py-3 flex items-center gap-3 flex-wrap">
                 <button onClick={() => router.push("/admin")} className="text-slate-500 hover:text-slate-800 text-sm font-medium flex items-center gap-1">
-                    ← ניהול
+                    {tx("← ניהול")}
                 </button>
-                <h1 className="text-lg font-bold text-slate-800 flex-1">📥 לידים — כל הסטודיואים</h1>
-                <span className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded-full font-medium">{visible.length} לידים</span>
+                <h1 className="text-lg font-bold text-slate-800 flex-1">{tx("📥 לידים — כל הסטודיואים")}</h1>
+                <span className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded-full font-medium">{visible.length}{tx(" לידים")}</span>
             </div>
 
             {/* Filters */}
             <div className="bg-white border-b border-slate-100 px-4 py-2 flex items-center gap-2 flex-wrap">
-                <input value={search} onChange={e => setSearch(e.target.value)} placeholder="חיפוש שם / טלפון..."
+                <input value={search} onChange={e => setSearch(e.target.value)} placeholder={tx("חיפוש שם / טלפון...")}
                     className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-blue-400 w-44" />
                 <select value={filterSource} onChange={e => setFilterSource(e.target.value)}
                     className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-sm outline-none">
-                    <option value="">כל המקורות</option>
+                    <option value="">{tx("כל המקורות")}</option>
                     {Object.keys(SOURCE_ICONS).map(s => <option key={s} value={s}>{SOURCE_ICONS[s]} {s}</option>)}
                 </select>
                 <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
                     className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-sm outline-none">
-                    <option value="">כל הסטטוסים</option>
+                    <option value="">{tx("כל הסטטוסים")}</option>
                     {STATUSES.map(s => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
                 </select>
                 <select value={filterStudio} onChange={e => setFilterStudio(e.target.value)}
                     className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-sm outline-none">
-                    <option value="">כל הסטודיואים</option>
+                    <option value="">{tx("כל הסטודיואים")}</option>
                     {studios.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
             </div>
@@ -199,18 +200,18 @@ export default function AdminLeadsPage() {
             {/* Body */}
             <div className="flex flex-1 overflow-hidden">
                 {/* Lead list */}
-                <div className={`flex flex-col overflow-y-auto border-r border-slate-200 bg-white ${selected ? "w-96 hidden md:flex" : "flex-1"}`}>
+                <div className={`flex flex-col overflow-y-auto border-s border-slate-200 bg-white ${selected ? "w-96 hidden md:flex" : "flex-1"}`}>
                     {loading ? (
                         <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-sky-600" /></div>
                     ) : visible.length === 0 ? (
                         <div className="text-center py-20 text-slate-400">
                             <div className="text-4xl mb-3">📭</div>
-                            <p>אין לידים להצגה</p>
+                            <p>{tx("אין לידים להצגה")}</p>
                         </div>
                     ) : (
                         visible.map(lead => (
                             <button key={lead.id} onClick={() => setSelected(lead)}
-                                className={`w-full text-right px-4 py-3 border-b border-slate-50 hover:bg-slate-50 transition-colors flex items-center gap-3 ${selected?.id === lead.id ? "bg-blue-50" : ""}`}>
+                                className={`w-full text-start px-4 py-3 border-b border-slate-50 hover:bg-slate-50 transition-colors flex items-center gap-3 ${selected?.id === lead.id ? "bg-blue-50" : ""}`}>
                                 <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0 ${avatarColor(lead.name)}`}>
                                     {initials(lead.name)}
                                 </div>
@@ -242,7 +243,7 @@ export default function AdminLeadsPage() {
                 {!selected && !loading && visible.length > 0 && (
                     <div className="hidden md:flex flex-1 items-center justify-center text-slate-300 flex-col gap-3">
                         <div className="text-5xl">👈</div>
-                        <p className="text-sm">בחר ליד לצפייה</p>
+                        <p className="text-sm">{tx("בחר ליד לצפייה")}</p>
                     </div>
                 )}
             </div>

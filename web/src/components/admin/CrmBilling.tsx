@@ -7,6 +7,7 @@ import { Check, MessageCircle, Plus, Undo2, X } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { formatCurrency, whatsappNumber } from "@/lib/format";
 
+import { tx, intl } from "@/lib/i18n";
 // The businesses' payments to BizControl — the superadmin's CRM, part ג (app/services/platform_billing.py,
 // /api/admin/crm/billing|payments|payment-options). Until card clearing is connected a payment is recorded by hand,
 // and it extends the business's period: monthly one month, annual twelve.
@@ -26,20 +27,20 @@ type Cycle = "monthly" | "annual";
 export type PayFor = { id: string; name: string; plan_id?: string; cycle?: Cycle };
 
 const STATE: Record<Collect["state"], { label: string; cls: string }> = {
-    due_soon:     { label: "מגיע תשלום",       cls: "bg-amber-50 text-amber-800 border-amber-200" },
-    overdue:      { label: "באיחור",            cls: "bg-rose-50 text-rose-700 border-rose-200" },
-    trial_ending: { label: "חודש חינם נגמר",    cls: "bg-slate-50 text-slate-700 border-slate-200" },
-    trial_ended:  { label: "לא בחר מסלול",      cls: "bg-rose-50 text-rose-700 border-rose-200" },
+    due_soon:     { label: tx("מגיע תשלום"),       cls: "bg-amber-50 text-amber-800 border-amber-200" },
+    overdue:      { label: tx("באיחור"),            cls: "bg-rose-50 text-rose-700 border-rose-200" },
+    trial_ending: { label: tx("חודש חינם נגמר"),    cls: "bg-slate-50 text-slate-700 border-slate-200" },
+    trial_ended:  { label: tx("לא בחר מסלול"),      cls: "bg-rose-50 text-rose-700 border-rose-200" },
 };
-const CYCLE: Record<Cycle, string> = { monthly: "חודשי", annual: "שנתי" };
+const CYCLE: Record<Cycle, string> = { monthly: tx("חודשי"), annual: tx("שנתי") };
 const input = "w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-slate-300";
-const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("he-IL") : "—");
+const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString(intl()) : "—");
 const today = () => new Date().toLocaleDateString("en-CA");      // yyyy-mm-dd, the local day
 
 function when(c: Collect): string {
     const n = Math.abs(c.days_left);
-    if (c.days_left < 0) return n === 1 ? "נגמר אתמול" : `נגמר לפני ${n} ימים`;
-    return c.days_left === 0 ? "נגמר היום" : n === 1 ? "נגמר מחר" : `נגמר בעוד ${n} ימים`;
+    if (c.days_left < 0) return n === 1 ? tx("נגמר אתמול") : tx("נגמר לפני {0} ימים", { 0: n });
+    return c.days_left === 0 ? tx("נגמר היום") : n === 1 ? tx("נגמר מחר") : tx("נגמר בעוד {0} ימים", { 0: n });
 }
 
 export function RecordPayment({ business, onClose, onSaved }: { business: PayFor; onClose: () => void; onSaved: () => void }) {
@@ -66,7 +67,7 @@ export function RecordPayment({ business, onClose, onSaved }: { business: PayFor
             const id = o.plans.some(p => p.id === business.plan_id) ? business.plan_id! : (o.plans[0]?.id ?? "");
             setPlanId(id);
             setAmount(priceOf(o, id, business.cycle ?? "monthly"));
-        }).catch(e => setErr(e instanceof Error ? e.message : "הטעינה נכשלה"));
+        }).catch(e => setErr(e instanceof Error ? e.message : tx("הטעינה נכשלה")));
     }, [business.plan_id, business.cycle, priceOf]);
 
     const choose = (id: string, c: Cycle) => { setPlanId(id); setCycle(c); setAmount(priceOf(opts, id, c)); };
@@ -80,7 +81,7 @@ export function RecordPayment({ business, onClose, onSaved }: { business: PayFor
             setUntil(r.period_end);
             onSaved();
         } catch (e) {
-            setErr(e instanceof Error ? e.message : "הרישום נכשל");
+            setErr(e instanceof Error ? e.message : tx("הרישום נכשל"));
         } finally {
             setSaving(false);
         }
@@ -88,28 +89,28 @@ export function RecordPayment({ business, onClose, onSaved }: { business: PayFor
 
     return (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true">
-            <div className="bg-white rounded-2xl w-full max-w-md max-h-[90dvh] flex flex-col shadow-xl" dir="rtl">
+            <div className="bg-white rounded-2xl w-full max-w-md max-h-[90dvh] flex flex-col shadow-xl">
                 <div className="flex items-center justify-between px-6 pt-5 pb-3 border-b border-slate-100">
                     <div>
-                        <h3 className="font-black text-lg text-slate-900">רישום תשלום</h3>
+                        <h3 className="font-black text-lg text-slate-900">{tx("רישום תשלום")}</h3>
                         <p className="text-xs text-slate-500 mt-0.5">{business.name}</p>
                     </div>
-                    <button onClick={onClose} aria-label="סגירה" className="text-slate-400 hover:text-slate-900"><X className="h-5 w-5" /></button>
+                    <button onClick={onClose} aria-label={tx("סגירה")} className="text-slate-400 hover:text-slate-900"><X className="h-5 w-5" /></button>
                 </div>
 
                 {until ? (
                     <div className="p-6 space-y-4">
-                        <div className="flex items-center gap-2 text-emerald-700 font-bold"><Check className="h-5 w-5" /> התשלום נרשם</div>
-                        <p className="text-sm text-slate-700">המנוי של {business.name} בתוקף עד <b>{day(until)}</b>.</p>
-                        <button onClick={onClose} className="w-full bg-slate-900 text-white font-bold py-2.5 rounded-xl">סגירה</button>
+                        <div className="flex items-center gap-2 text-emerald-700 font-bold"><Check className="h-5 w-5" />{tx(" התשלום נרשם")}</div>
+                        <p className="text-sm text-slate-700">{tx("המנוי של ")}{business.name}{tx(" בתוקף עד ")}<b>{day(until)}</b>.</p>
+                        <button onClick={onClose} className="w-full bg-slate-900 text-white font-bold py-2.5 rounded-xl">{tx("סגירה")}</button>
                     </div>
                 ) : (
                     <>
                         <div className="overflow-y-auto flex-1 min-h-0 px-6 py-4 space-y-4">
-                            {!opts && !err && <p className="text-center text-slate-400 py-6">טוען...</p>}
+                            {!opts && !err && <p className="text-center text-slate-400 py-6">{tx("טוען...")}</p>}
                             {opts && <>
                                 <div>
-                                    <p className="text-xs font-semibold text-slate-500 mb-1.5">מסלול</p>
+                                    <p className="text-xs font-semibold text-slate-500 mb-1.5">{tx("מסלול")}</p>
                                     <div className="grid grid-cols-3 gap-2">
                                         {opts.plans.map(p => (
                                             <button key={p.id} type="button" onClick={() => choose(p.id, cycle)} aria-pressed={planId === p.id}
@@ -120,46 +121,46 @@ export function RecordPayment({ business, onClose, onSaved }: { business: PayFor
                                     </div>
                                 </div>
                                 <div>
-                                    <p className="text-xs font-semibold text-slate-500 mb-1.5">על איזו תקופה</p>
+                                    <p className="text-xs font-semibold text-slate-500 mb-1.5">{tx("על איזו תקופה")}</p>
                                     <div className="grid grid-cols-2 gap-2">
                                         {(["monthly", "annual"] as Cycle[]).map(c => (
                                             <button key={c} type="button" onClick={() => choose(planId, c)} aria-pressed={cycle === c}
                                                 className={`py-2 rounded-xl text-sm font-semibold border ${cycle === c ? "bg-slate-900 text-white border-slate-900" : "bg-white text-slate-700 border-slate-200 hover:border-slate-400"}`}>
-                                                {c === "monthly" ? "חודש" : "שנה (12 חודשים)"}
+                                                {c === "monthly" ? tx("חודש") : tx("שנה (12 חודשים)")}
                                             </button>
                                         ))}
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-2 gap-3">
                                     <label className="block">
-                                        <span className="text-xs font-semibold text-slate-500">סכום ששולם (₪)</span>
+                                        <span className="text-xs font-semibold text-slate-500">{tx("סכום ששולם (₪)")}</span>
                                         <input type="number" min={0} step="1" inputMode="decimal" className={`${input} mt-1 tabular-nums`} value={amount} onChange={e => setAmount(e.target.value)} />
                                     </label>
                                     <label className="block">
-                                        <span className="text-xs font-semibold text-slate-500">תאריך התשלום</span>
-                                        <PickerBox type="date" label="תאריך התשלום" value={paidOn} onChange={v => setPaidOn(v)} max={today()} className={cn(`${input} mt-1`, "text-start")} />
+                                        <span className="text-xs font-semibold text-slate-500">{tx("תאריך התשלום")}</span>
+                                        <PickerBox type="date" label={tx("תאריך התשלום")} value={paidOn} onChange={v => setPaidOn(v)} max={today()} className={cn(`${input} mt-1`, "text-start")} />
                                     </label>
                                 </div>
                                 <label className="block">
-                                    <span className="text-xs font-semibold text-slate-500">איך שילם</span>
+                                    <span className="text-xs font-semibold text-slate-500">{tx("איך שילם")}</span>
                                     <select className={`${input} mt-1`} value={method} onChange={e => setMethod(e.target.value)}>
                                         {Object.entries(opts.methods).map(([k, label]) => <option key={k} value={k}>{label}</option>)}
                                     </select>
                                 </label>
                                 <label className="block">
-                                    <span className="text-xs font-semibold text-slate-500">הערה (לא חובה)</span>
-                                    <input className={`${input} mt-1`} value={note} maxLength={500} onChange={e => setNote(e.target.value)} placeholder="למשל: מספר אסמכתא" />
+                                    <span className="text-xs font-semibold text-slate-500">{tx("הערה (לא חובה)")}</span>
+                                    <input className={`${input} mt-1`} value={note} maxLength={500} onChange={e => setNote(e.target.value)} placeholder={tx("למשל: מספר אסמכתא")} />
                                 </label>
-                                <p className="text-xs text-slate-500">המנוי יוארך ב{cycle === "annual" ? "-12 חודשים" : "חודש"} — מהיום, או מסוף התקופה הנוכחית אם עוד לא נגמרה.</p>
+                                <p className="text-xs text-slate-500">{tx("המנוי יוארך ב")}{cycle === "annual" ? tx("-12 חודשים") : tx("חודש")}{tx(" — מהיום, או מסוף התקופה הנוכחית אם עוד לא נגמרה.")}</p>
                             </>}
                             {err && <p className="text-sm text-rose-600">{err}</p>}
                         </div>
                         <div className="flex gap-3 px-6 py-4 border-t border-slate-100">
                             <button onClick={save} disabled={saving || !opts || !planId || amount === "" || Number(amount) < 0}
                                 className="flex-1 bg-slate-900 hover:bg-slate-800 text-white font-bold py-2.5 rounded-xl disabled:opacity-40">
-                                {saving ? "רושם..." : "רישום והארכת המנוי"}
+                                {saving ? tx("רושם...") : tx("רישום והארכת המנוי")}
                             </button>
-                            <button onClick={onClose} className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-sm">ביטול</button>
+                            <button onClick={onClose} className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-sm">{tx("ביטול")}</button>
                         </div>
                     </>
                 )}
@@ -178,28 +179,28 @@ export function CrmPayments({ studioId, reload = 0, onChanged }: { studioId?: st
     }, [studioId, reload, undone]);
 
     const undo = async (p: Payment) => {
-        if (!window.confirm(`לבטל את התשלום של ${p.studio_name} (${formatCurrency(p.amount_ils)})? המנוי יחזור לתאריך שהיה לפניו.`)) return;
+        if (!window.confirm(tx("לבטל את התשלום של {0} ({1})? המנוי יחזור לתאריך שהיה לפניו.", { 0: p.studio_name, 1: formatCurrency(p.amount_ils) }))) return;
         setErr(null);
         try {
             await apiFetch(`/api/admin/crm/payments/${p.id}/undo`, { method: "POST" });
             setUndone(n => n + 1);
             onChanged?.();
         } catch (e) {
-            setErr(e instanceof Error ? e.message : "הביטול נכשל");
+            setErr(e instanceof Error ? e.message : tx("הביטול נכשל"));
         }
     };
 
     const box = "bg-white border border-slate-200 rounded-2xl";
-    if (rows === null) return <p className={`${box} text-center text-sm text-slate-400 py-8`}>טוען...</p>;
-    if (rows.length === 0) return <p className={`${box} text-center text-sm text-slate-400 py-8`}>עוד לא נרשמו תשלומים{studioId ? " מהעסק הזה" : ""}</p>;
+    if (rows === null) return <p className={`${box} text-center text-sm text-slate-400 py-8`}>{tx("טוען...")}</p>;
+    if (rows.length === 0) return <p className={`${box} text-center text-sm text-slate-400 py-8`}>{tx("עוד לא נרשמו תשלומים")}{studioId ? tx(" מהעסק הזה") : ""}</p>;
     return (
         <div className={`${box} overflow-x-auto`}>
             {err && <p className="px-4 pt-3 text-sm text-rose-600">{err}</p>}
             <table className="w-full text-sm">
                 <thead>
                     <tr className="text-slate-500 border-b border-slate-100">
-                        {["תאריך", ...(studioId ? [] : ["עסק"]), "מסלול", "סכום", "איך שילם", "בתוקף עד", "הערה", ""].map(h => (
-                            <th key={h} className="text-right font-semibold px-4 py-3 whitespace-nowrap">{h}</th>
+                        {[tx("תאריך"), ...(studioId ? [] : [tx("עסק")]), tx("מסלול"), tx("סכום"), tx("איך שילם"), tx("בתוקף עד"), tx("הערה"), ""].map(h => (
+                            <th key={h} className="text-start font-semibold px-4 py-3 whitespace-nowrap">{h}</th>
                         ))}
                     </tr>
                 </thead>
@@ -213,11 +214,11 @@ export function CrmPayments({ studioId, reload = 0, onChanged }: { studioId?: st
                             <td className="px-4 py-3 whitespace-nowrap text-slate-600">{p.method}</td>
                             <td className="px-4 py-3 whitespace-nowrap tabular-nums text-slate-600">{day(p.period_end)}</td>
                             <td className="px-4 py-3 text-slate-500">{p.note ?? ""}</td>
-                            <td className="px-4 py-3 text-left whitespace-nowrap">
-                                {p.undone_at ? <span className="text-xs text-slate-500 no-underline">בוטל</span>
+                            <td className="px-4 py-3 text-end whitespace-nowrap">
+                                {p.undone_at ? <span className="text-xs text-slate-500 no-underline">{tx("בוטל")}</span>
                                     : p.can_undo && (
                                         <button onClick={() => undo(p)} className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-rose-600">
-                                            <Undo2 className="h-3.5 w-3.5" aria-hidden /> ביטול רישום
+                                            <Undo2 className="h-3.5 w-3.5" aria-hidden /> {tx("ביטול רישום")}
                                         </button>
                                     )}
                             </td>
@@ -237,10 +238,10 @@ export function CrmBilling() {
 
     useEffect(() => {
         apiFetch<Overview>("/api/admin/crm/billing").then(d => { setData(d); setErr(null); })
-            .catch(e => setErr(e instanceof Error ? e.message : "הטעינה נכשלה"));
+            .catch(e => setErr(e instanceof Error ? e.message : tx("הטעינה נכשלה")));
     }, [reload]);
 
-    if (!data) return err ? <p className="text-sm text-rose-600">{err}</p> : <p className="text-center text-slate-400 py-12">טוען...</p>;
+    if (!data) return err ? <p className="text-sm text-rose-600">{err}</p> : <p className="text-center text-slate-400 py-12">{tx("טוען...")}</p>;
     const dueSoon = data.collect.filter(c => c.state === "due_soon").length;
     const overdue = data.collect.filter(c => c.state === "overdue").length;
 
@@ -248,10 +249,10 @@ export function CrmBilling() {
         <div className="space-y-6">
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                 {[
-                    { label: "צפי הכנסה חודשי", value: formatCurrency(data.monthly_ils), sub: "מנויים פעילים, שנתי מחולק ל-12" },
-                    { label: "התקבל החודש", value: formatCurrency(data.received_this_month_ils), tone: "text-emerald-700" },
-                    { label: "מגיע ב-7 הימים הקרובים", value: formatCurrency(data.due_soon_ils), sub: `${dueSoon} עסקים`, tone: dueSoon ? "text-amber-700" : undefined },
-                    { label: "באיחור", value: formatCurrency(data.overdue_ils), sub: `${overdue} עסקים`, tone: overdue ? "text-rose-700" : undefined },
+                    { label: tx("צפי הכנסה חודשי"), value: formatCurrency(data.monthly_ils), sub: tx("מנויים פעילים, שנתי מחולק ל-12") },
+                    { label: tx("התקבל החודש"), value: formatCurrency(data.received_this_month_ils), tone: "text-emerald-700" },
+                    { label: tx("מגיע ב-7 הימים הקרובים"), value: formatCurrency(data.due_soon_ils), sub: tx("{0} עסקים", { 0: dueSoon }), tone: dueSoon ? "text-amber-700" : undefined },
+                    { label: tx("באיחור"), value: formatCurrency(data.overdue_ils), sub: tx("{0} עסקים", { 0: overdue }), tone: overdue ? "text-rose-700" : undefined },
                 ].map(t => (
                     <div key={t.label} className="bg-white border border-slate-200 rounded-2xl px-4 py-3">
                         <div className={`text-2xl font-black tabular-nums ${t.tone ?? "text-slate-900"}`}>{t.value}</div>
@@ -261,17 +262,17 @@ export function CrmBilling() {
             </div>
 
             <section className="space-y-2">
-                <h2 className="font-bold text-slate-900">לגבייה</h2>
-                <p className="text-xs text-slate-500">עסקים שהמנוי שלהם נגמר בשבוע הקרוב או נגמר בחודש האחרון בלי תשלום, וחודש חינם שנגמר. עסק שביטל בסוף התקופה לא מופיע.</p>
+                <h2 className="font-bold text-slate-900">{tx("לגבייה")}</h2>
+                <p className="text-xs text-slate-500">{tx("עסקים שהמנוי שלהם נגמר בשבוע הקרוב או נגמר בחודש האחרון בלי תשלום, וחודש חינם שנגמר. עסק שביטל בסוף התקופה לא מופיע.")}</p>
                 {data.collect.length === 0 ? (
-                    <p className="bg-white border border-slate-200 rounded-2xl text-center text-sm text-slate-400 py-8">אין כרגע מה לגבות</p>
+                    <p className="bg-white border border-slate-200 rounded-2xl text-center text-sm text-slate-400 py-8">{tx("אין כרגע מה לגבות")}</p>
                 ) : (
                     <div className="bg-white border border-slate-200 rounded-2xl overflow-x-auto">
                         <table className="w-full text-sm">
                             <thead>
                                 <tr className="text-slate-500 border-b border-slate-100">
-                                    {["עסק", "מסלול", "סכום", "מתי", "מצב", ""].map((h, i) => (
-                                        <th key={i} className="text-right font-semibold px-4 py-3 whitespace-nowrap">{h}</th>
+                                    {[tx("עסק"), tx("מסלול"), tx("סכום"), tx("מתי"), tx("מצב"), ""].map((h, i) => (
+                                        <th key={i} className="text-start font-semibold px-4 py-3 whitespace-nowrap">{h}</th>
                                     ))}
                                 </tr>
                             </thead>
@@ -296,10 +297,10 @@ export function CrmBilling() {
                                         <td className="px-4 py-3">
                                             <span className={`inline-block text-xs font-bold px-2 py-0.5 rounded-full border ${STATE[c.state].cls}`}>{STATE[c.state].label}</span>
                                         </td>
-                                        <td className="px-4 py-3 text-left">
+                                        <td className="px-4 py-3 text-end">
                                             <button onClick={() => setPaying({ id: c.id, name: c.name, plan_id: c.plan_id, cycle: c.cycle })}
                                                 className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold bg-slate-900 text-white rounded-lg hover:bg-slate-800 whitespace-nowrap">
-                                                <Plus className="h-3.5 w-3.5" /> רישום תשלום
+                                                <Plus className="h-3.5 w-3.5" /> {tx("רישום תשלום")}
                                             </button>
                                         </td>
                                     </tr>
@@ -311,7 +312,7 @@ export function CrmBilling() {
             </section>
 
             <section className="space-y-2">
-                <h2 className="font-bold text-slate-900">תשלומים שנרשמו</h2>
+                <h2 className="font-bold text-slate-900">{tx("תשלומים שנרשמו")}</h2>
                 <CrmPayments reload={reload} onChanged={() => setReload(n => n + 1)} />
             </section>
 

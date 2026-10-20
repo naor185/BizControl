@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { apiFetch } from "@/lib/api";
 
+import { tx, intl } from "@/lib/i18n";
 interface ModuleDef { id: string; name: string; category: string; sort_order: number; parent_module_id?: string | null; }
 interface StudioRow { id: string; name: string; subscription_plan: string; business_type: string; }
 type ModuleMap = Record<string, boolean>;
@@ -14,20 +15,20 @@ const EMPTY_QUOTA_OVERRIDE: QuotaOverride = { limit_value_override: null, limit_
 interface AddonOption { id: string; display_name: string; price_cents: number; currency: string; billing_type: string; }
 interface StudioAddonRow { id: string; addon_id: string; addon_name: string; status: string; source: string; purchased_at: string; current_period_end: string | null; price_cents_at_purchase: number; }
 const PERIOD_TYPE_LABELS: Record<string, string> = {
-    unlimited: "ללא הגבלה", daily: "יומי", weekly: "שבועי", monthly: "חודשי", yearly: "שנתי", lifetime: "לכל החיים",
+    unlimited: tx("ללא הגבלה"), daily: tx("יומי"), weekly: tx("שבועי"), monthly: tx("חודשי"), yearly: tx("שנתי"), lifetime: tx("לכל החיים"),
 };
 const ON_EXCEED_LABELS: Record<string, string> = {
-    block: "חסום לחלוטין", warn_only: "התרעה בלבד", allow_overage: "המשך עם חריגה",
-    paid_overage: "חריגה בתשלום", auto_increase: "הגדלה אוטומטית", custom: "אחר (עתידי)",
+    block: tx("חסום לחלוטין"), warn_only: tx("התרעה בלבד"), allow_overage: tx("המשך עם חריגה"),
+    paid_overage: tx("חריגה בתשלום"), auto_increase: tx("הגדלה אוטומטית"), custom: tx("אחר (עתידי)"),
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
-    core: "🏗️ ליבה",
-    communication: "💬 תקשורת",
+    core: tx("🏗️ ליבה"),
+    communication: tx("💬 תקשורת"),
     ai: "🤖 AI",
     marketplace: "🌐 Marketplace",
-    advanced: "⚡ מתקדם",
-    finance: "💰 פיננסים",
+    advanced: tx("⚡ מתקדם"),
+    finance: tx("💰 פיננסים"),
 };
 
 const CATEGORY_ORDER = ["core", "communication", "ai", "marketplace", "advanced", "finance"];
@@ -35,7 +36,7 @@ const CATEGORY_ORDER = ["core", "communication", "ai", "marketplace", "advanced"
 const OPTION_STYLE: React.CSSProperties = { background: "#1e1b4b", color: "#fff" };
 
 function cents(v: number, currency = "ILS") {
-    return `${(v / 100).toLocaleString("he-IL", { maximumFractionDigits: 2 })} ${currency}`;
+    return `${(v / 100).toLocaleString(intl(), { maximumFractionDigits: 2 })} ${currency}`;
 }
 
 export default function ModulesAdminPage() {
@@ -197,7 +198,7 @@ export default function ModulesAdminPage() {
     const planModsList = planModules[planForStudio] || [];
 
     const s: Record<string, React.CSSProperties> = {
-        page: { minHeight: "100vh", background: "linear-gradient(135deg,#0f172a,#1e1b4b)", padding: "2rem", fontFamily: "sans-serif", direction: "rtl", color: "#fff" },
+        page: { minHeight: "100vh", background: "linear-gradient(135deg,#0f172a,#1e1b4b)", padding: "2rem", fontFamily: "sans-serif", color: "#fff" },
         header: { display: "flex", alignItems: "center", gap: "1rem", marginBottom: "2rem" },
         backBtn: { color: "#a78bfa", textDecoration: "none", fontSize: "0.9rem" },
         title: { fontSize: "1.8rem", fontWeight: 800, margin: 0 },
@@ -214,19 +215,19 @@ export default function ModulesAdminPage() {
         <div style={s.page}>
             <div style={{ maxWidth: 900, margin: "0 auto" }}>
                 <div style={s.header}>
-                    <a href="/admin" style={s.backBtn}>← חזרה לאדמין</a>
-                    <h1 style={s.title}>🧩 ניהול מודולים</h1>
+                    <a href="/admin" style={s.backBtn}>{tx("← חזרה לאדמין")}</a>
+                    <h1 style={s.title}>{tx("🧩 ניהול מודולים")}</h1>
                 </div>
 
                 {err && <div style={{ background: "rgba(239,68,68,.15)", border: "1px solid rgba(239,68,68,.3)", borderRadius: 12, padding: "0.75rem 1rem", color: "#fca5a5", marginBottom: "1rem" }}>{err}</div>}
 
-                {loading ? <div style={{ color: "#64748b", textAlign: "center", padding: "3rem" }}>טוען...</div> : (
+                {loading ? <div style={{ color: "#64748b", textAlign: "center", padding: "3rem" }}>{tx("טוען...")}</div> : (
                     <>
                         {/* Studio selector */}
                         <div style={s.card}>
-                            <div style={s.label}>בחר סטודיו</div>
+                            <div style={s.label}>{tx("בחר סטודיו")}</div>
                             <select style={s.select} value={selectedStudio} onChange={e => setSelectedStudio(e.target.value)}>
-                                <option value="" style={OPTION_STYLE}>-- בחר סטודיו --</option>
+                                <option value="" style={OPTION_STYLE}>{tx("-- בחר סטודיו --")}</option>
                                 {studios.map(st => (
                                     <option key={st.id} value={st.id} style={OPTION_STYLE}>{st.name} ({st.subscription_plan})</option>
                                 ))}
@@ -237,13 +238,13 @@ export default function ModulesAdminPage() {
                             <>
                                 {/* Business type */}
                                 <div style={s.card}>
-                                    <div style={s.label}>סוג עסק</div>
+                                    <div style={s.label}>{tx("סוג עסק")}</div>
                                     <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginTop: "0.5rem" }}>
                                         {businessTypes.map(bt => (
                                             <button
                                                 key={bt.business_type}
                                                 onClick={() => {
-                                                    const load = window.confirm(`לטעון מודולי ברירת מחדל של "${bt.display_name}"?`);
+                                                    const load = window.confirm(tx("לטעון מודולי ברירת מחדל של \"{0}\"?", { 0: bt.display_name }));
                                                     setBusinessType(bt.business_type, load);
                                                 }}
                                                 disabled={saving === "bt"}
@@ -260,42 +261,42 @@ export default function ModulesAdminPage() {
                                         ))}
                                     </div>
                                     <div style={{ color: "#475569", fontSize: "0.75rem", marginTop: "0.5rem" }}>
-                                        לחיצה על סוג עסק → תשאל אם לטעון מודולים ברירת מחדל
+                                        {tx("לחיצה על סוג עסק → תשאל אם לטעון מודולים ברירת מחדל")}
                                     </div>
                                 </div>
 
                                 {/* Add-ons */}
                                 <div style={s.card}>
-                                    <div style={s.label}>➕ Add-ons פעילים</div>
+                                    <div style={s.label}>{tx("➕ Add-ons פעילים")}</div>
                                     {studioAddons.length === 0 && (
-                                        <div style={{ color: "#64748b", fontSize: "0.82rem", marginBottom: "0.75rem" }}>אין Add-ons פעילים לעסק זה</div>
+                                        <div style={{ color: "#64748b", fontSize: "0.82rem", marginBottom: "0.75rem" }}>{tx("אין Add-ons פעילים לעסק זה")}</div>
                                     )}
                                     {studioAddons.map(sa => (
                                         <div key={sa.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.5rem 0", borderBottom: "1px solid rgba(255,255,255,.05)" }}>
                                             <div>
                                                 <span style={{ fontSize: "0.85rem" }}>{sa.addon_name}</span>
-                                                <span style={{ fontSize: "0.7rem", color: "#64748b", marginRight: 8 }}>
-                                                    {sa.source === "admin_assigned" ? "הוצמד ידנית" : "רכישה עצמאית"}
-                                                    {sa.current_period_end && ` · מתחדש עד ${new Date(sa.current_period_end).toLocaleDateString("he-IL")}`}
+                                                <span style={{ fontSize: "0.7rem", color: "#64748b", marginInlineStart: 8 }}>
+                                                    {sa.source === "admin_assigned" ? tx("הוצמד ידנית") : tx("רכישה עצמאית")}
+                                                    {sa.current_period_end && tx(" · מתחדש עד {0}", { 0: new Date(sa.current_period_end).toLocaleDateString(intl()) })}
                                                 </span>
                                             </div>
                                             <button onClick={() => removeAddon(sa.addon_id)} disabled={savingAddon}
                                                 style={{ background: "rgba(239,68,68,.15)", color: "#f87171", border: "none", borderRadius: 8, padding: "0.25rem 0.7rem", fontSize: "0.72rem", cursor: "pointer" }}>
-                                                הסר
+                                                {tx("הסר")}
                                             </button>
                                         </div>
                                     ))}
                                     <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.75rem" }}>
                                         <select value={addonToAdd} onChange={e => setAddonToAdd(e.target.value)}
                                             style={{ ...s.select, width: "auto", flex: 1, fontSize: "0.82rem" }}>
-                                            <option value="" style={OPTION_STYLE}>-- בחר Add-on להצמדה --</option>
+                                            <option value="" style={OPTION_STYLE}>{tx("-- בחר Add-on להצמדה --")}</option>
                                             {allAddons.filter(a => !studioAddons.some(sa => sa.addon_id === a.id)).map(a => (
                                                 <option key={a.id} value={a.id} style={OPTION_STYLE}>{a.display_name} ({cents(a.price_cents, a.currency)})</option>
                                             ))}
                                         </select>
                                         <button onClick={addAddon} disabled={!addonToAdd || savingAddon}
                                             style={{ background: "#a78bfa", border: "none", borderRadius: 8, padding: "0.4rem 1rem", color: "#1e1b4b", fontWeight: 700, fontSize: "0.8rem", cursor: "pointer", opacity: (!addonToAdd || savingAddon) ? 0.6 : 1 }}>
-                                            + הצמד
+                                            {tx("+ הצמד")}
                                         </button>
                                     </div>
                                 </div>
@@ -303,9 +304,9 @@ export default function ModulesAdminPage() {
                                 {/* Modules grid */}
                                 <div style={s.card}>
                                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-                                        <span style={{ fontWeight: 700, fontSize: "1rem" }}>מודולים — {selectedStudioObj.name}</span>
+                                        <span style={{ fontWeight: 700, fontSize: "1rem" }}>{tx("מודולים — ")}{selectedStudioObj.name}</span>
                                         <span style={{ color: "#64748b", fontSize: "0.8rem" }}>
-                                            plan: <strong style={{ color: "#a78bfa" }}>{planForStudio}</strong> · {Object.values(moduleMap).filter(Boolean).length} פעילים
+                                            plan: <strong style={{ color: "#a78bfa" }}>{planForStudio}</strong> · {Object.values(moduleMap).filter(Boolean).length} {tx("פעילים")}
                                         </span>
                                     </div>
 
@@ -319,21 +320,21 @@ export default function ModulesAdminPage() {
                                                 const qKey = m.id;
                                                 return (
                                                     <div key={m.id}>
-                                                    <div style={{ ...s.moduleRow, paddingRight: m.depth ? "1.5rem" : 0 }}>
+                                                    <div style={{ ...s.moduleRow, paddingInlineStart: m.depth ? "1.5rem" : 0 }}>
                                                         <div>
                                                             <span style={{ ...s.moduleName, color: m.depth ? "#94a3b8" : s.moduleName.color, fontSize: m.depth ? "0.82rem" : s.moduleName.fontSize }}>
                                                                 {m.depth ? `↳ ${m.name}` : m.name}
                                                             </span>
                                                             {fromPlan && !moduleMap.hasOwnProperty(m.id) && (
-                                                                <span style={{ ...s.badge, background: "rgba(96,165,250,.15)", color: "#60a5fa", marginRight: 8 }}>plan</span>
+                                                                <span style={{ ...s.badge, background: "rgba(96,165,250,.15)", color: "#60a5fa", marginInlineStart: 8 }}>plan</span>
                                                             )}
                                                             {moduleMap.hasOwnProperty(m.id) && (
-                                                                <span style={{ ...s.badge, background: "rgba(167,139,250,.15)", color: "#a78bfa", marginRight: 8 }}>override</span>
+                                                                <span style={{ ...s.badge, background: "rgba(167,139,250,.15)", color: "#a78bfa", marginInlineStart: 8 }}>override</span>
                                                             )}
                                                             <button
                                                                 onClick={() => setExpandedQuotaModId(expandedQuotaModId === qKey ? null : qKey)}
-                                                                title="הגדרת מכסה (Limits) לעסק זה"
-                                                                style={{ marginRight: 8, background: "none", border: "none", cursor: "pointer", opacity: 0.6, fontSize: "0.75rem" }}
+                                                                title={tx("הגדרת מכסה (Limits) לעסק זה")}
+                                                                style={{ marginInlineStart: 8, background: "none", border: "none", cursor: "pointer", opacity: 0.6, fontSize: "0.75rem" }}
                                                             >⚙️</button>
                                                         </div>
                                                         <button
@@ -347,50 +348,50 @@ export default function ModulesAdminPage() {
                                                                 minWidth: 70,
                                                             }}
                                                         >
-                                                            {saving === m.id ? "..." : enabled ? "✅ פעיל" : "❌ כבוי"}
+                                                            {saving === m.id ? "..." : enabled ? tx("✅ פעיל") : tx("❌ כבוי")}
                                                         </button>
                                                     </div>
                                                     {expandedQuotaModId === qKey && (
                                                         <div style={{ background: "rgba(167,139,250,.05)", borderRadius: 10, padding: "0.75rem", marginBottom: "0.5rem" }}>
                                                             <div style={{ color: "#94a3b8", fontSize: "0.72rem", marginBottom: "0.5rem" }}>
-                                                                Override תוספתי/מוחלט לעסק זה — ריק = ירושה מהפלאן
+                                                                {tx("Override תוספתי/מוחלט לעסק זה — ריק = ירושה מהפלאן")}
                                                             </div>
                                                             <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginBottom: "0.5rem" }}>
                                                                 <select value={q.period_type_override ?? ""} onChange={e => setQuotaField(qKey, "period_type_override", e.target.value || null)}
                                                                     style={{ ...s.select, width: "auto", fontSize: "0.75rem", padding: "0.3rem 0.5rem" }}>
-                                                                    <option value="" style={OPTION_STYLE}>(ירושה מהפלאן)</option>
+                                                                    <option value="" style={OPTION_STYLE}>{tx("(ירושה מהפלאן)")}</option>
                                                                     {Object.entries(PERIOD_TYPE_LABELS).map(([v, l]) => <option key={v} value={v} style={OPTION_STYLE}>{l}</option>)}
                                                                 </select>
                                                                 <select value={q.on_exceed_action_override ?? ""} onChange={e => setQuotaField(qKey, "on_exceed_action_override", e.target.value || null)}
                                                                     style={{ ...s.select, width: "auto", fontSize: "0.75rem", padding: "0.3rem 0.5rem" }}>
-                                                                    <option value="" style={OPTION_STYLE}>(ירושה מהפלאן)</option>
+                                                                    <option value="" style={OPTION_STYLE}>{tx("(ירושה מהפלאן)")}</option>
                                                                     {Object.entries(ON_EXCEED_LABELS).map(([v, l]) => <option key={v} value={v} style={OPTION_STYLE}>{l}</option>)}
                                                                 </select>
                                                             </div>
                                                             <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginBottom: "0.5rem" }}>
                                                                 <label style={{ fontSize: "0.72rem", color: "#94a3b8" }}>
-                                                                    מכסה מוחלטת (override):
+                                                                    {tx("מכסה מוחלטת (override):")}
                                                                     <input type="number" value={q.limit_value_override ?? ""}
                                                                         onChange={e => setQuotaField(qKey, "limit_value_override", e.target.value === "" ? null : Number(e.target.value))}
-                                                                        style={{ ...s.select, width: 90, fontSize: "0.75rem", padding: "0.25rem 0.5rem", marginRight: 6 }} />
+                                                                        style={{ ...s.select, width: 90, fontSize: "0.75rem", padding: "0.25rem 0.5rem", marginInlineStart: 6 }} />
                                                                 </label>
                                                                 <label style={{ fontSize: "0.72rem", color: "#94a3b8" }}>
-                                                                    תוספת (+delta):
+                                                                    {tx("תוספת (+delta):")}
                                                                     <input type="number" value={q.limit_value_delta ?? ""}
                                                                         onChange={e => setQuotaField(qKey, "limit_value_delta", e.target.value === "" ? null : Number(e.target.value))}
-                                                                        style={{ ...s.select, width: 90, fontSize: "0.75rem", padding: "0.25rem 0.5rem", marginRight: 6 }} />
+                                                                        style={{ ...s.select, width: 90, fontSize: "0.75rem", padding: "0.25rem 0.5rem", marginInlineStart: 6 }} />
                                                                 </label>
                                                             </div>
                                                             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "0.5rem" }}>
                                                                 <button onClick={() => saveQuotaOverride(qKey)} disabled={savingQuota === qKey}
                                                                     style={{ fontSize: "0.75rem", background: "#a78bfa", border: "none", borderRadius: 8, color: "#1e1b4b", padding: "0.35rem 0.9rem", cursor: "pointer", fontWeight: 700, opacity: savingQuota === qKey ? 0.6 : 1 }}>
-                                                                    {savingQuota === qKey ? "..." : "💾 שמור Override"}
+                                                                    {savingQuota === qKey ? "..." : tx("💾 שמור Override")}
                                                                 </button>
                                                                 <label style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.72rem", color: q.is_locked ? "#f87171" : "#94a3b8", cursor: "pointer" }}
-                                                                    title="נעילה = החלטת Super Admin סופית — שום Add-on לא יוכל לעקוף אותה">
+                                                                    title={tx("נעילה = החלטת Super Admin סופית — שום Add-on לא יוכל לעקוף אותה")}>
                                                                     <input type="checkbox" checked={!!q.is_locked} disabled={savingQuota === qKey}
                                                                         onChange={e => saveLock(qKey, e.target.checked)} />
-                                                                    🔒 נעול (חוסם גם Add-ons)
+                                                                    {tx("🔒 נעול (חוסם גם Add-ons)")}
                                                                 </label>
                                                             </div>
                                                         </div>
@@ -404,8 +405,8 @@ export default function ModulesAdminPage() {
 
                                 {/* Plan legend */}
                                 <div style={{ color: "#475569", fontSize: "0.78rem", textAlign: "center" }}>
-                                    <span style={{ color: "#60a5fa" }}>plan</span> = נכלל בחבילה, ללא override ·{" "}
-                                    <span style={{ color: "#a78bfa" }}>override</span> = הוגדר ידנית ע"י Super Admin
+                                    <span style={{ color: "#60a5fa" }}>plan</span>{tx(" = נכלל בחבילה, ללא override ·")}{" "}
+                                    <span style={{ color: "#a78bfa" }}>override</span> {tx("= הוגדר ידנית ע\"י Super Admin")}
                                 </div>
                             </>
                         )}

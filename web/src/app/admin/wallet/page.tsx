@@ -6,6 +6,7 @@ import { apiFetch } from "@/lib/api";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 
+import { tx } from "@/lib/i18n";
 type VarStatus = Record<string, boolean>;
 
 type WalletSystemStatus = {
@@ -70,9 +71,9 @@ function ProviderCard({
                         <div className="font-black text-slate-900 text-lg">{title}</div>
                         <div className="text-xs text-slate-500 mt-0.5">{description}</div>
                     </div>
-                    <div className="mr-auto">
+                    <div className="ms-auto">
                         <span className={`text-xs font-black px-3 py-1.5 rounded-full ${configured ? "bg-emerald-100 text-emerald-700 border border-emerald-200" : "bg-amber-100 text-amber-700 border border-amber-200"}`}>
-                            {configured ? "✅ מוגדר ומוכן" : "⚠️ חסרים פרמטרים"}
+                            {configured ? tx("✅ מוגדר ומוכן") : tx("⚠️ חסרים פרמטרים")}
                         </span>
                     </div>
                 </div>
@@ -97,7 +98,7 @@ export default function AdminWalletPage() {
         setLoading(true);
         apiFetch<WalletSystemStatus>("/api/admin/wallet-system")
             .then(s => setStatus(s))
-            .catch(() => toast.error("שגיאה בטעינת סטטוס Wallet"))
+            .catch(() => toast.error(tx("שגיאה בטעינת סטטוס Wallet")))
             .finally(() => setLoading(false));
     };
 
@@ -108,23 +109,23 @@ export default function AdminWalletPage() {
     const allOk = appleOk && googleOk;
 
     return (
-        <div className="max-w-3xl mx-auto py-8 px-4 space-y-8" dir="rtl">
+        <div className="max-w-3xl mx-auto py-8 px-4 space-y-8">
 
             <Link href="/admin" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-900">
-                <ArrowRight className="h-4 w-4" /> חזרה לאדמין
+                <ArrowRight className="ltr:-scale-x-100 h-4 w-4" /> {tx("חזרה לאדמין")}
             </Link>
 
             {/* Page header */}
             <div className="flex items-start justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-black text-slate-900">Wallet System Settings</h1>
-                    <p className="text-slate-500 text-sm mt-1">הגדרות מרכזיות עבור Apple Wallet ו-Google Wallet — גלויות לסופר אדמין בלבד</p>
+                    <p className="text-slate-500 text-sm mt-1">{tx("הגדרות מרכזיות עבור Apple Wallet ו-Google Wallet — גלויות לסופר אדמין בלבד")}</p>
                 </div>
                 <button
                     onClick={load}
                     className="px-4 py-2 text-sm font-bold bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors text-slate-700"
                 >
-                    רענן
+                    {tx("רענן")}
                 </button>
             </div>
 
@@ -136,12 +137,12 @@ export default function AdminWalletPage() {
                     </div>
                     <div>
                         <div className={`font-black text-lg ${allOk ? "text-emerald-800" : "text-amber-800"}`}>
-                            {allOk ? "Wallet System — מוכן לפעולה" : "Wallet System — טרם הוגדר"}
+                            {allOk ? tx("Wallet System — מוכן לפעולה") : tx("Wallet System — טרם הוגדר")}
                         </div>
                         <div className={`text-sm mt-0.5 ${allOk ? "text-emerald-700" : "text-amber-700"}`}>
                             {allOk
-                                ? "כל הפרמטרים מוגדרים. כפתורי Apple/Google Wallet יופיעו אוטומטית בפורטל הלקוחות."
-                                : "הגדר את משתני הסביבה החסרים בסביבת הייצור (Railway / Render) כדי להפעיל את שירות ה-Wallet."}
+                                ? tx("כל הפרמטרים מוגדרים. כפתורי Apple/Google Wallet יופיעו אוטומטית בפורטל הלקוחות.")
+                                : tx("הגדר את משתני הסביבה החסרים בסביבת הייצור (Railway / Render) כדי להפעיל את שירות ה-Wallet.")}
                         </div>
                     </div>
                 </div>
@@ -159,7 +160,7 @@ export default function AdminWalletPage() {
                         configured={status.apple.configured}
                         vars={status.apple.vars}
                         varLabels={APPLE_VAR_LABELS}
-                        description="Apple Developer Certificate + Pass Type ID נדרשים"
+                        description={tx("Apple Developer Certificate + Pass Type ID נדרשים")}
                     />
 
                     <ProviderCard
@@ -168,30 +169,30 @@ export default function AdminWalletPage() {
                         configured={status.google.configured}
                         vars={status.google.vars}
                         varLabels={GOOGLE_VAR_LABELS}
-                        description="Google Cloud Service Account + Issuer ID נדרשים"
+                        description={tx("Google Cloud Service Account + Issuer ID נדרשים")}
                     />
                 </div>
             )}
 
             {/* Instructions */}
             <div className="bg-slate-50 rounded-3xl border border-slate-200 p-6 space-y-4 text-sm text-slate-600">
-                <div className="font-black text-slate-800 text-base">כיצד להגדיר</div>
+                <div className="font-black text-slate-800 text-base">{tx("כיצד להגדיר")}</div>
                 <div className="space-y-2">
                     <div className="font-bold text-slate-700">Apple Wallet:</div>
-                    <ol className="list-decimal list-inside space-y-1 text-xs leading-relaxed pr-2">
-                        <li>צור Pass Type ID ב-Apple Developer Console</li>
-                        <li>הורד את ה-Certificate (.p12) ועבד אותו ל-PEM</li>
-                        <li>הורד את ה-WWDR Certificate מ-Apple</li>
-                        <li>קד את כל הקבצים ב-base64 והגדר כ-ENV vars ב-Railway</li>
+                    <ol className="list-decimal list-inside space-y-1 text-xs leading-relaxed ps-2">
+                        <li>{tx("צור Pass Type ID ב-Apple Developer Console")}</li>
+                        <li>{tx("הורד את ה-Certificate (.p12) ועבד אותו ל-PEM")}</li>
+                        <li>{tx("הורד את ה-WWDR Certificate מ-Apple")}</li>
+                        <li>{tx("קד את כל הקבצים ב-base64 והגדר כ-ENV vars ב-Railway")}</li>
                     </ol>
                 </div>
                 <div className="space-y-2">
                     <div className="font-bold text-slate-700">Google Wallet:</div>
-                    <ol className="list-decimal list-inside space-y-1 text-xs leading-relaxed pr-2">
-                        <li>צור פרויקט ב-Google Cloud עם Google Wallet API</li>
-                        <li>צור Service Account עם Wallet Object Issuer role</li>
-                        <li>הורד את קובץ ה-JSON וקד אותו ב-base64</li>
-                        <li>קבל Issuer ID מ-Google Pay & Wallet Console</li>
+                    <ol className="list-decimal list-inside space-y-1 text-xs leading-relaxed ps-2">
+                        <li>{tx("צור פרויקט ב-Google Cloud עם Google Wallet API")}</li>
+                        <li>{tx("צור Service Account עם Wallet Object Issuer role")}</li>
+                        <li>{tx("הורד את קובץ ה-JSON וקד אותו ב-base64")}</li>
+                        <li>{tx("קבל Issuer ID מ-Google Pay & Wallet Console")}</li>
                     </ol>
                 </div>
             </div>

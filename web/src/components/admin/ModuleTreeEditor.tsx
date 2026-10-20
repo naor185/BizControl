@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { toast } from "@/lib/toast";
 
+import { tx } from "@/lib/i18n";
 export interface Module { id: string; name: string; category: string; parent_module_id?: string | null; }
 export interface PlanQuota { limit_value: number | null; period_type: string; on_exceed_action: string; auto_increase_by: number | null; }
 export interface PackageData {
@@ -13,11 +14,11 @@ export interface PackageData {
 const DEFAULT_QUOTA: PlanQuota = { limit_value: null, period_type: "unlimited", on_exceed_action: "block", auto_increase_by: null };
 const OPTION_STYLE = { background: "#1e1b4b", color: "#e2e8f0" };
 const PERIOD_TYPE_LABELS: Record<string, string> = {
-    unlimited: "ללא הגבלה", daily: "יומי", weekly: "שבועי", monthly: "חודשי", yearly: "שנתי", lifetime: "לכל החיים",
+    unlimited: tx("ללא הגבלה"), daily: tx("יומי"), weekly: tx("שבועי"), monthly: tx("חודשי"), yearly: tx("שנתי"), lifetime: tx("לכל החיים"),
 };
 const ON_EXCEED_LABELS: Record<string, string> = {
-    block: "חסום לחלוטין", warn_only: "התרעה בלבד", allow_overage: "המשך עם חריגה",
-    paid_overage: "חריגה בתשלום", auto_increase: "הגדלה אוטומטית", custom: "אחר (עתידי)",
+    block: tx("חסום לחלוטין"), warn_only: tx("התרעה בלבד"), allow_overage: tx("המשך עם חריגה"),
+    paid_overage: tx("חריגה בתשלום"), auto_increase: tx("הגדלה אוטומטית"), custom: tx("אחר (עתידי)"),
 };
 
 export const PLAN_LABELS: Record<string, { label: string; color: string; icon: string }> = {
@@ -37,8 +38,8 @@ export function planMeta(plan: string) {
 
 const CAT_ORDER = ["core","communication","ai","marketplace","advanced","finance"];
 const CAT_LABELS: Record<string, string> = {
-    core: "🏗️ ליבה", communication: "💬 תקשורת", ai: "🤖 AI",
-    marketplace: "🌐 Marketplace", advanced: "⚡ מתקדם", finance: "💰 פיננסים",
+    core: tx("🏗️ ליבה"), communication: tx("💬 תקשורת"), ai: "🤖 AI",
+    marketplace: "🌐 Marketplace", advanced: tx("⚡ מתקדם"), finance: tx("💰 פיננסים"),
 };
 
 interface Props {
@@ -98,7 +99,7 @@ export default function ModuleTreeEditor({ planFilter, showSearch = false }: Pro
                 method: "PUT",
                 body: JSON.stringify({ plan, module_id: modId, ...q }),
             });
-            toast.success("מכסה עודכנה!");
+            toast.success(tx("מכסה עודכנה!"));
         } catch (e: any) { toast.error(e.message); }
         finally { setSavingQuota(null); }
     };
@@ -122,7 +123,7 @@ export default function ModuleTreeEditor({ planFilter, showSearch = false }: Pro
                 method: "PUT",
                 body: JSON.stringify({ plan, module_ids: edits[plan] || [] }),
             });
-            toast.success(`חבילת ${plan} עודכנה!`);
+            toast.success(tx("חבילת {0} עודכנה!", { 0: plan }));
         } catch (e: any) { toast.error(e.message); }
         finally { setSaving(null); }
     };
@@ -151,7 +152,7 @@ export default function ModuleTreeEditor({ planFilter, showSearch = false }: Pro
         return { cat, label: CAT_LABELS[cat] || cat, mods: ordered };
     }).filter(g => g.mods.length > 0);
 
-    if (loading) return <div style={{ color: "#64748b", textAlign: "center", padding: "3rem" }}>טוען...</div>;
+    if (loading) return <div style={{ color: "#64748b", textAlign: "center", padding: "3rem" }}>{tx("טוען...")}</div>;
 
     return (
         <div style={{ overflowX: "auto" }}>
@@ -159,14 +160,14 @@ export default function ModuleTreeEditor({ planFilter, showSearch = false }: Pro
                 <input
                     value={search}
                     onChange={e => setSearch(e.target.value)}
-                    placeholder="🔍 חיפוש מודול..."
+                    placeholder={tx("🔍 חיפוש מודול...")}
                     style={{ width: "100%", maxWidth: 320, marginBottom: "1rem", background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.15)", borderRadius: 10, padding: "0.55rem 0.9rem", color: "#e2e8f0", fontSize: "0.85rem" }}
                 />
             )}
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
                 <thead>
                     <tr style={{ background: "rgba(255,255,255,.04)" }}>
-                        <th style={{ padding: "1rem", textAlign: "right", color: "#94a3b8", width: 200 }}>מודול</th>
+                        <th style={{ padding: "1rem", textAlign: "start", color: "#94a3b8", width: 200 }}>{tx("מודול")}</th>
                         {visiblePlans.map(plan => {
                             const p = planMeta(plan);
                             return (
@@ -193,8 +194,8 @@ export default function ModuleTreeEditor({ planFilter, showSearch = false }: Pro
                                         {mod.depth ? `↳ ${mod.name}` : mod.name}
                                         <button
                                             onClick={() => setExpandedQuotaModId(expandedQuotaModId === mod.id ? null : mod.id)}
-                                            title="הגדרת מכסה (Limits)"
-                                            style={{ marginRight: 8, background: "none", border: "none", cursor: "pointer", opacity: 0.6, fontSize: "0.8rem" }}
+                                            title={tx("הגדרת מכסה (Limits)")}
+                                            style={{ marginInlineStart: 8, background: "none", border: "none", cursor: "pointer", opacity: 0.6, fontSize: "0.8rem" }}
                                         >⚙️</button>
                                     </td>
                                     {visiblePlans.map(plan => {
@@ -232,7 +233,7 @@ export default function ModuleTreeEditor({ planFilter, showSearch = false }: Pro
                                                                     style={{ flex: 1, fontSize: "0.75rem", background: "#1e1b4b", color: "#e2e8f0", border: "1px solid rgba(255,255,255,.15)", borderRadius: 6, padding: "0.25rem", colorScheme: "dark" }}>
                                                                     {Object.entries(PERIOD_TYPE_LABELS).map(([v, l]) => <option key={v} value={v} style={OPTION_STYLE}>{l}</option>)}
                                                                 </select>
-                                                                <input type="number" placeholder="מכסה" value={qv.limit_value ?? ""}
+                                                                <input type="number" placeholder={tx("מכסה")} value={qv.limit_value ?? ""}
                                                                     onChange={e => setQuotaField(plan, mod.id, "limit_value", e.target.value === "" ? null : Number(e.target.value))}
                                                                     disabled={qv.period_type === "unlimited"}
                                                                     style={{ width: 70, fontSize: "0.75rem", background: "#1e1b4b", color: "#e2e8f0", border: "1px solid rgba(255,255,255,.15)", borderRadius: 6, padding: "0.25rem" }} />
@@ -244,7 +245,7 @@ export default function ModuleTreeEditor({ planFilter, showSearch = false }: Pro
                                                             </select>
                                                             <button onClick={() => saveQuota(plan, mod.id)} disabled={savingQuota === key}
                                                                 style={{ width: "100%", fontSize: "0.75rem", background: p.color, border: "none", borderRadius: 6, color: "#fff", padding: "0.3rem", cursor: "pointer", opacity: savingQuota === key ? 0.6 : 1 }}>
-                                                                {savingQuota === key ? "..." : "💾 שמור מכסה"}
+                                                                {savingQuota === key ? "..." : tx("💾 שמור מכסה")}
                                                             </button>
                                                         </div>
                                                     );
@@ -259,7 +260,7 @@ export default function ModuleTreeEditor({ planFilter, showSearch = false }: Pro
                     ))}
                     {/* Save row */}
                     <tr style={{ background: "rgba(255,255,255,.03)" }}>
-                        <td style={{ padding: "1rem", color: "#64748b", fontSize: "0.8rem" }}>שמור שינויים ↓</td>
+                        <td style={{ padding: "1rem", color: "#64748b", fontSize: "0.8rem" }}>{tx("שמור שינויים ↓")}</td>
                         {visiblePlans.map(plan => {
                             const p = planMeta(plan);
                             return (
@@ -273,7 +274,7 @@ export default function ModuleTreeEditor({ planFilter, showSearch = false }: Pro
                                             fontWeight: 600, fontSize: "0.8rem", opacity: saving === plan ? 0.6 : 1,
                                         }}
                                     >
-                                        {saving === plan ? "..." : "💾 שמור"}
+                                        {saving === plan ? "..." : tx("💾 שמור")}
                                     </button>
                                 </td>
                             );

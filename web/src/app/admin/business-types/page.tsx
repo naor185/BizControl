@@ -8,6 +8,7 @@ import { apiFetch } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import BusinessTypeIcon from "@/components/BusinessTypeIcon";
 
+import { tx, intl } from "@/lib/i18n";
 type BusinessType = {
     business_type: string;
     display_name: string;
@@ -80,8 +81,8 @@ function Fields({ d, set, meta }: { d: Draft; set: (patch: Partial<Draft>) => vo
     return (
         <div className="grid sm:grid-cols-2 gap-3">
             <div className="sm:col-span-2">
-                <h3 className="text-sm font-bold text-slate-800">המילים של התחום</h3>
-                <p className="text-xs text-slate-500">שדה ריק = המילה הכללית (מוצגת באפור). בעלי עסקים יכולים לשנות לעצמם.</p>
+                <h3 className="text-sm font-bold text-slate-800">{tx("המילים של התחום")}</h3>
+                <p className="text-xs text-slate-500">{tx("שדה ריק = המילה הכללית (מוצגת באפור). בעלי עסקים יכולים לשנות לעצמם.")}</p>
             </div>
             {Object.keys(meta.term_labels).map(k => (
                 <div key={k}>
@@ -91,54 +92,54 @@ function Fields({ d, set, meta }: { d: Draft; set: (patch: Partial<Draft>) => vo
                 </div>
             ))}
             <div className="sm:col-span-2">
-                <label className={labelCls}>נוסח ברירת מחדל: {meta.message_keys.aftercare} (ריק = הנוסח הכללי, בלי הוראות טיפול)</label>
+                <label className={labelCls}>{tx("נוסח ברירת מחדל: ")}{meta.message_keys.aftercare}{tx(" (ריק = הנוסח הכללי, בלי הוראות טיפול)")}</label>
                 <textarea className={inputCls + " min-h-28"} value={d.aftercare} placeholder={meta.generic_messages.aftercare}
                     maxLength={2000} onChange={e => set({ aftercare: e.target.value })} />
             </div>
             <div className="sm:col-span-2 border-t border-slate-100 pt-3">
-                <h3 className="text-sm font-bold text-slate-800">הצגה וזיהוי</h3>
+                <h3 className="text-sm font-bold text-slate-800">{tx("הצגה וזיהוי")}</h3>
             </div>
             <div>
-                <label className={labelCls}>שם התחום</label>
+                <label className={labelCls}>{tx("שם התחום")}</label>
                 <input className={inputCls} value={d.display_name} onChange={e => set({ display_name: e.target.value })} maxLength={128} />
             </div>
             <div>
-                <label className={labelCls}>אייקון (שם ב-Lucide, למשל scissors)</label>
+                <label className={labelCls}>{tx("אייקון (שם ב-Lucide, למשל scissors)")}</label>
                 <div className="flex items-center gap-2">
                     <span className="grid place-items-center h-9 w-9 shrink-0 rounded-lg border border-slate-200 bg-slate-50">
                         <BusinessTypeIcon name={d.icon.trim()} size={18} color={d.color} />
                     </span>
                     <input className={inputCls} dir="ltr" value={d.icon} onChange={e => set({ icon: e.target.value })} />
                 </div>
-                {!iconOk && <p className="text-xs text-rose-600 mt-1">אין אייקון בשם הזה ב-Lucide</p>}
+                {!iconOk && <p className="text-xs text-rose-600 mt-1">{tx("אין אייקון בשם הזה ב-Lucide")}</p>}
             </div>
             <div>
-                <label className={labelCls}>צבע</label>
+                <label className={labelCls}>{tx("צבע")}</label>
                 <div className="flex items-center gap-2">
                     <input type="color" className="h-9 w-12 rounded border border-slate-300" value={d.color} onChange={e => set({ color: e.target.value })} />
                     <input className={inputCls} dir="ltr" value={d.color} onChange={e => set({ color: e.target.value })} />
                 </div>
             </div>
             <div>
-                <label className={labelCls}>תגית OpenStreetMap לייבוא ל-BizFind</label>
+                <label className={labelCls}>{tx("תגית OpenStreetMap לייבוא ל-BizFind")}</label>
                 <input className={inputCls} dir="ltr" placeholder="shop=hairdresser" value={d.osm_tag} onChange={e => set({ osm_tag: e.target.value })} />
             </div>
             <div className="sm:col-span-2">
-                <label className={labelCls}>שמות נוספים שהמערכת מזהה כתחום הזה (מופרדים בפסיק)</label>
+                <label className={labelCls}>{tx("שמות נוספים שהמערכת מזהה כתחום הזה (מופרדים בפסיק)")}</label>
                 <input className={inputCls} value={d.aliases} onChange={e => set({ aliases: e.target.value })} />
             </div>
             <div>
-                <label className={labelCls}>מיקום ברשימה (מספר קטן = למעלה)</label>
+                <label className={labelCls}>{tx("מיקום ברשימה (מספר קטן = למעלה)")}</label>
                 <input className={inputCls} dir="ltr" inputMode="numeric" value={d.sort_order} onChange={e => set({ sort_order: e.target.value.replace(/[^\d]/g, "") })} />
             </div>
             <div className="flex flex-col justify-end gap-2 text-sm text-slate-700">
                 <label className="inline-flex items-center gap-2">
                     <input type="checkbox" checked={d.is_directory_only} onChange={e => set({ is_directory_only: e.target.checked })} />
-                    רק אינדקס ב-BizFind (עסק בלי תורים)
+                    {tx("רק אינדקס ב-BizFind (עסק בלי תורים)")}
                 </label>
                 <label className="inline-flex items-center gap-2">
                     <input type="checkbox" checked={d.is_active} onChange={e => set({ is_active: e.target.checked })} />
-                    פעיל — מופיע בהרשמה ובחיפוש
+                    {tx("פעיל — מופיע בהרשמה ובחיפוש")}
                 </label>
             </div>
         </div>
@@ -165,7 +166,7 @@ export default function AdminBusinessTypesPage() {
             apiFetch<Meta>("/api/admin/business-types/word-changes"),
         ])
             .then(([t, n, m]) => { setTypes(t); setNotes(n); setMeta(m); setError(null); })
-            .catch(e => setError(e instanceof Error ? e.message : "הטעינה נכשלה"));
+            .catch(e => setError(e instanceof Error ? e.message : tx("הטעינה נכשלה")));
     }, []);
 
     useEffect(() => { load(); }, [load]);
@@ -175,27 +176,27 @@ export default function AdminBusinessTypesPage() {
         setSaving(true);
         try {
             await apiFetch(`/api/admin/business-types/${key}`, { method: "PATCH", body: JSON.stringify(fromDraft(draft)) });
-            toast.success("נשמר");
+            toast.success(tx("נשמר"));
             setEditing(null);
             load();
         } catch (e) {
-            toast.error(e instanceof Error ? e.message : "השמירה נכשלה");
+            toast.error(e instanceof Error ? e.message : tx("השמירה נכשלה"));
         } finally {
             setSaving(false);
         }
     }
 
     async function promote(c: WordChange) {
-        if (!window.confirm(`להפוך את "${c.owner_word}" למילה של כל עסקי ${c.type_label}?`)) return;
+        if (!window.confirm(tx("להפוך את \"{0}\" למילה של כל עסקי {1}?", { 0: c.owner_word, 1: c.type_label }))) return;
         setSaving(true);
         try {
             await apiFetch(`/api/admin/business-types/${c.business_type}`, {
                 method: "PATCH", body: JSON.stringify({ terms: { [c.term]: c.owner_word } }),
             });
-            toast.success("עודכן לכל התחום");
+            toast.success(tx("עודכן לכל התחום"));
             load();
         } catch (e) {
-            toast.error(e instanceof Error ? e.message : "העדכון נכשל");
+            toast.error(e instanceof Error ? e.message : tx("העדכון נכשל"));
         } finally {
             setSaving(false);
         }
@@ -209,37 +210,37 @@ export default function AdminBusinessTypesPage() {
                 method: "POST",
                 body: JSON.stringify({ business_type: newKey.trim(), ...fromDraft(newDraft) }),
             });
-            toast.success("התחום נוסף");
+            toast.success(tx("התחום נוסף"));
             setNewDraft(null);
             setNewKey("");
             load();
         } catch (e) {
-            toast.error(e instanceof Error ? e.message : "ההוספה נכשלה");
+            toast.error(e instanceof Error ? e.message : tx("ההוספה נכשלה"));
         } finally {
             setSaving(false);
         }
     }
 
     return (
-        <div className="max-w-5xl mx-auto py-8 px-4 space-y-8" dir="rtl">
+        <div className="max-w-5xl mx-auto py-8 px-4 space-y-8">
             <Link href="/admin" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-900">
-                <ArrowRight className="h-4 w-4" /> חזרה לאדמין
+                <ArrowRight className="ltr:-scale-x-100 h-4 w-4" /> {tx("חזרה לאדמין")}
             </Link>
 
             <div className="flex items-start justify-between gap-4 flex-wrap">
                 <div>
-                    <h1 className="text-2xl font-black text-slate-900">תחומי עסק</h1>
-                    <p className="text-slate-500 text-sm mt-1">הרשימה היחידה של התחומים. ההרשמה ל-BizControl ול-BizFind, החיפוש, המפה והייבוא קוראים ממנה.</p>
+                    <h1 className="text-2xl font-black text-slate-900">{tx("תחומי עסק")}</h1>
+                    <p className="text-slate-500 text-sm mt-1">{tx("הרשימה היחידה של התחומים. ההרשמה ל-BizControl ול-BizFind, החיפוש, המפה והייבוא קוראים ממנה.")}</p>
                 </div>
                 <div className="flex gap-2">
                     <button onClick={load} className="px-4 py-2 text-sm font-bold bg-slate-100 hover:bg-slate-200 rounded-xl flex items-center gap-2 text-slate-700">
-                        <RefreshCw className="h-4 w-4" /> רענן
+                        <RefreshCw className="h-4 w-4" /> {tx("רענן")}
                     </button>
                     <button
                         onClick={() => meta && setNewDraft(blankDraft(meta))}
                         className="px-4 py-2 text-sm font-bold bg-violet-600 hover:bg-violet-700 text-white rounded-xl flex items-center gap-2"
                     >
-                        <Plus className="h-4 w-4" /> תחום חדש
+                        <Plus className="h-4 w-4" /> {tx("תחום חדש")}
                     </button>
                 </div>
             </div>
@@ -248,15 +249,15 @@ export default function AdminBusinessTypesPage() {
 
             {newDraft && (
                 <section className="bg-white rounded-2xl border border-violet-200 p-5 space-y-4">
-                    <h2 className="font-bold text-slate-900">תחום חדש</h2>
+                    <h2 className="font-bold text-slate-900">{tx("תחום חדש")}</h2>
                     <div className="sm:w-1/2">
-                        <label className={labelCls}>מזהה באנגלית (אותיות קטנות, ספרות וקו תחתון — לא ניתן לשנות אחר כך)</label>
+                        <label className={labelCls}>{tx("מזהה באנגלית (אותיות קטנות, ספרות וקו תחתון — לא ניתן לשנות אחר כך)")}</label>
                         <input className={inputCls} dir="ltr" placeholder="yoga_studio" value={newKey} onChange={e => setNewKey(e.target.value.toLowerCase())} />
                     </div>
                     {meta && <Fields d={newDraft} set={p => setNewDraft({ ...newDraft, ...p })} meta={meta} />}
                     <div className="flex gap-2">
-                        <button disabled={saving} onClick={create} className="px-4 py-2 text-sm font-bold bg-violet-600 hover:bg-violet-700 text-white rounded-xl disabled:opacity-50">הוסף</button>
-                        <button onClick={() => setNewDraft(null)} className="px-4 py-2 text-sm font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl">ביטול</button>
+                        <button disabled={saving} onClick={create} className="px-4 py-2 text-sm font-bold bg-violet-600 hover:bg-violet-700 text-white rounded-xl disabled:opacity-50">{tx("הוסף")}</button>
+                        <button onClick={() => setNewDraft(null)} className="px-4 py-2 text-sm font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl">{tx("ביטול")}</button>
                     </div>
                 </section>
             )}
@@ -272,13 +273,13 @@ export default function AdminBusinessTypesPage() {
                                 <div className="flex-1 min-w-0">
                                     <div className="font-bold text-slate-900">
                                         {t.display_name}
-                                        {t.is_directory_only && <span className="mr-2 text-[11px] font-semibold text-sky-700 bg-sky-50 border border-sky-200 rounded-md px-1.5 py-0.5">אינדקס בלבד</span>}
-                                        {!t.is_active && <span className="mr-2 text-[11px] font-semibold text-slate-600 bg-slate-100 rounded-md px-1.5 py-0.5">כבוי</span>}
+                                        {t.is_directory_only && <span className="ms-2 text-[11px] font-semibold text-sky-700 bg-sky-50 border border-sky-200 rounded-md px-1.5 py-0.5">{tx("אינדקס בלבד")}</span>}
+                                        {!t.is_active && <span className="ms-2 text-[11px] font-semibold text-slate-600 bg-slate-100 rounded-md px-1.5 py-0.5">{tx("כבוי")}</span>}
                                     </div>
                                     <div className="text-xs text-slate-500 truncate">
                                         <span className="font-mono" dir="ltr">{t.business_type}</span>
                                         {t.osm_tag && <> · OSM <span className="font-mono" dir="ltr">{t.osm_tag}</span></>}
-                                        {t.aliases?.length > 0 && <> · מזהה גם: {t.aliases.join(", ")}</>}
+                                        {t.aliases?.length > 0 && <>{tx(" · מזהה גם: ")}{t.aliases.join(", ")}</>}
                                     </div>
                                 </div>
                                 {editing !== t.business_type && (
@@ -286,7 +287,7 @@ export default function AdminBusinessTypesPage() {
                                         onClick={() => { if (meta) { setEditing(t.business_type); setDraft(toDraft(t, meta)); } }}
                                         className="px-3 py-1.5 text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg"
                                     >
-                                        עריכה
+                                        {tx("עריכה")}
                                     </button>
                                 )}
                             </div>
@@ -294,8 +295,8 @@ export default function AdminBusinessTypesPage() {
                                 <div className="mt-4 space-y-3 border-t border-slate-100 pt-4">
                                     {meta && <Fields d={draft} set={p => setDraft({ ...draft, ...p })} meta={meta} />}
                                     <div className="flex gap-2">
-                                        <button disabled={saving} onClick={() => save(t.business_type)} className="px-4 py-2 text-sm font-bold bg-violet-600 hover:bg-violet-700 text-white rounded-xl disabled:opacity-50">שמירה</button>
-                                        <button onClick={() => setEditing(null)} className="px-4 py-2 text-sm font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl">ביטול</button>
+                                        <button disabled={saving} onClick={() => save(t.business_type)} className="px-4 py-2 text-sm font-bold bg-violet-600 hover:bg-violet-700 text-white rounded-xl disabled:opacity-50">{tx("שמירה")}</button>
+                                        <button onClick={() => setEditing(null)} className="px-4 py-2 text-sm font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl">{tx("ביטול")}</button>
                                     </div>
                                 </div>
                             )}
@@ -305,10 +306,10 @@ export default function AdminBusinessTypesPage() {
             )}
 
             <section className="space-y-3">
-                <h2 className="font-bold text-slate-800">מילים ששינו בעלי עסקים</h2>
-                <p className="text-slate-500 text-sm">כשכמה עסקים מאותו תחום משנים מילה באותה צורה — כנראה שזו המילה הנכונה לתחום.</p>
+                <h2 className="font-bold text-slate-800">{tx("מילים ששינו בעלי עסקים")}</h2>
+                <p className="text-slate-500 text-sm">{tx("כשכמה עסקים מאותו תחום משנים מילה באותה צורה — כנראה שזו המילה הנכונה לתחום.")}</p>
                 {!meta || meta.changes.length === 0 ? (
-                    <div className="text-sm text-slate-400">אין עדיין.</div>
+                    <div className="text-sm text-slate-400">{tx("אין עדיין.")}</div>
                 ) : (
                     <div className="bg-white rounded-2xl border border-slate-200 divide-y divide-slate-100">
                         {meta.changes.map(c => (
@@ -317,14 +318,14 @@ export default function AdminBusinessTypesPage() {
                                     <div className="font-semibold text-slate-900">
                                         {c.type_label} · {c.term_label}: <span className="text-slate-400 line-through">{c.field_word}</span> ← {c.owner_word}
                                     </div>
-                                    <div className="text-xs text-slate-500 truncate">{c.count} עסקים: {c.studios.join(", ")}</div>
+                                    <div className="text-xs text-slate-500 truncate">{c.count}{tx(" עסקים: ")}{c.studios.join(", ")}</div>
                                 </div>
                                 <button
                                     onClick={() => promote(c)}
                                     disabled={saving}
                                     className="shrink-0 px-3 py-1.5 text-xs font-bold bg-violet-600 hover:bg-violet-700 text-white rounded-lg disabled:opacity-50"
                                 >
-                                    להפוך לברירת המחדל של התחום
+                                    {tx("להפוך לברירת המחדל של התחום")}
                                 </button>
                             </div>
                         ))}
@@ -333,22 +334,22 @@ export default function AdminBusinessTypesPage() {
             </section>
 
             <section className="space-y-3">
-                <h2 className="font-bold text-slate-800">עסקים שבחרו &quot;אחר&quot; — מה כתבו</h2>
-                <p className="text-slate-500 text-sm">מה שבעלי עסקים כתבו כשאף תחום לא התאים. כך רואים איזה תחום כדאי להוסיף.</p>
+                <h2 className="font-bold text-slate-800">{tx("עסקים שבחרו \"אחר\" — מה כתבו")}</h2>
+                <p className="text-slate-500 text-sm">{tx("מה שבעלי עסקים כתבו כשאף תחום לא התאים. כך רואים איזה תחום כדאי להוסיף.")}</p>
                 {notes.length === 0 ? (
-                    <div className="text-sm text-slate-400">אין עדיין.</div>
+                    <div className="text-sm text-slate-400">{tx("אין עדיין.")}</div>
                 ) : (
                     <div className="bg-white rounded-2xl border border-slate-200 divide-y divide-slate-100">
                         {notes.map(n => (
                             <div key={n.studio_id} className="px-4 py-3 flex items-center justify-between gap-3 text-sm">
                                 <span className="font-semibold text-slate-900">{n.note}</span>
                                 <span className="flex items-center gap-3 min-w-0">
-                                    <span className="text-slate-500 truncate">{n.name}{n.created_at ? ` · ${new Date(n.created_at).toLocaleDateString("he-IL")}` : ""}</span>
+                                    <span className="text-slate-500 truncate">{n.name}{n.created_at ? ` · ${new Date(n.created_at).toLocaleDateString(intl())}` : ""}</span>
                                     <button
                                         onClick={() => { if (meta) { setNewKey(""); setNewDraft(blankDraft(meta, n.note)); window.scrollTo({ top: 0, behavior: "smooth" }); } }}
                                         className="shrink-0 px-3 py-1.5 text-xs font-bold bg-violet-50 hover:bg-violet-100 text-violet-700 rounded-lg"
                                     >
-                                        צור תחום מזה
+                                        {tx("צור תחום מזה")}
                                     </button>
                                 </span>
                             </div>

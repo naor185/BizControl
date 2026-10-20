@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { apiFetch } from "@/lib/api";
 import PasswordInput from "@/components/PasswordInput";
 
+import { tx, intl } from "@/lib/i18n";
 // ── Types ──────────────────────────────────────────────────────────────────
 
 interface SystemSettings {
@@ -135,28 +136,28 @@ export default function EmailCenterPage() {
     const set = (k: keyof SystemSettings, v: any) => setForm(p => ({ ...p, [k]: v }));
 
     if (loading) return (
-        <div className="min-h-screen flex items-center justify-center text-slate-400" dir="rtl">טוען...</div>
+        <div className="min-h-screen flex items-center justify-center text-slate-400">{tx("טוען...")}</div>
     );
 
     const PROVIDERS = [
-        { value: "resend", label: "Resend", desc: "מומלץ — API פשוט, ביצועים גבוהים" },
-        { value: "mailgun", label: "Mailgun", desc: "אמין, מתאים לנפחים גדולים" },
-        { value: "ses", label: "Amazon SES", desc: "הכי זול, מורכב להגדרה" },
+        { value: "resend", label: "Resend", desc: tx("מומלץ — API פשוט, ביצועים גבוהים") },
+        { value: "mailgun", label: "Mailgun", desc: tx("אמין, מתאים לנפחים גדולים") },
+        { value: "ses", label: "Amazon SES", desc: tx("הכי זול, מורכב להגדרה") },
     ];
 
     return (
-        <div dir="rtl" className="min-h-screen bg-slate-50 pb-20">
+        <div className="min-h-screen bg-slate-50 pb-20">
             {/* Header */}
             <div className="bg-white border-b border-slate-100 sticky top-0 z-10" style={{ top: "env(safe-area-inset-top, 0px)" }}>
                 <div className="max-w-4xl mx-auto px-4 py-4 flex items-center gap-3">
                     <a href="/admin" className="text-slate-400 hover:text-black text-xl">←</a>
                     <div>
                         <h1 className="text-lg font-bold text-slate-900">Email Center</h1>
-                        <p className="text-xs text-slate-400">תשתית מייל מרכזית — BizControl</p>
+                        <p className="text-xs text-slate-400">{tx("תשתית מייל מרכזית — BizControl")}</p>
                     </div>
                     {settings && (
-                        <span className={`mr-auto text-xs font-bold px-2.5 py-1 rounded-full ${settings.email_sending_enabled ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"}`}>
-                            {settings.email_sending_enabled ? "✓ פעיל" : "✗ כבוי"}
+                        <span className={`ms-auto text-xs font-bold px-2.5 py-1 rounded-full ${settings.email_sending_enabled ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"}`}>
+                            {settings.email_sending_enabled ? tx("✓ פעיל") : tx("✗ כבוי")}
                         </span>
                     )}
                 </div>
@@ -164,9 +165,9 @@ export default function EmailCenterPage() {
                 {/* Tabs */}
                 <div className="max-w-4xl mx-auto px-4 flex gap-1 pb-0">
                     {[
-                        { id: "settings", label: "⚙️ הגדרות" },
-                        { id: "logs",     label: "📋 לוגים" },
-                        { id: "stats",    label: "📊 סטטיסטיקות" },
+                        { id: "settings", label: tx("⚙️ הגדרות") },
+                        { id: "logs",     label: tx("📋 לוגים") },
+                        { id: "stats",    label: tx("📊 סטטיסטיקות") },
                     ].map(t => (
                         <button key={t.id} type="button" onClick={() => setTab(t.id as any)} className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors ${tab === t.id ? "border-slate-900 text-slate-900" : "border-transparent text-slate-400 hover:text-slate-600"}`}>
                             {t.label}
@@ -181,11 +182,11 @@ export default function EmailCenterPage() {
                 {tab === "settings" && (
                     <>
                         {/* Provider */}
-                        <Section title="ספק שליחה" icon="🚀">
+                        <Section title={tx("ספק שליחה")} icon="🚀">
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                 {PROVIDERS.map(p => (
                                     <button key={p.value} type="button" onClick={() => set("provider", p.value)}
-                                        className={`p-4 rounded-2xl border-2 text-right transition-all ${form.provider === p.value ? "border-slate-900 bg-slate-50" : "border-slate-200 hover:border-slate-300"}`}>
+                                        className={`p-4 rounded-2xl border-2 text-start transition-all ${form.provider === p.value ? "border-slate-900 bg-slate-50" : "border-slate-200 hover:border-slate-300"}`}>
                                         <div className="font-bold text-slate-800">{p.label}</div>
                                         <div className="text-xs text-slate-400 mt-0.5">{p.desc}</div>
                                     </button>
@@ -200,7 +201,7 @@ export default function EmailCenterPage() {
                                             {settings.api_key_masked}
                                         </div>
                                         <button type="button" onClick={() => setShowApiKey(true)} className="px-4 py-2 text-sm border border-slate-200 rounded-xl hover:bg-slate-50">
-                                            החלף
+                                            {tx("החלף")}
                                         </button>
                                     </div>
                                 ) : (
@@ -218,46 +219,46 @@ export default function EmailCenterPage() {
                         </Section>
 
                         {/* Email Addresses */}
-                        <Section title="כתובות מייל" icon="📧">
+                        <Section title={tx("כתובות מייל")} icon="📧">
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
-                                    <label className={lbl}>מייל מערכת (כניסה / איפוס סיסמה)</label>
+                                    <label className={lbl}>{tx("מייל מערכת (כניסה / איפוס סיסמה)")}</label>
                                     <input value={form.system_email || ""} onChange={e => set("system_email", e.target.value)}
                                         className={inp} dir="ltr" placeholder="system@biz-control.com" type="email" />
-                                    <p className="text-xs text-slate-400 mt-1">נשלח ממנו: OTP, איפוס סיסמה, התראות פנימיות</p>
+                                    <p className="text-xs text-slate-400 mt-1">{tx("נשלח ממנו: OTP, איפוס סיסמה, התראות פנימיות")}</p>
                                 </div>
                                 <div>
-                                    <label className={lbl}>מייל ללקוחות (תורים / קבלות)</label>
+                                    <label className={lbl}>{tx("מייל ללקוחות (תורים / קבלות)")}</label>
                                     <input value={form.notification_email || ""} onChange={e => set("notification_email", e.target.value)}
                                         className={inp} dir="ltr" placeholder="appointments@biz-control.com" type="email" />
-                                    <p className="text-xs text-slate-400 mt-1">נשלח ממנו: אישור תור, קבלה, תזכורות ללקוח קצה</p>
+                                    <p className="text-xs text-slate-400 mt-1">{tx("נשלח ממנו: אישור תור, קבלה, תזכורות ללקוח קצה")}</p>
                                 </div>
                                 <div>
-                                    <label className={lbl}>מייל תמיכה</label>
+                                    <label className={lbl}>{tx("מייל תמיכה")}</label>
                                     <input value={form.support_email || ""} onChange={e => set("support_email", e.target.value)}
                                         className={inp} dir="ltr" placeholder="support@biz-control.com" type="email" />
                                 </div>
                                 <div>
-                                    <label className={lbl}>Reply-To ברירת מחדל</label>
+                                    <label className={lbl}>{tx("Reply-To ברירת מחדל")}</label>
                                     <input value={form.reply_email_default || ""} onChange={e => set("reply_email_default", e.target.value)}
                                         className={inp} dir="ltr" placeholder="support@biz-control.com" type="email" />
                                 </div>
                             </div>
                             <div className="mt-3 p-3 bg-blue-50 rounded-xl text-xs text-blue-700 space-y-1">
-                                <div className="font-semibold mb-1">תצוגה מקדימה:</div>
-                                <div className="font-mono">🔑 מערכת → From: <strong>{form.system_email || "system@biz-control.com"}</strong></div>
-                                <div className="font-mono">📅 לקוחות → From: <strong>{form.notification_email || "appointments@biz-control.com"}</strong></div>
+                                <div className="font-semibold mb-1">{tx("תצוגה מקדימה:")}</div>
+                                <div className="font-mono">{tx("🔑 מערכת → From: ")}<strong>{form.system_email || "system@biz-control.com"}</strong></div>
+                                <div className="font-mono">{tx("📅 לקוחות → From: ")}<strong>{form.notification_email || "appointments@biz-control.com"}</strong></div>
                             </div>
                         </Section>
 
                         {/* Enable/Disable toggles */}
-                        <Section title="הפעלה / כיבוי" icon="🔘">
+                        <Section title={tx("הפעלה / כיבוי")} icon="🔘">
                             <div className="space-y-3">
                                 {[
-                                    { key: "email_sending_enabled",      label: "שליחת מיילים כללית",      desc: "מתג ראשי — כיבוי מבטל הכל" },
-                                    { key: "appointment_emails_enabled",  label: "מיילים לתורים",           desc: "אישורים, תזכורות, ביטולים" },
-                                    { key: "invoice_emails_enabled",      label: "מיילים לחשבוניות",        desc: "קבלות, חשבוניות מס, זיכויים" },
-                                    { key: "marketing_emails_enabled",    label: "מיילים שיווקיים",         desc: "ימי הולדת, קמפיינים, קופונים" },
+                                    { key: "email_sending_enabled",      label: tx("שליחת מיילים כללית"),      desc: tx("מתג ראשי — כיבוי מבטל הכל") },
+                                    { key: "appointment_emails_enabled",  label: tx("מיילים לתורים"),           desc: tx("אישורים, תזכורות, ביטולים") },
+                                    { key: "invoice_emails_enabled",      label: tx("מיילים לחשבוניות"),        desc: tx("קבלות, חשבוניות מס, זיכויים") },
+                                    { key: "marketing_emails_enabled",    label: tx("מיילים שיווקיים"),         desc: tx("ימי הולדת, קמפיינים, קופונים") },
                                 ].map(t => (
                                     <div key={t.key} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
                                         <div>
@@ -271,29 +272,29 @@ export default function EmailCenterPage() {
                         </Section>
 
                         {/* Test Send */}
-                        <Section title="שליחת מייל בדיקה" icon="🧪">
+                        <Section title={tx("שליחת מייל בדיקה")} icon="🧪">
                             <div className="flex gap-2">
                                 <input value={testEmail} onChange={e => setTestEmail(e.target.value)}
                                     placeholder="email@example.com" type="email"
                                     className={`${inp} flex-1`} dir="ltr" />
                                 <button type="button" onClick={sendTest} disabled={testing || !testEmail}
                                     className="px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-semibold disabled:opacity-50 hover:bg-slate-700 transition">
-                                    {testing ? "שולח..." : "שלח בדיקה"}
+                                    {testing ? tx("שולח...") : tx("שלח בדיקה")}
                                 </button>
                             </div>
-                            {testResult === "ok" && <div className="mt-2 text-sm text-emerald-700 bg-emerald-50 rounded-xl px-4 py-2.5">✅ מייל הבדיקה נשלח בהצלחה!</div>}
-                            {testResult === "err" && <div className="mt-2 text-sm text-red-700 bg-red-50 rounded-xl px-4 py-2.5">❌ שליחה נכשלה — בדוק מפתח API וספק</div>}
+                            {testResult === "ok" && <div className="mt-2 text-sm text-emerald-700 bg-emerald-50 rounded-xl px-4 py-2.5">{tx("✅ מייל הבדיקה נשלח בהצלחה!")}</div>}
+                            {testResult === "err" && <div className="mt-2 text-sm text-red-700 bg-red-50 rounded-xl px-4 py-2.5">{tx("❌ שליחה נכשלה — בדוק מפתח API וספק")}</div>}
                         </Section>
 
                         {/* Save */}
                         <button type="button" onClick={save} disabled={saving}
                             className="w-full py-3.5 bg-slate-900 text-white rounded-2xl font-black text-base hover:bg-slate-700 transition disabled:opacity-60">
-                            {saved ? "✓ נשמר בהצלחה!" : saving ? "שומר..." : "שמור הגדרות"}
+                            {saved ? tx("✓ נשמר בהצלחה!") : saving ? tx("שומר...") : tx("שמור הגדרות")}
                         </button>
 
                         {settings?.updated_at && (
                             <p className="text-center text-xs text-slate-400">
-                                עודכן לאחרונה: {new Date(settings.updated_at).toLocaleString("he-IL")}
+                                {tx("עודכן לאחרונה:")} {new Date(settings.updated_at).toLocaleString(intl())}
                             </p>
                         )}
                     </>
@@ -301,30 +302,30 @@ export default function EmailCenterPage() {
 
                 {/* ── LOGS TAB ── */}
                 {tab === "logs" && (
-                    <Section title={`לוג שליחות (${logsTotal})`} icon="📋">
+                    <Section title={tx("לוג שליחות ({0})", { 0: logsTotal })} icon="📋">
                         {logs.length === 0 ? (
                             <div className="text-center py-12 text-slate-400">
                                 <div className="text-4xl mb-2">📭</div>
-                                <div>אין מיילים שנשלחו עדיין</div>
+                                <div>{tx("אין מיילים שנשלחו עדיין")}</div>
                             </div>
                         ) : (
                             <div className="overflow-x-auto">
                                 <table className="w-full text-sm">
                                     <thead>
                                         <tr className="border-b border-slate-100">
-                                            <th className="pb-2 text-right text-xs font-semibold text-slate-400">תאריך</th>
-                                            <th className="pb-2 text-right text-xs font-semibold text-slate-400">נמען</th>
-                                            <th className="pb-2 text-right text-xs font-semibold text-slate-400">נושא</th>
-                                            <th className="pb-2 text-right text-xs font-semibold text-slate-400">תבנית</th>
-                                            <th className="pb-2 text-right text-xs font-semibold text-slate-400">סטודיו</th>
-                                            <th className="pb-2 text-right text-xs font-semibold text-slate-400">סטטוס</th>
+                                            <th className="pb-2 text-start text-xs font-semibold text-slate-400">{tx("תאריך")}</th>
+                                            <th className="pb-2 text-start text-xs font-semibold text-slate-400">{tx("נמען")}</th>
+                                            <th className="pb-2 text-start text-xs font-semibold text-slate-400">{tx("נושא")}</th>
+                                            <th className="pb-2 text-start text-xs font-semibold text-slate-400">{tx("תבנית")}</th>
+                                            <th className="pb-2 text-start text-xs font-semibold text-slate-400">{tx("סטודיו")}</th>
+                                            <th className="pb-2 text-start text-xs font-semibold text-slate-400">{tx("סטטוס")}</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {logs.map(l => (
                                             <tr key={l.id} className="border-b border-slate-50 hover:bg-slate-50">
                                                 <td className="py-2 text-xs text-slate-400 font-mono whitespace-nowrap">
-                                                    {new Date(l.sent_at).toLocaleString("he-IL")}
+                                                    {new Date(l.sent_at).toLocaleString(intl())}
                                                 </td>
                                                 <td className="py-2 text-xs font-mono">{l.recipient_email}</td>
                                                 <td className="py-2 text-xs text-slate-600 max-w-xs truncate">{l.subject}</td>
@@ -332,7 +333,7 @@ export default function EmailCenterPage() {
                                                 <td className="py-2 text-xs text-slate-500">{l.studio_name || "—"}</td>
                                                 <td className="py-2">
                                                     <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${l.status === "sent" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"}`}>
-                                                        {l.status === "sent" ? "✓ נשלח" : "✗ נכשל"}
+                                                        {l.status === "sent" ? tx("✓ נשלח") : tx("✗ נכשל")}
                                                     </span>
                                                     {l.error_message && <div className="text-xs text-red-500 mt-0.5 max-w-xs truncate">{l.error_message}</div>}
                                                 </td>
@@ -350,10 +351,10 @@ export default function EmailCenterPage() {
                     <>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                             {[
-                                { label: "סה\"כ מיילים", value: stats.total, color: "text-slate-800" },
-                                { label: "נשלחו",        value: stats.sent,  color: "text-emerald-700" },
-                                { label: "נכשלו",        value: stats.failed, color: "text-red-600" },
-                                { label: "אחוז הצלחה",  value: `${stats.success_rate}%`, color: "text-blue-700" },
+                                { label: tx("סה\"כ מיילים"), value: stats.total, color: "text-slate-800" },
+                                { label: tx("נשלחו"),        value: stats.sent,  color: "text-emerald-700" },
+                                { label: tx("נכשלו"),        value: stats.failed, color: "text-red-600" },
+                                { label: tx("אחוז הצלחה"),  value: `${stats.success_rate}%`, color: "text-blue-700" },
                             ].map(k => (
                                 <div key={k.label} className="bg-white rounded-2xl p-4 text-center border border-slate-100 shadow-sm">
                                     <div className={`text-2xl font-black ${k.color}`}>{k.value}</div>
@@ -363,7 +364,7 @@ export default function EmailCenterPage() {
                         </div>
 
                         <div className="grid sm:grid-cols-2 gap-4">
-                            <Section title="לפי תבנית" icon="📄">
+                            <Section title={tx("לפי תבנית")} icon="📄">
                                 {stats.by_template.map(r => (
                                     <div key={r.template_key} className="flex justify-between items-center py-1.5 border-b border-slate-50 last:border-0">
                                         <span className="font-mono text-xs bg-slate-100 px-2 py-0.5 rounded-full text-slate-600">{r.template_key}</span>
@@ -372,16 +373,16 @@ export default function EmailCenterPage() {
                                 ))}
                             </Section>
 
-                            <Section title="לפי סטודיו" icon="🏠">
+                            <Section title={tx("לפי סטודיו")} icon="🏠">
                                 {stats.by_studio.map(r => (
                                     <div key={r.name} className="flex justify-between items-center py-1.5 border-b border-slate-50 last:border-0">
-                                        <span className="text-sm text-slate-700">{r.name || "מערכת"}</span>
+                                        <span className="text-sm text-slate-700">{r.name || tx("מערכת")}</span>
                                         <span className="font-bold text-slate-800">{r.cnt}</span>
                                     </div>
                                 ))}
                             </Section>
 
-                            <Section title="לפי חודש" icon="📅" className="sm:col-span-2">
+                            <Section title={tx("לפי חודש")} icon="📅" className="sm:col-span-2">
                                 <div className="flex gap-2 overflow-x-auto pb-1">
                                     {stats.by_month.map(r => (
                                         <div key={r.month} className="flex-shrink-0 flex flex-col items-center gap-1">
