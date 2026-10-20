@@ -17,7 +17,7 @@ _CHANNEL_LABEL = {"whatsapp": "וואטסאפ", "email": "מייל", "push": "פ
 
 
 def _notify_message_failed(db: Session, job: MessageJob) -> None:
-    """Surface a permanently-failed message (exhausted its 3 retry attempts)
+    """Surface a permanently-failed message (exhausted its retries, RETRY_AFTER_MINUTES)
     as an in-app notification, so the studio finds out from the bell icon
     instead of only by noticing a client never got confirmation."""
     try:
@@ -49,6 +49,9 @@ BEFORE_APPOINTMENT = frozenset({
     "1day", "3day", "7day", "same_day", "2hours", "clock_in_nudge", "1day_email", "3day_email", "7day_email", "same_day_email",
     "new_appointment", "reschedule", "deposit_24h", "health_form",
 })
+# A message that didn't go is tried again 2, 10 and 30 minutes later — then it has failed. Tries in a row a minute apart
+# all fell inside one short outage (2026-10-20: Green API "starting" for a few minutes, 12 messages lost for good).
+RETRY_AFTER_MINUTES = (2, 10, 30)
 from app.crud.automation import format_template, pay_link
 from app.utils.logger import get_logger
 
@@ -412,6 +415,12 @@ def process_due_jobs(db: Session, limit: int = 20) -> int:
                     job.last_error = "התור כבר התחיל — ההודעה לא נשלחה"
                     count += 1
                     continue
+                # nor once the appointment was canceled (2026-10-20: a retry would have confirmed a canceled one)
+                if _appt is not None and _appt.status in ("canceled", "no_show"):
+                    job.status = "canceled"
+                    job.last_error = "התור בוטל — ההודעה לא נשלחה"
+                    count += 1
+                    continue
 
             # Club invite: skip if client already joined the club since enqueueing
             if getattr(job, "reminder_type", None) in ("club_invite", "club_invite_email") and job.client_id:
@@ -524,11 +533,12 @@ def process_due_jobs(db: Session, limit: int = 20) -> int:
             job.attempts = int(job.attempts or 0) + 1
             job.last_error = mask_secrets(str(e))          # a provider's error can carry the account's key
             alert_account_failure(db, job.studio_id, job.channel, job.last_error)   # the superadmin, by e-mail
-            if job.attempts >= 3:
+            if job.attempts > len(RETRY_AFTER_MINUTES):
                 job.status = "failed"
                 _notify_message_failed(db, job)
             else:
                 job.status = "pending"
+                job.scheduled_at = now + timedelta(minutes=RETRY_AFTER_MINUTES[job.attempts - 1])
         count += 1
 
     if count or needs_commit:

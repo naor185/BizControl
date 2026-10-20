@@ -61,7 +61,7 @@ def test_a_business_failing_messages_alerts_the_superadmin_once_without_the_key(
     db_session.add(c)
     db_session.commit()
     first, second = _job(db_session, s, c), _job(db_session, s, c)
-    first.attempts = 2                                                                  # its last try
+    first.attempts = len(mw.RETRY_AFTER_MINUTES)                                         # its last try
     db_session.commit()
 
     def down(to, body, *a, **k):
@@ -129,3 +129,50 @@ def test_a_push_to_someone_without_the_app_is_no_failure(client, db_session):
     assert SENT == []                                                      # no alert to the superadmin
     assert db_session.scalar(select(Notification).where(Notification.studio_id == s.id,
                                                         Notification.type == "message_failed")) is None
+
+
+def test_a_failed_message_waits_before_trying_again_and_a_canceled_appointment_gets_none(client, db_session, monkeypatch):
+    """2026-10-20: Green API was "starting" for a few minutes and 12 messages failed for good — three tries a
+    minute apart. And a retry of them would have confirmed an appointment the business had canceled."""
+    from datetime import timedelta
+    from app.models.appointment import Appointment
+    register_and_login(client, slug="wait-shop", email="owner@wait-shop.com")
+    s = db_session.scalar(select(Studio).where(Studio.slug == "wait-shop"))
+    owner = db_session.scalar(select(User).where(User.studio_id == s.id, User.role == "owner"))
+    c = Client(studio_id=s.id, full_name="דנה", phone="0505555555")
+    db_session.add(c)
+    db_session.flush()
+    now = datetime.now(timezone.utc)
+    canceled = Appointment(studio_id=s.id, client_id=c.id, artist_id=owner.id, title="קעקוע", status="canceled",
+                           starts_at=now + timedelta(days=3), ends_at=now + timedelta(days=3, hours=1))
+    db_session.add(canceled)
+    db_session.flush()
+    confirm = MessageJob(studio_id=s.id, client_id=c.id, appointment_id=canceled.id, channel="whatsapp", to_phone=c.phone,
+                         body="התור נקבע", reminder_type="new_appointment", scheduled_at=now, status="pending")
+    db_session.add(confirm)
+    db_session.commit()
+    job = _job(db_session, s, c)
+
+    def down(to, body, *a, **k):
+        raise RuntimeError("Green API instance is starting")
+    monkeypatch.setattr(mw, "send_whatsapp_message", down)
+    mw.process_due_jobs(db_session)
+    db_session.expire_all()
+    assert db_session.get(MessageJob, confirm.id).status == "canceled"
+    assert "התור בוטל" in db_session.get(MessageJob, confirm.id).last_error
+
+    j = db_session.get(MessageJob, job.id)
+    assert (j.status, j.attempts) == ("pending", 1)
+    assert j.scheduled_at > now + timedelta(minutes=1)                               # in 2 minutes, not on the next tick
+    mw.process_due_jobs(db_session)                                                  # the next tick leaves it alone
+    db_session.expire_all()
+    assert db_session.get(MessageJob, job.id).attempts == 1
+
+    for _ in mw.RETRY_AFTER_MINUTES:                                                 # every try after its wait
+        db_session.get(MessageJob, job.id).scheduled_at = datetime.now(timezone.utc)
+        db_session.commit()
+        mw.process_due_jobs(db_session)
+        db_session.expire_all()
+    j = db_session.get(MessageJob, job.id)
+    assert (j.status, j.attempts) == ("failed", len(mw.RETRY_AFTER_MINUTES) + 1)
+    SENT.clear()

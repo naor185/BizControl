@@ -25,7 +25,9 @@ const EYE_OFF = (
 export default function PasswordInput({ className = "", iconClassName = "text-slate-600 hover:text-slate-900", ...props }: Props) {
     const [show, setShow] = useState(false);
     return (
-        <div className="relative">
+        // the eye and the room left for it on the same side — the field's own direction: a password typed left to right
+        // (dir="ltr") on a Hebrew page had its room on the right and the eye on the left, over the password (2026-10-20)
+        <div className="relative" dir={props.dir}>
             <input {...props} type={show ? "text" : "password"} className={`${className} pe-11`} />
             <button
                 type="button"
