@@ -1,3 +1,4 @@
+import { tx } from "@/lib/i18n";
 // Group classes — the shapes the server returns (app/api/class_routes.py) and Israel-time helpers.
 // Every time is shown on the clock in Israel, whatever the device's own zone.
 
@@ -104,8 +105,8 @@ export type MembershipDetail = MembershipRow & {
 
 /** Payment methods — the same values and words as the appointment payment screen. */
 export const PAYMENT_METHODS: { value: string; label: string }[] = [
-    { value: "cash", label: "מזומן" }, { value: "credit_card", label: "אשראי" }, { value: "bit", label: "ביט" },
-    { value: "paybox", label: "פייבוקס" }, { value: "bank_transfer", label: "העברה בנקאית" },
+    { value: "cash", label: tx("מזומן") }, { value: "credit_card", label: tx("אשראי") }, { value: "bit", label: tx("ביט") },
+    { value: "paybox", label: tx("פייבוקס") }, { value: "bank_transfer", label: tx("העברה בנקאית") },
 ];
 export const methodLabel = (m: string) => PAYMENT_METHODS.find(x => x.value === m)?.label ?? m;
 export type PenaltyEvent = "late_cancel" | "no_show";
@@ -120,7 +121,7 @@ export type Fee = {
 };
 
 export const STATUS_LABEL: Record<MembershipStatus, string> = {
-    pending: "מתחיל בקרוב", active: "פעיל", frozen: "מוקפא", ending: "נעצר בסוף התקופה", expired: "הסתיים", canceled: "בוטל",
+    pending: tx("מתחיל בקרוב"), active: tx("פעיל"), frozen: tx("מוקפא"), ending: tx("נעצר בסוף התקופה"), expired: tx("הסתיים"), canceled: tx("בוטל"),
 };
 
 /** "₪80" — whole shekels without decimals */
@@ -167,8 +168,8 @@ export type DryRun = {
 export type StaffMember = { id: string; display_name?: string | null; email: string; role?: string; is_active?: boolean };
 
 // 0 = Sunday … 6 = Saturday — the Israeli week
-export const DAY_SHORT = ["א׳", "ב׳", "ג׳", "ד׳", "ה׳", "ו׳", "ש׳"];
-export const DAY_LONG = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
+export const DAY_SHORT = [tx("א׳"), tx("ב׳"), tx("ג׳"), tx("ד׳"), tx("ה׳"), tx("ו׳"), tx("ש׳")];
+export const DAY_LONG = [tx("ראשון"), tx("שני"), tx("שלישי"), tx("רביעי"), tx("חמישי"), tx("שישי"), tx("שבת")];
 
 const TZ = "Asia/Jerusalem";
 const timeFmt = new Intl.DateTimeFormat("en-GB", { timeZone: TZ, hour: "2-digit", minute: "2-digit", hour12: false });
@@ -212,7 +213,7 @@ export function shiftDay(day: string, n: number): string {
 /** "יום ראשון 4/10 · 18:00" */
 export function whenShort(iso: string): string {
     const { d, m, weekday } = ilParts(iso);
-    return `יום ${DAY_LONG[weekday]} ${d}/${m} · ${ilTime(iso)}`;
+    return tx("יום {0} {1}/{2} · {3}", { 0: DAY_LONG[weekday], 1: d, 2: m, 3: ilTime(iso) });
 }
 
 /** The classes a booking could move to (GET /api/classes/bookings/{id}/swap-options). */

@@ -120,7 +120,7 @@ export default function GoalWidget({ month, year }: { month?: number; year?: num
                             <span style={{ fontSize: "1.6rem", fontWeight: 800, color: "#1a1a2e" }} dir="ltr">₪{fmt(current)}</span>
                             <span style={{ color: "#9ca3af", fontSize: "0.85rem" }}>/ ₪{fmt(target)}</span>
                             <button onClick={() => { setNewTarget(target > 0 ? String(Math.round(target)) : ""); setIsEditing(true); }}
-                                style={{ background: "none", border: "none", color: "#6366f1", fontSize: "0.72rem", fontWeight: 700, cursor: "pointer", marginRight: "auto" }}>
+                                style={{ background: "none", border: "none", color: "#6366f1", fontSize: "0.72rem", fontWeight: 700, cursor: "pointer", marginInlineStart: "auto" }}>
                                 {tx("עדכן יעד ✏️")}
                             </button>
                         </div>

@@ -5,6 +5,8 @@
 // next path (path:next) — one clip, or a few said one after the other ("23 24"). Only recorded clips are listed — the
 // rest stay text only.
 
+import { currentLocale } from "@/lib/i18n";
+
 export const VOICE: Record<string, string> = {
     owner_start: "01",
     business: "02",
@@ -57,11 +59,14 @@ export const VOICE: Record<string, string> = {
     "deposit:done": "49",
 };
 
+// The clips are the owner's voice in Hebrew — in English the guide is text only (no speaker, nothing said).
+const hebrew = (): boolean => currentLocale() === "he";
+
 const clipsOf = (key: string): string[] => (VOICE[key] ? VOICE[key].split(" ").map(n => `/viki-voice/${n}.mp3`) : []);
 
 /** Whether a path has any recorded clip — its welcome, its end, or one of its steps. */
 export const hasVoice = (tourId: string, stepIds: string[]): boolean =>
-    Object.keys(VOICE).some(k => { const head = k.split(":")[0]; return head === tourId || stepIds.includes(head); });
+    hebrew() && Object.keys(VOICE).some(k => { const head = k.split(":")[0]; return head === tourId || stepIds.includes(head); });
 
 const KEY = "viki_voice";
 export const voiceOn = (): boolean => { try { return localStorage.getItem(KEY) !== "0"; } catch { return true; } };
@@ -80,6 +85,7 @@ export const stopVoice = (): void => { playing?.pause(); };
 /** Says the clips one after the other (what isn't recorded is skipped); `held` — the browser held the sound back
  *  until a tap. */
 export function say(keys: string[], held: (yes: boolean) => void): void {
+    if (!hebrew()) return;
     last = keys.filter(k => VOICE[k]);
     const queue = last.flatMap(k => clipsOf(k).map(src => ({ k, src })));
     playing?.pause();

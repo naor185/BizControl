@@ -167,7 +167,7 @@ export default function BookingPage() {
                         <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
                             {info?.services.map(s => (
                                 <button key={s.id} onClick={() => { setService(s); setStep(info.artists.length > 1 ? "artist" : "date"); }}
-                                    style={{ background: service?.id === s.id ? `${s.color}22` : "rgba(255,255,255,.05)", border: `1px solid ${service?.id === s.id ? s.color : "rgba(255,255,255,.1)"}`, borderRadius: 14, padding: "1rem 1.25rem", cursor: "pointer", textAlign: "right", display: "flex", alignItems: "center", gap: "1rem" }}>
+                                    style={{ background: service?.id === s.id ? `${s.color}22` : "rgba(255,255,255,.05)", border: `1px solid ${service?.id === s.id ? s.color : "rgba(255,255,255,.1)"}`, borderRadius: 14, padding: "1rem 1.25rem", cursor: "pointer", textAlign: "start", display: "flex", alignItems: "center", gap: "1rem" }}>
                                     <div style={{ width: 12, height: 12, borderRadius: "50%", background: s.color, flexShrink: 0 }} />
                                     <div style={{ flex: 1 }}>
                                         <div style={{ color: "#fff", fontWeight: 700, fontSize: "1rem" }}>{s.name}</div>
@@ -191,12 +191,12 @@ export default function BookingPage() {
                         <h2 style={{ fontWeight: 800, marginBottom: "1.25rem" }}>{tx("בחר מטפל")}</h2>
                         <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
                             <button onClick={() => { setArtist(null); setStep("date"); }}
-                                style={{ background: !artist ? `${primary}22` : "rgba(255,255,255,.05)", border: `1px solid ${!artist ? primary : "rgba(255,255,255,.1)"}`, borderRadius: 14, padding: "1rem 1.25rem", cursor: "pointer", color: "#fff", fontWeight: 600, textAlign: "right" }}>
+                                style={{ background: !artist ? `${primary}22` : "rgba(255,255,255,.05)", border: `1px solid ${!artist ? primary : "rgba(255,255,255,.1)"}`, borderRadius: 14, padding: "1rem 1.25rem", cursor: "pointer", color: "#fff", fontWeight: 600, textAlign: "start" }}>
                                 {tx("🎲 כלשהו (הראשון הזמין)")}
                             </button>
                             {info?.artists.map(a => (
                                 <button key={a.id} onClick={() => { setArtist(a); setStep("date"); }}
-                                    style={{ background: artist?.id === a.id ? `${primary}22` : "rgba(255,255,255,.05)", border: `1px solid ${artist?.id === a.id ? primary : "rgba(255,255,255,.1)"}`, borderRadius: 14, padding: "1rem 1.25rem", cursor: "pointer", textAlign: "right" }}>
+                                    style={{ background: artist?.id === a.id ? `${primary}22` : "rgba(255,255,255,.05)", border: `1px solid ${artist?.id === a.id ? primary : "rgba(255,255,255,.1)"}`, borderRadius: 14, padding: "1rem 1.25rem", cursor: "pointer", textAlign: "start" }}>
                                     <span style={{ color: "#fff", fontWeight: 600 }}>👤 {a.name}</span>
                                 </button>
                             ))}
@@ -264,7 +264,7 @@ export default function BookingPage() {
                                 <button onClick={() => setStep("date")} style={{ ...navBtn }}>{tx("בחר תאריך אחר")}</button>
 
                                 {/* Wait List Join */}
-                                <div style={{ marginTop: "1.5rem", background: "rgba(167,139,250,.08)", border: "1px solid rgba(167,139,250,.2)", borderRadius: 16, padding: "1.25rem", textAlign: "right" }}>
+                                <div style={{ marginTop: "1.5rem", background: "rgba(167,139,250,.08)", border: "1px solid rgba(167,139,250,.2)", borderRadius: 16, padding: "1.25rem", textAlign: "start" }}>
                                     <div style={{ fontWeight: 700, color: "#a78bfa", marginBottom: "0.5rem" }}>{tx("⏳ הצטרף/י לרשימת ההמתנה")}</div>
                                     <div style={{ color: "#94a3b8", fontSize: "0.82rem", marginBottom: "1rem" }}>{tx("נודיע לך ב-WhatsApp ברגע שיתפנה מקום")}</div>
                                     {wlDone ? (

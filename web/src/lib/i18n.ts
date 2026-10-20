@@ -42,6 +42,9 @@ export function speakBusiness(locale: string | null | undefined): Locale {
  *  messages in it too. */
 export const langHeader = (): Record<string, string> => ({ "X-Lang": txLocale });
 
+/** The language the page speaks now. */
+export const currentLocale = (): Locale => txLocale;
+
 /** The dates' and numbers' locale for the chosen language. */
 export const intl = (): string => (txLocale === "en" ? "en-GB" : "he-IL");
 

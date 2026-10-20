@@ -1,4 +1,4 @@
-import { savedLocale } from "@/lib/i18n";
+import { savedLocale, tx } from "@/lib/i18n";
 import { mirrorTokensToSecureStorage, clearSecureStorageTokens } from "@/lib/secureTokenStorage";
 import { clearNavHistory } from "@/lib/navHistory";
 
@@ -174,7 +174,7 @@ export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promi
                 // dance) instead of force-logging-out over a transient blip,
                 // which is exactly what was throwing people back to /login
                 // on the native app over flaky mobile networks.
-                throw new Error("שגיאת רשת — נסה שוב");
+                throw new Error(tx("שגיאת רשת — נסה שוב"));
             }
             // Either the refresh endpoint explicitly rejected the token, or a
             // successful refresh's retry still 401'd — the session is
@@ -322,7 +322,7 @@ export async function downloadExpenseReceiptsZip(month: number, year: number): P
     const res = await fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
     if (!res.ok) {
         const data = await res.json().catch(() => null);
-        throw new Error(data?.detail || "שגיאה בהורדת הקבלות");
+        throw new Error(data?.detail || tx("שגיאה בהורדת הקבלות"));
     }
     const blob = await res.blob();
     const a = document.createElement("a");
@@ -339,7 +339,7 @@ export async function downloadExpensesPdf(month: number, year: number): Promise<
     const res = await fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
     if (!res.ok) {
         const data = await res.json().catch(() => null);
-        throw new Error(data?.detail || "שגיאה בהפקת ה-PDF");
+        throw new Error(data?.detail || tx("שגיאה בהפקת ה-PDF"));
     }
     const blob = await res.blob();
     const a = document.createElement("a");
@@ -646,7 +646,7 @@ export function downloadInvoice(paymentId: string) {
 export function downloadStaffPaySummaryPdf(userId: string, name: string, startDate: string, endDate: string) {
     return _downloadFile(
         `${API_BASE}/api/staff/payroll/${userId}/pdf?start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}`,
-        `סיכום שכר ${name} ${startDate.slice(0, 7)}.pdf`
+        tx("סיכום שכר {0} {1}.pdf", { 0: name, 1: startDate.slice(0, 7) })
     );
 }
 

@@ -1,5 +1,7 @@
 "use client";
 
+import { tx } from "@/lib/i18n";
+
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { getToken, getCurrentUserRole, isAccessTokenExpiringSoon, tryRefresh, clearToken } from "@/lib/api";
@@ -112,8 +114,9 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
 
     if (!ready) {
         return (
-            <div className="min-h-screen flex items-center justify-center text-sm text-gray-500" dir="rtl">
-                בודק התחברות...
+            // the server draws this in Hebrew; the browser says it in the user's language
+            <div className="min-h-screen flex items-center justify-center text-sm text-gray-500" suppressHydrationWarning>
+                {tx("בודק התחברות...")}
             </div>
         );
     }

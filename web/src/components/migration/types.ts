@@ -1,3 +1,4 @@
+import { tx, intl } from "@/lib/i18n";
 // Shapes returned by /api/migrations (app/api/migration_routes.py).
 
 export type ConnectorEntity = { key: string; label: string; importable: boolean };
@@ -94,25 +95,25 @@ export type MigrationRowOut = {
 export type RollbackStats = { deleted: number; restored_fields: number; kept_used: number; kept_edited: number; kept_fields: number };
 
 export const MATCH_LABELS: Record<string, string> = {
-    new: "חדשים",
-    existing: "כבר קיימים",
-    possible_duplicate: "אולי כפילות",
-    conflict: "סתירה",
-    invalid: "חסרים נתונים",
+    new: tx("חדשים"),
+    existing: tx("כבר קיימים"),
+    possible_duplicate: tx("אולי כפילות"),
+    conflict: tx("סתירה"),
+    invalid: tx("חסרים נתונים"),
 };
 
 export const STATUS_LABELS: Record<MigrationStatus, string> = {
-    draft: "מיפוי שדות",
-    scanning: "סורק",
-    preview: "תצוגה מקדימה",
-    importing: "מייבא",
-    completed: "הושלם",
-    partial: "הושלם חלקית",
-    failed: "נעצר",
-    rolled_back: "בוטל",
+    draft: tx("מיפוי שדות"),
+    scanning: tx("סורק"),
+    preview: tx("תצוגה מקדימה"),
+    importing: tx("מייבא"),
+    completed: tx("הושלם"),
+    partial: tx("הושלם חלקית"),
+    failed: tx("נעצר"),
+    rolled_back: tx("בוטל"),
 };
 
 export function fmtDateTime(iso: string | null): string {
     if (!iso) return "—";
-    return new Date(iso).toLocaleString("he-IL", { day: "numeric", month: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" });
+    return new Date(iso).toLocaleString(intl(), { day: "numeric", month: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }

@@ -408,28 +408,28 @@ export default function BroadcastsPage() {
                                     </button>
                                     {clubJoinLink && plan.has("customer_club") && (
                                         <button type="button"
-                                            onClick={() => insertAtCursor(`🌟 הצטרף למועדון הלקוחות שלנו:\n${clubJoinLink}`)}
+                                            onClick={() => insertAtCursor(tx("🌟 הצטרף למועדון הלקוחות שלנו:\n{0}", { 0: clubJoinLink }))}
                                             className="text-xs px-2.5 py-1 rounded-lg bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 font-medium">
                                             {tx("🌟 לינק מועדון")}
                                         </button>
                                     )}
                                     {giftCardShopLink && plan.has("gift_cards") && autoSettings.gift_card_sales_enabled !== false && (
                                         <button type="button"
-                                            onClick={() => insertAtCursor(`🎁 גיפט קארד לך או למישהו שאתה אוהב:\n${giftCardShopLink}`)}
+                                            onClick={() => insertAtCursor(tx("🎁 גיפט קארד לך או למישהו שאתה אוהב:\n{0}", { 0: giftCardShopLink }))}
                                             className="text-xs px-2.5 py-1 rounded-lg bg-violet-50 text-violet-700 border border-violet-200 hover:bg-violet-100 font-medium">
                                             {tx("🎁 לינק גיפט קארד")}
                                         </button>
                                     )}
                                     {autoSettings.bit_link && (
                                         <button type="button"
-                                            onClick={() => insertAtCursor(`לתשלום ב-Bit: ${autoSettings.bit_link}`)}
+                                            onClick={() => insertAtCursor(tx("לתשלום ב-Bit: {0}", { 0: autoSettings.bit_link }))}
                                             className="text-xs px-2.5 py-1 rounded-lg bg-orange-50 text-orange-700 border border-orange-200 hover:bg-orange-100 font-medium">
                                             💰 Bit
                                         </button>
                                     )}
                                     {autoSettings.paybox_link && (
                                         <button type="button"
-                                            onClick={() => insertAtCursor(`לתשלום ב-PayBox: ${autoSettings.paybox_link}`)}
+                                            onClick={() => insertAtCursor(tx("לתשלום ב-PayBox: {0}", { 0: autoSettings.paybox_link }))}
                                             className="text-xs px-2.5 py-1 rounded-lg bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 font-medium">
                                             💳 PayBox
                                         </button>

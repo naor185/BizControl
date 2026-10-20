@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import { X } from "lucide-react";
 import { useBackButtonClose } from "@/lib/backButtonStack";
 
+import { tx } from "@/lib/i18n";
 export default function VideoModal({ src, poster, title, onClose }: { src: string; poster?: string; title: string; onClose: () => void }) {
     useBackButtonClose(true, onClose);
     useEffect(() => {
@@ -15,11 +16,11 @@ export default function VideoModal({ src, poster, title, onClose }: { src: strin
     }, [onClose]);
 
     return (
-        <div className="fixed inset-0 z-[1200] bg-black/75 flex items-center justify-center p-4" onClick={onClose} role="dialog" aria-label={`סרטון: ${title}`}>
-            <div className="relative w-full max-w-[360px]" onClick={e => e.stopPropagation()} dir="rtl">
+        <div className="fixed inset-0 z-[1200] bg-black/75 flex items-center justify-center p-4" onClick={onClose} role="dialog" aria-label={tx("סרטון: {0}", { 0: title })}>
+            <div className="relative w-full max-w-[360px]" onClick={e => e.stopPropagation()}>
                 <div className="flex items-center justify-between mb-2 text-white">
                     <span className="text-sm font-bold">{title}</span>
-                    <button type="button" onClick={onClose} aria-label="סגירת הסרטון"
+                    <button type="button" onClick={onClose} aria-label={tx("סגירת הסרטון")}
                         className="w-10 h-10 flex items-center justify-center rounded-full bg-white/15 hover:bg-white/25">
                         <X className="w-5 h-5" aria-hidden />
                     </button>

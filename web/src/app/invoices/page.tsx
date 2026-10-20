@@ -450,7 +450,7 @@ function DocumentsTab({ invoices, total, loading, settings, filterType, setFilte
 
                 <PickerBox type="date" label={tx("סינון לפי תאריך")} value={filterDate} onChange={v => { setFilterDate(v); setTimeout(onFilter, 0); }} className="text-start" style={{ padding: "0.5rem 0.75rem", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: "0.85rem" }} />
 
-                <span style={{ color: "#94a3b8", fontSize: "0.82rem", marginRight: "auto" }}>{total}{tx(" מסמכים")}</span>
+                <span style={{ color: "#94a3b8", fontSize: "0.82rem", marginInlineStart: "auto" }}>{total}{tx(" מסמכים")}</span>
 
                 <button
                     type="button"
@@ -491,7 +491,7 @@ function InvoiceRow({ inv, onView, onPdf, onDelete, isLoading }: { inv: Invoice;
     const sendWA = (e: React.MouseEvent) => {
         e.stopPropagation();
         const receiptUrl = `${window.location.origin}/receipt/${inv.id}`;
-        const text = `🧾 ${inv.doc_type_label} #${inv.doc_number}\nסכום: ₪${Math.abs(inv.total_ils).toFixed(2)}\nלצפייה בקבלה:\n${receiptUrl}`;
+        const text = tx("🧾 {0} #{1}\nסכום: ₪{2}\nלצפייה בקבלה:\n{3}", { 0: inv.doc_type_label, 1: inv.doc_number, 2: Math.abs(inv.total_ils).toFixed(2), 3: receiptUrl });
         const raw = (inv.client_phone || "").replace(/\D/g, "");
         const phone = raw.replace(/^0/, "");
         const url = phone
@@ -513,7 +513,7 @@ function InvoiceRow({ inv, onView, onPdf, onDelete, isLoading }: { inv: Invoice;
                     {isLoading ? tx("⏳ טוען...") : `${inv.client_name || "—"} · ${new Date(inv.issued_at).toLocaleDateString(intl())}`}
                 </div>
             </div>
-            <div style={{ textAlign: "left", flexShrink: 0, display: "flex", flexDirection: "column", gap: "0.25rem", alignItems: "flex-end" }}>
+            <div style={{ textAlign: "end", flexShrink: 0, display: "flex", flexDirection: "column", gap: "0.25rem", alignItems: "flex-end" }}>
                 <div style={{ fontWeight: 800, fontSize: "1rem", color: inv.doc_type === "credit" ? "#dc2626" : "#111" }}>
                     {inv.doc_type === "credit" ? "-" : ""}₪{Math.abs(inv.total_ils).toFixed(2)}
                 </div>
@@ -579,11 +579,11 @@ function InvoiceDetailModal({ invoice, onClose, onDownload, getPdfUrl, onCredit 
         const receiptUrl = `${window.location.origin}/receipt/${invoice.id}`;
         const waText = [
             `🧾 ${invoice.doc_type_label} #${invoice.doc_number}`,
-            invoice.business_name ? `מאת: ${invoice.business_name}` : "",
-            `סכום: ₪${Math.abs(invoice.total_ils).toFixed(2)}`,
-            invoice.client_name ? `ללקוח: ${invoice.client_name}` : "",
+            invoice.business_name ? tx("מאת: {0}", { 0: invoice.business_name }) : "",
+            tx("סכום: ₪{0}", { 0: Math.abs(invoice.total_ils).toFixed(2) }),
+            invoice.client_name ? tx("ללקוח: {0}", { 0: invoice.client_name }) : "",
             new Date(invoice.issued_at).toLocaleDateString(intl()),
-            `\nלצפייה בקבלה:\n${receiptUrl}`,
+            tx("\nלצפייה בקבלה:\n{0}", { 0: receiptUrl }),
         ].filter(Boolean).join("\n");
         const phone = invoice.client_phone?.replace(/\D/g, "");
         const url = phone
@@ -621,7 +621,7 @@ function InvoiceDetailModal({ invoice, onClose, onDownload, getPdfUrl, onCredit 
                         <div style={{ width: 28 }} />
                     </div>
 
-                    <div style={{ overflowY: "auto", flex: 1 }}>
+                    <div style={{ overflowY: "auto", flex: 1 }}>{/* the tax document — Hebrew, right to left, in either language */}
                         {/* ── Business header ── */}
                         <div style={{ background: accentColor, padding: "1.25rem 1.25rem 1rem", textAlign: "center", color: "#fff" }}>
                             <div style={{ fontWeight: 900, fontSize: "1.2rem", marginBottom: "0.2rem" }}>
@@ -679,10 +679,10 @@ function InvoiceDetailModal({ invoice, onClose, onDownload, getPdfUrl, onCredit 
                                     <table style={{ minWidth: 480, width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
                                         <thead>
                                             <tr style={{ background: accentColor, color: "#fff" }}>
-                                                <th style={{ padding: "0.5rem 0.6rem", textAlign: "right", fontWeight: 700, borderRadius: "6px 0 0 0" }}>תיאור</th>
-                                                <th style={{ padding: "0.5rem 0.6rem", textAlign: "center", fontWeight: 700, width: 50 }}>כמות</th>
-                                                <th style={{ padding: "0.5rem 0.6rem", textAlign: "center", fontWeight: 700, width: 70 }}>מחיר</th>
-                                                <th style={{ padding: "0.5rem 0.6rem", textAlign: "left", fontWeight: 700, width: 80, borderRadius: "0 6px 0 0" }}>{tx("סה\"כ")}</th>
+                                                <th style={{ padding: "0.5rem 0.6rem", textAlign: "right", fontWeight: 700, borderRadius: "6px 0 0 0" }}>{"תיאור"}</th>
+                                                <th style={{ padding: "0.5rem 0.6rem", textAlign: "center", fontWeight: 700, width: 50 }}>{"כמות"}</th>
+                                                <th style={{ padding: "0.5rem 0.6rem", textAlign: "center", fontWeight: 700, width: 70 }}>{"מחיר"}</th>
+                                                <th style={{ padding: "0.5rem 0.6rem", textAlign: "left", fontWeight: 700, width: 80, borderRadius: "0 6px 0 0" }}>{"סה\"כ"}</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -704,10 +704,10 @@ function InvoiceDetailModal({ invoice, onClose, onDownload, getPdfUrl, onCredit 
                                 {(invoice.shows_vat ?? invoice.vat_amount_ils > 0) && (
                                     <>
                                         <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem", marginBottom: "0.3rem", color: "#64748b" }}>
-                                            <span>{tx("לפני מע\"מ")}</span><span>₪{invoice.subtotal_ils.toFixed(2)}</span>
+                                            <span>{"לפני מע\"מ"}</span><span>₪{invoice.subtotal_ils.toFixed(2)}</span>
                                         </div>
                                         <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem", marginBottom: "0.3rem", color: "#64748b" }}>
-                                            <span>{tx("מע\"מ ")}{invoice.vat_rate}%</span><span>₪{invoice.vat_amount_ils.toFixed(2)}</span>
+                                            <span>{"מע\"מ "}{invoice.vat_rate}%</span><span>₪{invoice.vat_amount_ils.toFixed(2)}</span>
                                         </div>
                                     </>
                                 )}
@@ -717,7 +717,7 @@ function InvoiceDetailModal({ invoice, onClose, onDownload, getPdfUrl, onCredit 
                                     </div>
                                 )}
                                 <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 900, fontSize: "1.05rem", paddingTop: "0.4rem", borderTop: "1px solid #e2e8f0", color: accentColor }}>
-                                    <span>סה"כ לתשלום</span>
+                                    <span>{"סה\"כ לתשלום"}</span>
                                     <span>{isCredit ? "-" : ""}₪{Math.abs(invoice.total_ils).toFixed(2)}</span>
                                 </div>
                                 {(invoice.vat_note ?? (invoice.business_type === "osek_patur" ? 'עוסק פטור, אינו חייב במע"מ' : null)) && (
@@ -839,7 +839,7 @@ function InvoiceDetailModal({ invoice, onClose, onDownload, getPdfUrl, onCredit 
                             <button key={label} type="button" onClick={action} style={{
                                 width: "100%", background: "none", border: "none", borderBottom: "1px solid #f1f5f9",
                                 padding: "0.95rem 0.5rem", display: "flex", alignItems: "center", gap: "0.9rem",
-                                fontSize: "1rem", fontWeight: 600, cursor: "pointer", color: "#1e293b", textAlign: "right",
+                                fontSize: "1rem", fontWeight: 600, cursor: "pointer", color: "#1e293b", textAlign: "start",
                             }}>
                                 <span style={{ fontSize: "1.3rem" }}>{icon}</span>
                                 {label}
@@ -849,7 +849,7 @@ function InvoiceDetailModal({ invoice, onClose, onDownload, getPdfUrl, onCredit 
                         <button type="button" onClick={() => setShowActions(false)} style={{
                             width: "100%", background: "none", border: "none",
                             padding: "0.95rem 0.5rem", display: "flex", alignItems: "center", gap: "0.9rem",
-                            fontSize: "1rem", fontWeight: 600, cursor: "pointer", color: "#94a3b8", textAlign: "right",
+                            fontSize: "1rem", fontWeight: 600, cursor: "pointer", color: "#94a3b8", textAlign: "start",
                         }}>
                             <span style={{ fontSize: "1.3rem" }}>✕</span>
                             {tx("סגירה")}

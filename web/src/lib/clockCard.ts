@@ -1,3 +1,4 @@
+import { tx } from "@/lib/i18n";
 // The attendance clock's barcode (app/services/nfc_clock.py) — the business's clock link as a QR code, and the card to
 // hang at the door: the business's name, the barcode, how to use it. One place for the superadmin's card
 // (components/admin/NfcClockAdmin) and the owner's (components/team/ClockCode).
@@ -9,9 +10,9 @@ export async function clockQr(link: string): Promise<string> {
 
 const esc = (t: string) => t.replace(/[&<>"]/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;" }[ch] as string));
 
-const TITLE = "החתמת נוכחות";
-const HOW = "סורקים עם המצלמה של הטלפון";
-const WHEN = "בכניסה לעבודה ובסוף היום — כניסה ויציאה";
+const TITLE = tx("החתמת נוכחות");
+const HOW = tx("סורקים עם המצלמה של הטלפון");
+const WHEN = tx("בכניסה לעבודה ובסוף היום — כניסה ויציאה");
 
 /** The card as a picture — to download, or attach in WhatsApp. */
 export async function clockCardPng(qr: string, studioName: string): Promise<string> {
@@ -39,7 +40,7 @@ export async function clockCardPng(qr: string, studioName: string): Promise<stri
     g.font = "34px Arial, sans-serif";
     g.fillStyle = "#475569";
     g.fillText(WHEN, 500, 1050);
-    g.fillText("(או נוגעים בטלפון במדבקה, אם יש)", 500, 1100);
+    g.fillText(tx("(או נוגעים בטלפון במדבקה, אם יש)"), 500, 1100);
     g.font = "26px Arial, sans-serif";
     g.fillStyle = "#94a3b8";
     g.fillText("BizControl", 500, 1230);
@@ -49,7 +50,7 @@ export async function clockCardPng(qr: string, studioName: string): Promise<stri
 export async function downloadClockCard(qr: string, studioName: string): Promise<void> {
     const a = document.createElement("a");
     a.href = await clockCardPng(qr, studioName);
-    a.download = `שעון נוכחות - ${studioName || "העסק"}.png`;
+    a.download = tx("שעון נוכחות - {0}.png", { 0: studioName || tx("העסק") });
     a.click();
 }
 

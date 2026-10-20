@@ -140,8 +140,8 @@ export default function CouponsPanel() {
                                     url ? (
                                         <div className="border-t border-slate-100 pt-3">
                                             <p className="text-xs text-slate-500 mb-2">{tx("מי שנכנס בקישור רואה את דף העסק ב-BizFind עם הקופון (")}{c.discount_percent}{tx("% הנחה) — וכל כניסה נספרת כאן.")}</p>
-                                            <ShareLink url={url} whatsappText={`קופון ${c.code} — ${c.discount_percent}% הנחה:`}
-                                                printTitle={`${c.discount_percent}% הנחה`} printLine={`קוד קופון: ${c.code} · סורקים ומציגים בקופה`} />
+                                            <ShareLink url={url} whatsappText={tx("קופון {0} — {1}% הנחה:", { 0: c.code, 1: c.discount_percent })}
+                                                printTitle={tx("{0}% הנחה", { 0: c.discount_percent })} printLine={tx("קוד קופון: {0} · סורקים ומציגים בקופה", { 0: c.code })} />
                                         </div>
                                     ) : <p className="text-sm text-amber-900 bg-amber-50 rounded-xl px-3 py-2">{tx("כתובת BizFind לא מוגדרת במערכת — פנו לתמיכה של BizControl.")}</p>
                                 )}

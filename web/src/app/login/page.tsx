@@ -422,7 +422,7 @@ function LoginContent() {
 
             {/* Language switcher — below the phone's clock and battery, not on them */}
             <div className="fixed flex gap-1 z-20"
-                 style={{ top: "calc(1rem + env(safe-area-inset-top, 0px))", left: "calc(1rem + env(safe-area-inset-left, 0px))" }}>
+                 style={{ top: "calc(1rem + env(safe-area-inset-top, 0px))", insetInlineEnd: "calc(1rem + env(safe-area-inset-left, 0px))" }}>
                 {LOCALES.map(l => (
                     <button
                         key={l.code}

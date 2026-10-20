@@ -1612,7 +1612,7 @@ export default function AutomationSettingsPage() {
                                             value={settings.optout_page_message ?? ""}
                                             onChange={e => handleChange("optout_page_message", e.target.value)}
                                             rows={2}
-                                            placeholder="לחיצה על הכפתור תסיר אותך מקבלת הודעות שיווקיות מ-{studio_name}."
+                                            placeholder={tx("לחיצה על הכפתור תסיר אותך מקבלת הודעות שיווקיות מ-{studio_name}.")}
                                             className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-slate-400 resize-none"
                                         />
                                         <p className="text-xs text-slate-400 mt-1.5">

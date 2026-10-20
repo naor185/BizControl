@@ -744,11 +744,11 @@ function ExpenseViewerModal({ expense, onClose, onUpdated }: { expense: Expense;
 
     const shareWhatsApp = (phone?: string) => {
         const text = [
-            `📄 קבלה/חשבונית — ${expense.supplier_name || expense.title}`,
-            `תאריך: ${new Date(expense.expense_date).toLocaleDateString("he-IL")}`,
-            `סכום: ₪${fmt(expense.amount)}`,
-            expense.payment_method ? `אמצעי תשלום: ${expense.payment_method}` : "",
-            imgUrl ? `\nתמונת קבלה:\n${imgUrl}` : "",
+            tx("📄 קבלה/חשבונית — {0}", { 0: expense.supplier_name || expense.title }),
+            tx("תאריך: {0}", { 0: new Date(expense.expense_date).toLocaleDateString(intl()) }),
+            tx("סכום: ₪{0}", { 0: fmt(expense.amount) }),
+            expense.payment_method ? tx("אמצעי תשלום: {0}", { 0: expense.payment_method }) : "",
+            imgUrl ? tx("\nתמונת קבלה:\n{0}", { 0: imgUrl }) : "",
         ].filter(Boolean).join("\n");
         const url = phone
             ? `https://wa.me/972${phone.replace(/^0/, "")}?text=${encodeURIComponent(text)}`
@@ -1031,7 +1031,7 @@ export default function ExpensesPage() {
                         zIndex: 10,
                     }}>
                         {/* Title block */}
-                        <div style={{ textAlign: "right" }}>
+                        <div style={{ textAlign: "start" }}>
                             <h1 style={{ margin: 0, fontSize: "1.3rem", fontWeight: 700, color: "#1a1a2e" }}>{tx("ניהול עסק")}</h1>
                             <p style={{ margin: 0, fontSize: "0.8rem", color: "#6b7280" }}>{tx("מעקב הוצאות ומיסים")}</p>
                         </div>
@@ -1155,7 +1155,7 @@ export default function ExpensesPage() {
                                 { label: tx("מיסים"), sub: tx("מע\"מ + מס הכנסה + ביטוח"), color: "#f59e0b", value: stats ? ((stats.financials.vat_amount_cents + stats.financials.income_tax_cents + stats.financials.social_security_cents) / 100).toLocaleString() : "—" },
                                 { label: tx("סך הוצאות"), sub: summary ? tx("{0} חשבוניות", { 0: summary.invoice_count }) : tx("החודש"), color: "#ef4444", value: summary ? fmt(summary.total_expenses) : "—" },
                             ].map(c => (
-                                <div key={c.label} style={{ background: "#fff", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.07)", border: "1px solid #e5e7eb", borderRight: `3px solid ${c.color}`, padding: "0.85rem 1rem" }}>
+                                <div key={c.label} style={{ background: "#fff", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.07)", border: "1px solid #e5e7eb", borderInlineStart: `3px solid ${c.color}`, padding: "0.85rem 1rem" }}>
                                     <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", marginBottom: "0.4rem" }}>
                                         <div style={{ width: 7, height: 7, borderRadius: "50%", background: c.color, flexShrink: 0 }} />
                                         <span style={{ color: "#6b7280", fontSize: "0.7rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>{c.label}</span>
@@ -1282,7 +1282,7 @@ export default function ExpensesPage() {
                                                     />
                                                 </th>
                                                 {[tx("קבלה"), tx("ספק / שם"), tx("קטגוריה"), tx("אמצעי תשלום"), tx("תאריך"), tx("סכום"), tx("מע\"מ"), tx("סטטוס"), ""].map(h => (
-                                                    <th key={h} style={{ padding: "0.75rem 1.25rem", textAlign: "right", fontSize: "0.72rem", color: "#6b7280", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: "1px solid #e5e7eb", whiteSpace: "nowrap" }}>
+                                                    <th key={h} style={{ padding: "0.75rem 1.25rem", textAlign: "start", fontSize: "0.72rem", color: "#6b7280", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: "1px solid #e5e7eb", whiteSpace: "nowrap" }}>
                                                         {h}
                                                     </th>
                                                 ))}

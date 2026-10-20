@@ -9,6 +9,7 @@ import { useBusinessSections } from "@/lib/businessSections";
 import { fillTerms, useTerms } from "@/lib/useTerms";
 import { useLang } from "@/components/LanguageProvider";
 
+import { tx } from "@/lib/i18n";
 // No PIN on the way in: only the owner and the managers reach this page (RequireAuth, and the server keeps the workers
 // out of what's behind it) — the owner, 2026-10-15. On a phone it shows the small buttons, as the bar's "ניהול עסק" does.
 export default function BusinessPage() {
@@ -42,8 +43,8 @@ export default function BusinessPage() {
                                     </div>
                                     <div className="flex gap-2 flex-wrap mt-4">
                                         {[
-                                            { icon: Zap, label: "גישה מהירה" },
-                                            { icon: BarChart3, label: "כל הנתונים" },
+                                            { icon: Zap, label: tx("גישה מהירה") },
+                                            { icon: BarChart3, label: tx("כל הנתונים") },
                                         ].map(tag => (
                                             <span key={tag.label} className="flex items-center gap-1.5 text-xs bg-white/10 border border-white/15 text-violet-200 px-3 py-1 rounded-full font-medium">
                                                 <tag.icon className="w-3.5 h-3.5" />
@@ -74,7 +75,7 @@ export default function BusinessPage() {
                                     <div className="flex items-center gap-2 mb-4">
                                         <group.icon className="w-5 h-5 text-slate-400" />
                                         <span className="text-base font-bold text-slate-400 uppercase tracking-widest">{group.groupLabel}</span>
-                                        <div className="flex-1 h-px bg-slate-200 mr-1" />
+                                        <div className="flex-1 h-px bg-slate-200 ms-1" />
                                     </div>
 
                                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -95,7 +96,7 @@ export default function BusinessPage() {
 
                                                 {section.module && !plan.has(section.module) && (
                                                     <span className="absolute top-3 end-3 inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 bg-slate-100 border border-slate-200 rounded-full px-2 py-0.5">
-                                                        <Lock className="w-3 h-3" aria-hidden /> ב{plan.upgrade(section.module)}
+                                                        <Lock className="w-3 h-3" aria-hidden />{tx(" ב")}{plan.upgrade(section.module)}
                                                     </span>
                                                 )}
                                                 <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-200">

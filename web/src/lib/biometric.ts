@@ -1,6 +1,7 @@
 import { BiometricAuth, BiometryErrorType } from "@aparajita/capacitor-biometric-auth";
 import { isNativeApp } from "@/lib/platform";
 
+import { tx } from "@/lib/i18n";
 // Face ID / Touch ID on the native app only. The existing WebAuthn-based
 // "Face ID / Fingerprint" button on the login page (navigator.credentials)
 // stays as-is for Android Chrome / desktop, where it already works — this
@@ -27,7 +28,7 @@ export async function verifyNativeBiometric(reason: string): Promise<boolean> {
     try {
         await BiometricAuth.authenticate({
             reason,
-            cancelTitle: "ביטול",
+            cancelTitle: tx("ביטול"),
             allowDeviceCredential: true,
         });
         return true;

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { apiFetch, getToken } from "@/lib/api";
 
+import { tx } from "@/lib/i18n";
 // The business's own words — "מניקוריסטית", "מטפל/ת", "מדריך/ה" instead of a hardcoded "אמן".
 // They come from the server (its field's words with the owner's changes: GET /api/studio/upload/terms).
 // Use them as labels and nouns only ("מניקוריסטית: דנה", `ביצועי ${staff_plural}`) — never inside a
@@ -17,8 +18,8 @@ export type Terms = {
 
 // Shown only for the moment before the server answers.
 const LOADING: Terms = {
-    staff: "נותן/ת שירות", staff_plural: "נותני שירות", service: "שירות", service_plural: "שירותים",
-    client: "לקוח/ה", client_plural: "לקוחות", place: "עסק",
+    staff: tx("נותן/ת שירות"), staff_plural: tx("נותני שירות"), service: tx("שירות"), service_plural: tx("שירותים"),
+    client: tx("לקוח/ה"), client_plural: tx("לקוחות"), place: tx("עסק"),
 };
 
 let cached: { token: string | null; words: Promise<Terms> } | null = null;

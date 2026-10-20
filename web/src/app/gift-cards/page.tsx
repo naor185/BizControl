@@ -162,7 +162,7 @@ export default function GiftCardsPage() {
                                 {tx("מכירת גיפט קארד כבויה — דף הרכישה סגור. מפעילים בהגדרות, בכרטיס \"מכירת גיפט קארד\". כרטיסים שכבר נמכרו ממשיכים לעבוד.")}
                             </p>
                         ) : shopLink ? (
-                            <ShareLink url={shopLink} whatsappText="גיפט קארד — מתנה מושלמת, קונים כאן:" printTitle={tx("גיפט קארד")} printLine="סורקים וקונים מתנה" />
+                            <ShareLink url={shopLink} whatsappText={tx("גיפט קארד — מתנה מושלמת, קונים כאן:")} printTitle={tx("גיפט קארד")} printLine={tx("סורקים וקונים מתנה")} />
                         ) : <div className="h-10 rounded-xl bg-slate-100 animate-pulse" />}
                     </section>
 

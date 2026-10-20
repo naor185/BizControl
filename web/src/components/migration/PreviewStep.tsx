@@ -34,7 +34,7 @@ function RecordCell({ entity, d }: { entity: string; d: Record<string, unknown> 
     return (
         <div>
             <div className="font-semibold text-slate-800">{String(d.full_name ?? "—")}</div>
-            <div className="text-xs text-slate-500" dir="ltr" style={{ textAlign: "right" }}>
+            <div className="text-xs text-slate-500 text-page-start" dir="ltr">
                 {[d.phone, d.email].filter(Boolean).join(" · ") || "—"}
             </div>
         </div>
