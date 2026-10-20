@@ -92,6 +92,11 @@ html {
   box-sizing: border-box;
 }
 
+/* A field typed left to right (phone, e-mail, an amount — dir="ltr") still lines up with the page: on the right in
+   Hebrew, on the left in English. text-start would follow the field's own direction (always left). */
+html[dir="rtl"] .text-page-start { text-align: right; }
+html[dir="ltr"] .text-page-start { text-align: left; }
+
 /* Every page keeps clear of the phone's clock and battery, its home bar and its rounded sides (the owner, 2026-10-12:
    "nothing touching the phone's edges, on every phone"). The main layout (AppShell, .app-shell) does it in its own
    header and bottom bar; a page painted edge to edge (sign-in, .own-safe-area) does it itself; every other page — the

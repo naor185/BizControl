@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import PickerBox from "@/components/ui/picker-box";
 
+import { tx } from "@/lib/i18n";
 export type LandingPageContentProps = {
     themePrimary: string;
     themeSecondary: string;
@@ -53,7 +54,7 @@ function SuccessScreen({ themePrimary, studioName, joinedPoints }: { themePrimar
     }, [themePrimary]);
 
     return (
-        <div className="text-center py-10 px-4 space-y-6" dir="rtl">
+        <div className="text-center py-10 px-4 space-y-6">
             {/* Animated checkmark */}
             <div className="relative mx-auto w-28 h-28">
                 <div
@@ -85,13 +86,13 @@ function SuccessScreen({ themePrimary, studioName, joinedPoints }: { themePrimar
                         animation: "successFade 0.5s ease 0.3s both",
                     }}
                 >
-                    🎉 ברוך הבא למועדון!
+                    {tx("🎉 ברוך הבא למועדון!")}
                 </h2>
                 <p
                     className="text-slate-600 text-lg font-medium"
                     style={{ animation: "successFade 0.5s ease 0.5s both" }}
                 >
-                    הצטרפת בהצלחה ל{studioName}. נשמח לראותך!
+                    {tx("הצטרפת בהצלחה ל")}{studioName}{tx(". נשמח לראותך!")}
                 </p>
             </div>
 
@@ -105,8 +106,8 @@ function SuccessScreen({ themePrimary, studioName, joinedPoints }: { themePrimar
                     }}
                 >
                     <span className="text-4xl">⭐</span>
-                    <span className="font-black text-2xl">{joinedPoints} נקודות</span>
-                    <span className="text-sm opacity-80 font-medium">קיבלת מתנת הצטרפות!</span>
+                    <span className="font-black text-2xl">{joinedPoints}{tx(" נקודות")}</span>
+                    <span className="text-sm opacity-80 font-medium">{tx("קיבלת מתנת הצטרפות!")}</span>
                 </div>
             )}
 
@@ -115,8 +116,8 @@ function SuccessScreen({ themePrimary, studioName, joinedPoints }: { themePrimar
                 className="bg-slate-50 rounded-2xl border border-slate-100 px-6 py-4 text-sm text-slate-500 space-y-1 max-w-xs mx-auto"
                 style={{ animation: "successFade 0.5s ease 0.9s both" }}
             >
-                <p>✅ הנקודות נוספו לחשבונך</p>
-                <p>📲 תקבל הודעת וואטסאפ בקרוב</p>
+                <p>{tx("✅ הנקודות נוספו לחשבונך")}</p>
+                <p>{tx("📲 תקבל הודעת וואטסאפ בקרוב")}</p>
             </div>
 
             <style>{`
@@ -144,7 +145,7 @@ export default function LandingPageTemplate({
     logoUrl,
     title,
     description,
-    studioName = "העסק",
+    studioName = tx("העסק"),
     templateId,
     bgImage = null,
     titleFont = "Heebo",
@@ -179,24 +180,24 @@ export default function LandingPageTemplate({
     };
 
     const RegistrationForm = (
-        <form onSubmit={handleFormSubmit} className="space-y-4 w-full text-right" dir="rtl">
+        <form onSubmit={handleFormSubmit} className="space-y-4 w-full text-start">
             <div>
-                <label className="block text-sm font-medium mb-1 text-slate-700">שם מלא</label>
-                <input required={isLive} type="text" value={fullName} onChange={e => setFullName?.(e.target.value)} disabled={!isLive} className="w-full border px-4 py-2.5 rounded-xl bg-white/60 backdrop-blur-sm focus:bg-white focus:ring-2 focus:outline-none transition-all" style={{ borderColor: themePrimary, outlineColor: themePrimary }} placeholder="ישראל ישראלי" />
+                <label className="block text-sm font-medium mb-1 text-slate-700">{tx("שם מלא")}</label>
+                <input required={isLive} type="text" value={fullName} onChange={e => setFullName?.(e.target.value)} disabled={!isLive} className="w-full border px-4 py-2.5 rounded-xl bg-white/60 backdrop-blur-sm focus:bg-white focus:ring-2 focus:outline-none transition-all" style={{ borderColor: themePrimary, outlineColor: themePrimary }} placeholder={tx("ישראל ישראלי")} />
             </div>
             <div>
-                <label className="block text-sm font-medium mb-1 text-slate-700">טלפון</label>
-                <input required={isLive} type="tel" dir="ltr" value={phone} onChange={e => setPhone?.(e.target.value)} disabled={!isLive} className="w-full border px-4 py-2.5 rounded-xl bg-white/60 backdrop-blur-sm text-right focus:bg-white focus:ring-2 focus:outline-none transition-all" style={{ borderColor: themePrimary, outlineColor: themePrimary }} placeholder="050-1234567" />
+                <label className="block text-sm font-medium mb-1 text-slate-700">{tx("טלפון")}</label>
+                <input required={isLive} type="tel" dir="ltr" value={phone} onChange={e => setPhone?.(e.target.value)} disabled={!isLive} className="w-full border px-4 py-2.5 rounded-xl bg-white/60 backdrop-blur-sm text-page-start focus:bg-white focus:ring-2 focus:outline-none transition-all" style={{ borderColor: themePrimary, outlineColor: themePrimary }} placeholder="050-1234567" />
             </div>
             <div>
-                <label className="block text-sm font-medium mb-1 text-slate-700">דוא&quot;ל</label>
-                <input required={isLive} type="email" dir="ltr" value={email} onChange={e => setEmail?.(e.target.value)} disabled={!isLive} className="w-full border px-4 py-2.5 rounded-xl bg-white/60 backdrop-blur-sm text-right focus:bg-white focus:ring-2 focus:outline-none transition-all" style={{ borderColor: themePrimary, outlineColor: themePrimary }} placeholder="you@example.com" />
+                <label className="block text-sm font-medium mb-1 text-slate-700">{tx("דוא\"ל")}</label>
+                <input required={isLive} type="email" dir="ltr" value={email} onChange={e => setEmail?.(e.target.value)} disabled={!isLive} className="w-full border px-4 py-2.5 rounded-xl bg-white/60 backdrop-blur-sm text-page-start focus:bg-white focus:ring-2 focus:outline-none transition-all" style={{ borderColor: themePrimary, outlineColor: themePrimary }} placeholder="you@example.com" />
             </div>
             <div>
-                <label className="block text-sm font-medium mb-1 text-slate-700">תאריך לידה (ליום הולדת 🎉)</label>
-                <PickerBox type="date" label="תאריך לידה" value={birthDate} onChange={v => { setBirthDate?.(v); setBirthMissing(false); }} disabled={!isLive} max={new Date().toISOString().slice(0, 10)}
-                    className="w-full border px-4 py-2.5 rounded-xl bg-white/60 backdrop-blur-sm text-right focus:bg-white transition-all" style={{ borderColor: themePrimary, outlineColor: themePrimary }} />
-                {birthMissing && <p className="text-xs text-red-600 mt-1">יש לבחור תאריך לידה</p>}
+                <label className="block text-sm font-medium mb-1 text-slate-700">{tx("תאריך לידה (ליום הולדת 🎉)")}</label>
+                <PickerBox type="date" label={tx("תאריך לידה")} value={birthDate} onChange={v => { setBirthDate?.(v); setBirthMissing(false); }} disabled={!isLive} max={new Date().toISOString().slice(0, 10)}
+                    className="w-full border px-4 py-2.5 rounded-xl bg-white/60 backdrop-blur-sm text-start focus:bg-white transition-all" style={{ borderColor: themePrimary, outlineColor: themePrimary }} />
+                {birthMissing && <p className="text-xs text-red-600 mt-1">{tx("יש לבחור תאריך לידה")}</p>}
             </div>
 
             <div className="flex items-start gap-3 py-2">
@@ -209,10 +210,10 @@ export default function LandingPageTemplate({
                     style={{ accentColor: themePrimary }}
                 />
                 <label htmlFor="marketing" className="text-sm text-slate-600 cursor-pointer">
-                    אני מאשר/ת קבלת עדכונים, הטבות והודעות שיווקיות מ-{studioName} ומסכים/ה ל
-                    <a href="/accessibility" target="_blank" className="underline mx-1">תנאי השימוש</a>
-                    ו
-                    <a href="/accessibility" target="_blank" className="underline mx-1">הצהרת הנגישות</a>.
+                    {tx("אני מאשר/ת קבלת עדכונים, הטבות והודעות שיווקיות מ-")}{studioName} {tx("ומסכים/ה ל")}
+                    <a href="/accessibility" target="_blank" className="underline mx-1">{tx("תנאי השימוש")}</a>
+                    {tx("ו")}
+                    <a href="/accessibility" target="_blank" className="underline mx-1">{tx("הצהרת הנגישות")}</a>.
                 </label>
             </div>
 
@@ -220,12 +221,12 @@ export default function LandingPageTemplate({
 
             {pointsOnSignup > 0 && !submitting && (
                 <p className="text-center text-sm font-semibold mt-4" style={{ color: themePrimary }}>
-                    🎁 קבל {pointsOnSignup} נקודות מתנה בהצטרפות!
+                    {tx("🎁 קבל")} {pointsOnSignup} {tx("נקודות מתנה בהצטרפות!")}
                 </p>
             )}
             <button disabled={!isLive || submitting} type="submit" className="w-full text-white font-bold py-3.5 rounded-xl mt-3 shadow-xl disabled:opacity-70 hover:opacity-90 hover:-translate-y-0.5 transition-all overflow-hidden relative group" style={{ backgroundColor: themePrimary }}>
                 <div className="absolute inset-0 w-full h-full bg-white/20 -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]"></div>
-                <span className="relative z-10">{submitting ? "שולח..." : "הצטרפות למועדון"}</span>
+                <span className="relative z-10">{submitting ? tx("שולח...") : tx("הצטרפות למועדון")}</span>
             </button>
         </form>
     );
@@ -234,15 +235,15 @@ export default function LandingPageTemplate({
         ? <SuccessScreen themePrimary={themePrimary} studioName={studioName} joinedPoints={joinedPoints} />
         : alreadyMember
         ? (
-            <div className="flex flex-col items-center justify-center py-16 px-6 text-center space-y-5" dir="rtl">
+            <div className="flex flex-col items-center justify-center py-16 px-6 text-center space-y-5">
                 <div className="w-24 h-24 rounded-full flex items-center justify-center text-5xl shadow-xl" style={{ background: `linear-gradient(135deg, ${themePrimary}22, ${themePrimary}44)`, border: `3px solid ${themePrimary}` }}>
                     👑
                 </div>
-                <h2 className="text-2xl font-black text-slate-800">אתה כבר חבר המועדון!</h2>
-                <p className="text-slate-500 text-base">אנחנו מכירים אותך — אתה כבר VIP אצלנו ב-{studioName}.</p>
+                <h2 className="text-2xl font-black text-slate-800">{tx("אתה כבר חבר המועדון!")}</h2>
+                <p className="text-slate-500 text-base">{tx("אנחנו מכירים אותך — אתה כבר VIP אצלנו ב-")}{studioName}.</p>
                 {joinedPoints > 0 && (
                     <div className="px-6 py-3 rounded-2xl text-white font-bold text-lg shadow-lg" style={{ background: themePrimary }}>
-                        יש לך {joinedPoints} נקודות בחשבון ⭐
+                        {tx("יש לך")} {joinedPoints} {tx("נקודות בחשבון ⭐")}
                     </div>
                 )}
             </div>
@@ -250,8 +251,8 @@ export default function LandingPageTemplate({
         : null;
 
     // Default Fallbacks
-    const safeTitle = title || `ברוכים הבאים ל-${studioName}`;
-    const safeDesc = description || "הרשמו עכשיו וקבלו הטבות שוות!";
+    const safeTitle = title || tx("ברוכים הבאים ל-{0}", { 0: studioName });
+    const safeDesc = description || tx("הרשמו עכשיו וקבלו הטבות שוות!");
 
     const FontsImport = (
         <style dangerouslySetInnerHTML={{
@@ -296,14 +297,14 @@ export default function LandingPageTemplate({
     // TEMPLATE 1: Modern Centered Card (Upgraded with Glassmorphism)
     if (templateId === 1) {
         return (
-            <div className="min-h-full w-full flex items-center justify-center p-4 sm:p-8 relative overflow-hidden" dir="rtl" style={bgStyle}>
+            <div className="min-h-full w-full flex items-center justify-center p-4 sm:p-8 relative overflow-hidden" style={bgStyle}>
                 {FontsImport}
 
                 {/* Modern Decorative Orbs (Only if no BG image to prevent clash) */}
                 {!bgImage && (
                     <>
-                        <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] rounded-full opacity-30 mix-blend-multiply blur-[80px] z-0 pointer-events-none transition-all duration-1000" style={{ backgroundColor: themePrimary }}></div>
-                        <div className="absolute bottom-[-15%] left-[-10%] w-[600px] h-[600px] rounded-full opacity-20 mix-blend-multiply blur-[100px] z-0 pointer-events-none transition-all duration-1000" style={{ backgroundColor: themePrimary }}></div>
+                        <div className="absolute top-[-10%] start-[-10%] w-[500px] h-[500px] rounded-full opacity-30 mix-blend-multiply blur-[80px] z-0 pointer-events-none transition-all duration-1000" style={{ backgroundColor: themePrimary }}></div>
+                        <div className="absolute bottom-[-15%] end-[-10%] w-[600px] h-[600px] rounded-full opacity-20 mix-blend-multiply blur-[100px] z-0 pointer-events-none transition-all duration-1000" style={{ backgroundColor: themePrimary }}></div>
                         <div className="absolute inset-0 z-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, black 1px, transparent 0)', backgroundSize: '40px 40px' }}></div>
                     </>
                 )}
@@ -328,7 +329,7 @@ export default function LandingPageTemplate({
     // TEMPLATE 2: Split Screen (Premium Layout)
     if (templateId === 2) {
         return (
-            <div className="min-h-full w-full flex flex-col md:flex-row" dir="rtl" style={bgStyle}>
+            <div className="min-h-full w-full flex flex-col md:flex-row" style={bgStyle}>
                 {FontsImport}
 
                 {/* Branding Side */}
@@ -356,8 +357,8 @@ export default function LandingPageTemplate({
                     <div className="w-full max-w-sm relative z-10 animate-in fade-in slide-in-from-left-8 duration-700 delay-150">
                         <div className="bg-white/90 backdrop-blur-xl p-8 sm:p-10 rounded-3xl shadow-2xl border border-slate-100 ring-4 ring-slate-50">
                             <div className="mb-8">
-                                <h2 className="text-2xl font-bold text-slate-800" style={fontStyleTitle}>מילוי פרטים אישיים 👋</h2>
-                                <p className="text-slate-500 text-sm mt-2" style={fontStyleDesc}>הזן את פרטיך להצטרפות מהירה למערכת</p>
+                                <h2 className="text-2xl font-bold text-slate-800" style={fontStyleTitle}>{tx("מילוי פרטים אישיים 👋")}</h2>
+                                <p className="text-slate-500 text-sm mt-2" style={fontStyleDesc}>{tx("הזן את פרטיך להצטרפות מהירה למערכת")}</p>
                             </div>
                             {(success || alreadyMember) ? SuccessMessage : RegistrationForm}
                         </div>
@@ -369,14 +370,14 @@ export default function LandingPageTemplate({
 
     // TEMPLATE 3: Minimalist High-Fashion Vogue Style
     return (
-        <div className="min-h-full w-full flex flex-col items-center justify-center p-6 sm:p-12 transition-colors duration-1000 relative overflow-hidden" dir="rtl" style={bgStyle}>
+        <div className="min-h-full w-full flex flex-col items-center justify-center p-6 sm:p-12 transition-colors duration-1000 relative overflow-hidden" style={bgStyle}>
             {FontsImport}
 
             {/* Extremely subtle minimalist accents */}
             {!bgImage && (
                 <>
                     <div className="absolute top-0 w-full h-1" style={{ backgroundColor: themePrimary }}></div>
-                    <div className="absolute bottom-0 left-0 w-32 h-32 rounded-tr-full opacity-5 pointer-events-none" style={{ backgroundColor: themePrimary }}></div>
+                    <div className="absolute bottom-0 end-0 w-32 h-32 rounded-ss-full opacity-5 pointer-events-none" style={{ backgroundColor: themePrimary }}></div>
                 </>
             )}
 

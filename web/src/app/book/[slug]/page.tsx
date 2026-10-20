@@ -4,15 +4,17 @@ import { useParams } from "next/navigation";
 import { errorText, imgUrl } from "@/lib/api";
 import { usePlatformTheme } from "@/lib/usePlatformTheme";
 
+import { tx, speakBusiness, langHeader } from "@/lib/i18n";
 const API = (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE || "").replace(/^http:\/\//, "https://");
 
 interface Service { id: string; name: string; duration_minutes: number; price_ils: number; color: string; description?: string; requires_consultation: boolean; }
 interface Artist { id: string; name: string; }
 interface Slot { starts_at: string; ends_at: string; label: string; }
-interface BookingInfo { studio_id: string; studio_name: string; logo_url?: string; primary_color: string; timezone: string; services: Service[]; artists: Artist[]; }
+interface BookingInfo { studio_id: string; studio_name: string; logo_url?: string; primary_color: string; locale?: string; timezone: string; services: Service[]; artists: Artist[]; }
 
 type Step = "service" | "artist" | "date" | "time" | "details" | "success";
 
+// in Hebrew, said in the page's language where they show (tx) — the page speaks the business's language
 const HE_MONTHS = ["ינואר","פברואר","מרץ","אפריל","מאי","יוני","יולי","אוגוסט","ספטמבר","אוקטובר","נובמבר","דצמבר"];
 const HE_DAYS_SHORT = ["א׳","ב׳","ג׳","ד׳","ה׳","ו׳","ש׳"];
 
@@ -42,9 +44,9 @@ export default function BookingPage() {
 
     useEffect(() => {
         fetch(`${API}/api/book/${slug}/info`)
-            .then(r => r.ok ? r.json() : r.json().then(e => Promise.reject(e.detail || "שגיאה")))
-            .then(setInfo)
-            .catch(e => setError(typeof e === "string" ? e : "קביעת תורים אינה זמינה כרגע"));
+            .then(r => r.ok ? r.json() : r.json().then(e => Promise.reject(e.detail || tx("שגיאה"))))
+            .then((d: BookingInfo) => { speakBusiness(d.locale); setInfo(d); })
+            .catch(e => setError(typeof e === "string" ? e : tx("קביעת תורים אינה זמינה כרגע")));
     }, [slug]);
 
     const loadSlots = useCallback(async (date: Date) => {
@@ -57,7 +59,7 @@ export default function BookingPage() {
                 booking_date: isoDate(date),
                 ...(artist ? { artist_id: artist.id } : {}),
             });
-            const r = await fetch(`${API}/api/book/${slug}/slots?${params}`);
+            const r = await fetch(`${API}/api/book/${slug}/slots?${params}`, { headers: langHeader() });
             const data = await r.json();
             setSlots(data.slots || []);
         } catch { setSlots([]); }
@@ -67,12 +69,12 @@ export default function BookingPage() {
     useEffect(() => { if (selectedDate) loadSlots(selectedDate); }, [selectedDate, loadSlots]);
 
     const handleBook = async () => {
-        if (!service || !selectedSlot || !form.name || !form.phone) { setBookErr("נא למלא את כל השדות"); return; }
+        if (!service || !selectedSlot || !form.name || !form.phone) { setBookErr(tx("נא למלא את כל השדות")); return; }
         setBooking(true); setBookErr(null);
         try {
             const r = await fetch(`${API}/api/book/${slug}/book`, {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: { "Content-Type": "application/json", ...langHeader() },
                 body: JSON.stringify({
                     service_id: service.id,
                     artist_id: artist?.id || null,
@@ -84,7 +86,7 @@ export default function BookingPage() {
                     notes: form.notes || null,
                 }),
             });
-            if (!r.ok) { const e = await r.json(); throw new Error(errorText(e.detail, "שגיאה")); }
+            if (!r.ok) { const e = await r.json(); throw new Error(errorText(e.detail, tx("שגיאה"))); }
             const data = await r.json();
             setConfirmation(data);
             setStep("success");
@@ -108,7 +110,7 @@ export default function BookingPage() {
     );
 
     if (error) return (
-        <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#0f172a", color: "#f87171", fontSize: "1.1rem", textAlign: "center", padding: "2rem" }} dir="rtl">
+        <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#0f172a", color: "#f87171", fontSize: "1.1rem", textAlign: "center", padding: "2rem" }}>
             <div>
                 <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🚫</div>
                 <div>{error}</div>
@@ -117,13 +119,13 @@ export default function BookingPage() {
     );
 
     return (
-        <div dir="rtl" style={{ minHeight: "100vh", background: "linear-gradient(135deg,#0f0c29,#1e1b4b)", color: "#fff", fontFamily: "sans-serif" }}>
+        <div style={{ minHeight: "100vh", background: "linear-gradient(135deg,#0f0c29,#1e1b4b)", color: "#fff", fontFamily: "sans-serif" }}>
             {/* Header */}
             <div style={{ background: `${primary}22`, borderBottom: `1px solid ${primary}44`, padding: "1rem 1.5rem", display: "flex", alignItems: "center", gap: "1rem" }}>
                 {info?.logo_url && <img src={imgUrl(info.logo_url)} alt="" style={{ width: 40, height: 40, borderRadius: 10, objectFit: "cover" }} />}
                 <div>
                     <div style={{ fontWeight: 800, fontSize: "1.1rem" }}>{info?.studio_name}</div>
-                    <div style={{ color: "#94a3b8", fontSize: "0.8rem" }}>קביעת תור אונליין</div>
+                    <div style={{ color: "#94a3b8", fontSize: "0.8rem" }}>{tx("קביעת תור אונליין")}</div>
                 </div>
             </div>
 
@@ -131,11 +133,11 @@ export default function BookingPage() {
             {step !== "success" && (
                 <div style={{ display: "flex", justifyContent: "center", gap: "0.5rem", padding: "1rem", flexWrap: "wrap" }}>
                     {[
-                        { key: "service", label: "שירות" },
-                        { key: "artist", label: "מטפל" },
-                        { key: "date", label: "תאריך" },
-                        { key: "time", label: "שעה" },
-                        { key: "details", label: "פרטים" },
+                        { key: "service", label: tx("שירות") },
+                        { key: "artist", label: tx("מטפל") },
+                        { key: "date", label: tx("תאריך") },
+                        { key: "time", label: tx("שעה") },
+                        { key: "details", label: tx("פרטים") },
                     ].map((s, i) => {
                         const steps: Step[] = ["service", "artist", "date", "time", "details"];
                         const idx = steps.indexOf(step);
@@ -161,7 +163,7 @@ export default function BookingPage() {
                 {/* Step: Service */}
                 {step === "service" && (
                     <div>
-                        <h2 style={{ fontWeight: 800, marginBottom: "1.25rem" }}>בחר שירות</h2>
+                        <h2 style={{ fontWeight: 800, marginBottom: "1.25rem" }}>{tx("בחר שירות")}</h2>
                         <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
                             {info?.services.map(s => (
                                 <button key={s.id} onClick={() => { setService(s); setStep(info.artists.length > 1 ? "artist" : "date"); }}
@@ -170,15 +172,15 @@ export default function BookingPage() {
                                     <div style={{ flex: 1 }}>
                                         <div style={{ color: "#fff", fontWeight: 700, fontSize: "1rem" }}>{s.name}</div>
                                         {s.description && <div style={{ color: "#94a3b8", fontSize: "0.8rem", marginTop: "0.2rem" }}>{s.description}</div>}
-                                        {s.requires_consultation && <div style={{ color: "#fbbf24", fontSize: "0.75rem", marginTop: "0.2rem" }}>📋 דורש ייעוץ קודם</div>}
+                                        {s.requires_consultation && <div style={{ color: "#fbbf24", fontSize: "0.75rem", marginTop: "0.2rem" }}>{tx("📋 דורש ייעוץ קודם")}</div>}
                                     </div>
-                                    <div style={{ textAlign: "left", flexShrink: 0 }}>
-                                        <div style={{ color: "#a78bfa", fontWeight: 600 }}>{s.duration_minutes < 60 ? `${s.duration_minutes} דק׳` : `${s.duration_minutes/60} שע׳`}</div>
+                                    <div style={{ textAlign: "end", flexShrink: 0 }}>
+                                        <div style={{ color: "#a78bfa", fontWeight: 600 }}>{s.duration_minutes < 60 ? tx("{0} דק׳", { 0: s.duration_minutes }) : tx("{0} שע׳", { 0: s.duration_minutes/60 })}</div>
                                         {s.price_ils > 0 && <div style={{ color: "#4ade80", fontSize: "0.9rem" }}>₪{s.price_ils}</div>}
                                     </div>
                                 </button>
                             ))}
-                            {info?.services.length === 0 && <div style={{ color: "#64748b", textAlign: "center", padding: "2rem" }}>אין שירותים זמינים לקביעה אונליין</div>}
+                            {info?.services.length === 0 && <div style={{ color: "#64748b", textAlign: "center", padding: "2rem" }}>{tx("אין שירותים זמינים לקביעה אונליין")}</div>}
                         </div>
                     </div>
                 )}
@@ -186,11 +188,11 @@ export default function BookingPage() {
                 {/* Step: Artist */}
                 {step === "artist" && (
                     <div>
-                        <h2 style={{ fontWeight: 800, marginBottom: "1.25rem" }}>בחר מטפל</h2>
+                        <h2 style={{ fontWeight: 800, marginBottom: "1.25rem" }}>{tx("בחר מטפל")}</h2>
                         <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
                             <button onClick={() => { setArtist(null); setStep("date"); }}
                                 style={{ background: !artist ? `${primary}22` : "rgba(255,255,255,.05)", border: `1px solid ${!artist ? primary : "rgba(255,255,255,.1)"}`, borderRadius: 14, padding: "1rem 1.25rem", cursor: "pointer", color: "#fff", fontWeight: 600, textAlign: "right" }}>
-                                🎲 כלשהו (הראשון הזמין)
+                                {tx("🎲 כלשהו (הראשון הזמין)")}
                             </button>
                             {info?.artists.map(a => (
                                 <button key={a.id} onClick={() => { setArtist(a); setStep("date"); }}
@@ -199,24 +201,24 @@ export default function BookingPage() {
                                 </button>
                             ))}
                         </div>
-                        <button onClick={() => setStep("service")} style={backBtn}>← חזור</button>
+                        <button onClick={() => setStep("service")} style={backBtn}>{tx("← חזור")}</button>
                     </div>
                 )}
 
                 {/* Step: Date */}
                 {step === "date" && (
                     <div>
-                        <h2 style={{ fontWeight: 800, marginBottom: "1.25rem" }}>בחר תאריך</h2>
+                        <h2 style={{ fontWeight: 800, marginBottom: "1.25rem" }}>{tx("בחר תאריך")}</h2>
                         <div style={{ background: "rgba(255,255,255,.05)", borderRadius: 16, padding: "1.25rem" }}>
                             {/* Month nav */}
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
                                 <button onClick={() => setCalMonth(m => new Date(m.getFullYear(), m.getMonth() - 1))} style={navBtn}>‹</button>
-                                <span style={{ fontWeight: 700 }}>{HE_MONTHS[calMonth.getMonth()]} {calMonth.getFullYear()}</span>
+                                <span style={{ fontWeight: 700 }}>{tx(HE_MONTHS[calMonth.getMonth()])} {calMonth.getFullYear()}</span>
                                 <button onClick={() => setCalMonth(m => new Date(m.getFullYear(), m.getMonth() + 1))} style={navBtn}>›</button>
                             </div>
                             {/* Day headers */}
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 4, marginBottom: "0.5rem" }}>
-                                {HE_DAYS_SHORT.map(d => <div key={d} style={{ textAlign: "center", fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>{d}</div>)}
+                                {HE_DAYS_SHORT.map(d => <div key={d} style={{ textAlign: "center", fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>{tx(d)}</div>)}
                             </div>
                             {/* Days grid */}
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 4 }}>
@@ -242,40 +244,40 @@ export default function BookingPage() {
                                 })}
                             </div>
                         </div>
-                        <button onClick={() => setStep(info?.artists.length && info.artists.length > 1 ? "artist" : "service")} style={backBtn}>← חזור</button>
+                        <button onClick={() => setStep(info?.artists.length && info.artists.length > 1 ? "artist" : "service")} style={backBtn}>{tx("← חזור")}</button>
                     </div>
                 )}
 
                 {/* Step: Time */}
                 {step === "time" && (
                     <div>
-                        <h2 style={{ fontWeight: 800, marginBottom: "0.5rem" }}>בחר שעה</h2>
+                        <h2 style={{ fontWeight: 800, marginBottom: "0.5rem" }}>{tx("בחר שעה")}</h2>
                         <div style={{ color: "#94a3b8", fontSize: "0.85rem", marginBottom: "1.25rem" }}>
-                            {selectedDate && `${selectedDate.getDate()} ${HE_MONTHS[selectedDate.getMonth()]} ${selectedDate.getFullYear()}`}
+                            {selectedDate && `${selectedDate.getDate()} ${tx(HE_MONTHS[selectedDate.getMonth()])} ${selectedDate.getFullYear()}`}
                         </div>
                         {loadingSlots ? (
-                            <div style={{ textAlign: "center", padding: "2rem", color: "#64748b" }}>⏳ טוען זמנים...</div>
+                            <div style={{ textAlign: "center", padding: "2rem", color: "#64748b" }}>{tx("⏳ טוען זמנים...")}</div>
                         ) : slots.length === 0 ? (
                             <div style={{ textAlign: "center", padding: "1.5rem 0", color: "#64748b" }}>
                                 <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>😔</div>
-                                <div style={{ marginBottom: "1rem" }}>אין זמנים פנויים ביום זה</div>
-                                <button onClick={() => setStep("date")} style={{ ...navBtn }}>בחר תאריך אחר</button>
+                                <div style={{ marginBottom: "1rem" }}>{tx("אין זמנים פנויים ביום זה")}</div>
+                                <button onClick={() => setStep("date")} style={{ ...navBtn }}>{tx("בחר תאריך אחר")}</button>
 
                                 {/* Wait List Join */}
                                 <div style={{ marginTop: "1.5rem", background: "rgba(167,139,250,.08)", border: "1px solid rgba(167,139,250,.2)", borderRadius: 16, padding: "1.25rem", textAlign: "right" }}>
-                                    <div style={{ fontWeight: 700, color: "#a78bfa", marginBottom: "0.5rem" }}>⏳ הצטרף/י לרשימת ההמתנה</div>
-                                    <div style={{ color: "#94a3b8", fontSize: "0.82rem", marginBottom: "1rem" }}>נודיע לך ב-WhatsApp ברגע שיתפנה מקום</div>
+                                    <div style={{ fontWeight: 700, color: "#a78bfa", marginBottom: "0.5rem" }}>{tx("⏳ הצטרף/י לרשימת ההמתנה")}</div>
+                                    <div style={{ color: "#94a3b8", fontSize: "0.82rem", marginBottom: "1rem" }}>{tx("נודיע לך ב-WhatsApp ברגע שיתפנה מקום")}</div>
                                     {wlDone ? (
-                                        <div style={{ color: "#4ade80", fontWeight: 700, textAlign: "center", padding: "0.75rem" }}>✅ נוספת לרשימה! נחזור אליך בקרוב</div>
+                                        <div style={{ color: "#4ade80", fontWeight: 700, textAlign: "center", padding: "0.75rem" }}>{tx("✅ נוספת לרשימה! נחזור אליך בקרוב")}</div>
                                     ) : (
                                         <>
                                             <input
-                                                type="text" placeholder="שם מלא *" value={wlForm.name}
+                                                type="text" placeholder={tx("שם מלא *")} value={wlForm.name}
                                                 onChange={e => setWlForm(v => ({ ...v, name: e.target.value }))}
                                                 style={{ background: "rgba(255,255,255,.08)", border: "1px solid rgba(255,255,255,.15)", borderRadius: 10, padding: "0.6rem 0.9rem", color: "#fff", fontSize: "0.9rem", width: "100%", boxSizing: "border-box", marginBottom: "0.5rem" }}
                                             />
                                             <input
-                                                type="tel" placeholder="טלפון (WhatsApp) *" value={wlForm.phone}
+                                                type="tel" placeholder={tx("טלפון (WhatsApp) *")} value={wlForm.phone}
                                                 onChange={e => setWlForm(v => ({ ...v, phone: e.target.value }))}
                                                 style={{ background: "rgba(255,255,255,.08)", border: "1px solid rgba(255,255,255,.15)", borderRadius: 10, padding: "0.6rem 0.9rem", color: "#fff", fontSize: "0.9rem", width: "100%", boxSizing: "border-box", marginBottom: "0.75rem" }}
                                             />
@@ -287,17 +289,17 @@ export default function BookingPage() {
                                                     try {
                                                         const r = await fetch(`${API}/api/book/${slug}/wait-list`, {
                                                             method: "POST",
-                                                            headers: { "Content-Type": "application/json" },
+                                                            headers: { "Content-Type": "application/json", ...langHeader() },
                                                             body: JSON.stringify({ client_name: wlForm.name.trim(), client_phone: wlForm.phone.trim(), service_id: service?.id }),
                                                         });
-                                                        if (!r.ok) throw new Error(errorText((await r.json()).detail, "שגיאה"));
+                                                        if (!r.ok) throw new Error(errorText((await r.json()).detail, tx("שגיאה")));
                                                         setWlDone(true);
                                                     } catch (e: any) { setWlErr(e.message); }
                                                     finally { setWlSubmitting(false); }
                                                 }}
                                                 style={{ width: "100%", background: "linear-gradient(135deg,#7c3aed,#4c1d95)", border: "none", borderRadius: 12, color: "#fff", padding: "0.65rem", fontWeight: 700, cursor: "pointer", opacity: wlSubmitting ? 0.6 : 1 }}
                                             >
-                                                {wlSubmitting ? "⏳..." : "📨 הצטרף/י לרשימה"}
+                                                {wlSubmitting ? "⏳..." : tx("📨 הצטרף/י לרשימה")}
                                             </button>
                                         </>
                                     )}
@@ -317,25 +319,25 @@ export default function BookingPage() {
                                 ))}
                             </div>
                         )}
-                        <button onClick={() => setStep("date")} style={backBtn}>← חזור</button>
+                        <button onClick={() => setStep("date")} style={backBtn}>{tx("← חזור")}</button>
                     </div>
                 )}
 
                 {/* Step: Details */}
                 {step === "details" && (
                     <div>
-                        <h2 style={{ fontWeight: 800, marginBottom: "1.25rem" }}>פרטי הקביעה</h2>
+                        <h2 style={{ fontWeight: 800, marginBottom: "1.25rem" }}>{tx("פרטי הקביעה")}</h2>
                         <div style={{ background: `${primary}11`, border: `1px solid ${primary}33`, borderRadius: 14, padding: "1rem", marginBottom: "1.5rem", fontSize: "0.9rem" }}>
                             <div>🛎️ <strong>{service?.name}</strong></div>
                             {artist && <div style={{ marginTop: "0.25rem" }}>👤 {artist.name}</div>}
-                            {selectedDate && <div style={{ marginTop: "0.25rem" }}>📅 {selectedDate.getDate()} {HE_MONTHS[selectedDate.getMonth()]} · {selectedSlot?.label}</div>}
+                            {selectedDate && <div style={{ marginTop: "0.25rem" }}>📅 {selectedDate.getDate()} {tx(HE_MONTHS[selectedDate.getMonth()])} · {selectedSlot?.label}</div>}
                         </div>
                         <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginBottom: "1.5rem" }}>
                             {[
-                                { key: "name", label: "שם מלא *", type: "text", placeholder: "ישראל ישראלי" },
-                                { key: "phone", label: "טלפון *", type: "tel", placeholder: "050-0000000" },
-                                { key: "email", label: "אימייל", type: "email", placeholder: "you@example.com" },
-                                { key: "notes", label: "הערות", type: "text", placeholder: "משהו שצריך לדעת..." },
+                                { key: "name", label: tx("שם מלא *"), type: "text", placeholder: tx("ישראל ישראלי") },
+                                { key: "phone", label: tx("טלפון *"), type: "tel", placeholder: "050-0000000" },
+                                { key: "email", label: tx("אימייל"), type: "email", placeholder: "you@example.com" },
+                                { key: "notes", label: tx("הערות"), type: "text", placeholder: tx("משהו שצריך לדעת...") },
                             ].map(f => (
                                 <div key={f.key}>
                                     <label style={{ color: "#94a3b8", fontSize: "0.82rem", fontWeight: 600, display: "block", marginBottom: "0.35rem" }}>{f.label}</label>
@@ -347,9 +349,9 @@ export default function BookingPage() {
                         </div>
                         {bookErr && <div style={{ background: "rgba(239,68,68,.15)", border: "1px solid rgba(239,68,68,.3)", borderRadius: 10, padding: "0.75rem", color: "#fca5a5", marginBottom: "1rem", fontSize: "0.85rem" }}>{bookErr}</div>}
                         <button onClick={handleBook} disabled={booking} style={{ width: "100%", background: `linear-gradient(135deg,${primary},#4c1d95)`, border: "none", borderRadius: 14, color: "#fff", padding: "0.85rem", fontWeight: 700, fontSize: "1rem", cursor: booking ? "default" : "pointer", opacity: booking ? 0.7 : 1 }}>
-                            {booking ? "⏳ שולח..." : "✅ אשר קביעת תור"}
+                            {booking ? tx("⏳ שולח...") : tx("✅ אשר קביעת תור")}
                         </button>
-                        <button onClick={() => setStep("time")} style={backBtn}>← חזור</button>
+                        <button onClick={() => setStep("time")} style={backBtn}>{tx("← חזור")}</button>
                     </div>
                 )}
 
@@ -357,11 +359,11 @@ export default function BookingPage() {
                 {step === "success" && (
                     <div style={{ textAlign: "center", padding: "2rem 0" }}>
                         <div style={{ fontSize: "4rem", marginBottom: "1rem" }}>✅</div>
-                        <h2 style={{ color: "#4ade80", fontWeight: 800, fontSize: "1.5rem", marginBottom: "0.5rem" }}>התור נקבע!</h2>
-                        <p style={{ color: "#94a3b8" }}>תקבל/י אישור ב-WhatsApp בקרוב</p>
+                        <h2 style={{ color: "#4ade80", fontWeight: 800, fontSize: "1.5rem", marginBottom: "0.5rem" }}>{tx("התור נקבע!")}</h2>
+                        <p style={{ color: "#94a3b8" }}>{tx("תקבל/י אישור ב-WhatsApp בקרוב")}</p>
                         <div style={{ background: "rgba(74,222,128,.08)", border: "1px solid rgba(74,222,128,.2)", borderRadius: 16, padding: "1.25rem", marginTop: "1.5rem", fontSize: "0.95rem" }}>
                             <div>🛎️ <strong>{service?.name}</strong></div>
-                            {selectedDate && <div style={{ marginTop: "0.5rem" }}>📅 {selectedDate.getDate()} {HE_MONTHS[selectedDate.getMonth()]} · {selectedSlot?.label}</div>}
+                            {selectedDate && <div style={{ marginTop: "0.5rem" }}>📅 {selectedDate.getDate()} {tx(HE_MONTHS[selectedDate.getMonth()])} · {selectedSlot?.label}</div>}
                         </div>
                     </div>
                 )}

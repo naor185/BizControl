@@ -383,15 +383,17 @@ def public_view(db: Session, d: HealthDeclaration) -> dict:
     from app.models.studio import Studio
     studio = db.get(Studio, d.studio_id)
     business = studio.name if studio else ""
+    from app.core.i18n import studio_locale
+    locale = studio_locale(db, d.studio_id)          # the business's language — the page speaks it
     if d.status != "waiting_client":
-        return {"status": "signed", "business_name": business}
+        return {"status": "signed", "business_name": business, "locale": locale}
     if not link_open(d):
-        return {"status": "expired", "business_name": business}
+        return {"status": "expired", "business_name": business, "locale": locale}
     client = db.get(Client, d.client_id)
     appt = db.get(Appointment, d.appointment_id) if d.appointment_id else None
     file = db.get(HealthFormFile, d.file_id) if d.file_id else None
     return {
-        "status": "waiting_client", "business_name": business, "client_name": client.full_name if client else "",
+        "status": "waiting_client", "business_name": business, "client_name": client.full_name if client else "", "locale": locale,
         "title": d.title, "intro": d.intro, "questions": d.questions, "closing": d.closing, "ask_age": d.ask_age,
         "appointment_at": appt.starts_at.isoformat() if appt else None,
         "file": {"id": str(file.id), "filename": file.filename, "content_type": file.content_type} if file else None,

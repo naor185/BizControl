@@ -46,6 +46,7 @@ class PublicLandingInfo(BaseModel):
     landing_page_image_3: str | None = None
     points_on_signup: int = 0
     club_open: bool = True          # the club is in the business's plan — the join form shows only then
+    locale: str = "he"              # the business's language — its pages to clients speak it
 
 class PublicStudioInfo(BaseModel):
     id: str
@@ -63,6 +64,7 @@ class PublicStudioInfo(BaseModel):
     landing_page_image_2: str | None = None
     landing_page_image_3: str | None = None
     club_open: bool = True
+    locale: str = "he"           # the business's language — its pages to clients speak it
 
 class PublicPaymentInfo(BaseModel):
     id: str
@@ -81,6 +83,7 @@ class PublicPaymentInfo(BaseModel):
     payment_sent: bool = False        # the client already tapped "שילמתי"
     payment_verified: bool = False    # the business approved the deposit
     has_proof: bool = False           # a picture of the payment is attached
+    locale: str = "he"
 
 class PaymentConfirmRequest(BaseModel):
     notes: str | None = None
@@ -186,6 +189,7 @@ def get_landing_by_slug(slug: str, db: Session = Depends(get_db)):
         landing_page_image_3=settings.landing_page_image_3,
         points_on_signup=_join_gift(db, studio.id, settings),
         club_open=_club_open(db, studio.id),
+        locale=settings.default_locale or "he",
     )
 
 def _join_gift(db: Session, studio_id, settings) -> int:
@@ -225,6 +229,7 @@ def get_public_studio_info(studio_id: str, db: Session = Depends(get_db)):
         landing_page_image_2=settings.landing_page_image_2,
         landing_page_image_3=settings.landing_page_image_3,
         club_open=_club_open(db, studio.id),
+        locale=settings.default_locale or "he",
     )
 
 @router.post("/studio/{studio_id}/join")
@@ -374,6 +379,7 @@ def get_public_payment_info(appointment_id: PyUUID, db: Session = Depends(get_db
         payment_sent=appt.payment_sent_at is not None,
         payment_verified=appt.payment_verified_at is not None,
         has_proof=bool(appt.payment_proof_url),
+        locale=settings.default_locale or "he",
     )
 
 

@@ -5,6 +5,8 @@ import { imgUrl } from "@/lib/api";
 import { usePlatformTheme } from "@/lib/usePlatformTheme";
 import BusinessTypeIcon from "@/components/BusinessTypeIcon";
 
+import { tx } from "@/lib/i18n";
+import AfterMount from "@/components/AfterMount";
 const API = (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE || "").replace(/\/$/, "");
 
 interface StudioCard {
@@ -22,12 +24,17 @@ function Stars({ rating }: { rating?: number }) {
     return (
         <span style={{ color: "#fbbf24", fontSize: "0.8rem" }}>
             {"★".repeat(Math.round(rating))}{"☆".repeat(5 - Math.round(rating))}
-            <span style={{ color: "#94a3b8", marginRight: "0.25rem" }}>({rating.toFixed(1)})</span>
+            <span style={{ color: "#94a3b8", marginInlineStart: "0.25rem" }}>({rating.toFixed(1)})</span>
         </span>
     );
 }
 
+// in the browser only: the device's language, which the server's first page doesn't know
 export default function ExplorePage() {
+    return <AfterMount><Explore /></AfterMount>;
+}
+
+function Explore() {
     const theme = usePlatformTheme();
     const [studios, setStudios] = useState<StudioCard[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
@@ -61,25 +68,25 @@ export default function ExplorePage() {
     }, [load]);
 
     return (
-        <div dir="rtl" style={{ minHeight: "100vh", background: "#0f172a", color: "#fff" }}>
+        <div style={{ minHeight: "100vh", background: "#0f172a", color: "#fff" }}>
             {/* Hero */}
             <div style={{ background: "linear-gradient(135deg,#1e1b4b,#312e81)", padding: "3rem 2rem", textAlign: "center" }}>
                 <h1 style={{ fontSize: "2.5rem", fontWeight: 900, marginBottom: "0.5rem", background: "linear-gradient(135deg,#a78bfa,#60a5fa)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-                    🗺️ גלה עסקים
+                    {tx("🗺️ גלה עסקים")}
                 </h1>
                 <p style={{ color: "#94a3b8", fontSize: "1.1rem", marginBottom: "2rem" }}>
-                    מצא ספר, סטודיו קעקועים, ציפורניים ועוד — וקבע תור אונליין
+                    {tx("מצא ספר, סטודיו קעקועים, ציפורניים ועוד — וקבע תור אונליין")}
                 </p>
                 {/* Search */}
                 <div style={{ display: "flex", gap: "0.75rem", maxWidth: 640, margin: "0 auto", flexWrap: "wrap" }}>
                     <input
                         value={q} onChange={e => setQ(e.target.value)}
-                        placeholder="🔍 חפש לפי שם..."
+                        placeholder={tx("🔍 חפש לפי שם...")}
                         style={{ flex: 2, minWidth: 200, background: "rgba(255,255,255,.1)", border: "1px solid rgba(255,255,255,.2)", borderRadius: 12, padding: "0.75rem 1rem", color: "#fff", fontSize: "0.95rem" }}
                     />
                     <input
                         value={city} onChange={e => setCity(e.target.value)}
-                        placeholder="📍 עיר"
+                        placeholder={tx("📍 עיר")}
                         style={{ flex: 1, minWidth: 120, background: "rgba(255,255,255,.1)", border: "1px solid rgba(255,255,255,.2)", borderRadius: 12, padding: "0.75rem 1rem", color: "#fff", fontSize: "0.95rem" }}
                     />
                 </div>
@@ -89,12 +96,12 @@ export default function ExplorePage() {
             <div style={{ padding: "1.5rem 2rem", display: "flex", gap: "0.5rem", flexWrap: "wrap", justifyContent: "center", borderBottom: "1px solid rgba(255,255,255,.08)" }}>
                 <button onClick={() => setSelectedType("")}
                     style={{ padding: "0.4rem 1rem", borderRadius: 20, border: "none", cursor: "pointer", fontWeight: 600, fontSize: "0.85rem", background: !selectedType ? "#7c3aed" : "rgba(255,255,255,.08)", color: "#fff" }}>
-                    🌐 הכל
+                    {tx("🌐 הכל")}
                 </button>
                 {categories.map(cat => (
                     <button key={cat.id} onClick={() => setSelectedType(cat.id === selectedType ? "" : cat.id)}
                         style={{ padding: "0.4rem 1rem", borderRadius: 20, border: "none", cursor: "pointer", fontWeight: 600, fontSize: "0.85rem", background: selectedType === cat.id ? "#7c3aed" : "rgba(255,255,255,.08)", color: "#fff" }}>
-                        {cat.icon} {cat.label} <span style={{ opacity: 0.6, fontSize: "0.75rem" }}>({cat.count})</span>
+                        {cat.icon} {tx(cat.label)} <span style={{ opacity: 0.6, fontSize: "0.75rem" }}>({cat.count})</span>
                     </button>
                 ))}
             </div>
@@ -102,11 +109,11 @@ export default function ExplorePage() {
             {/* Results */}
             <div style={{ maxWidth: 1100, margin: "0 auto", padding: "2rem 1.5rem" }}>
                 {loading ? (
-                    <div style={{ textAlign: "center", padding: "4rem", color: "#64748b" }}>⏳ מחפש...</div>
+                    <div style={{ textAlign: "center", padding: "4rem", color: "#64748b" }}>{tx("⏳ מחפש...")}</div>
                 ) : studios.length === 0 ? (
                     <div style={{ textAlign: "center", padding: "4rem", color: "#64748b" }}>
                         <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🔍</div>
-                        <div>לא נמצאו עסקים. נסה חיפוש אחר.</div>
+                        <div>{tx("לא נמצאו עסקים. נסה חיפוש אחר.")}</div>
                     </div>
                 ) : (
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(300px,1fr))", gap: "1.5rem" }}>
@@ -128,7 +135,7 @@ export default function ExplorePage() {
                                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.5rem" }}>
                                             <div>
                                                 <div style={{ fontWeight: 800, fontSize: "1.05rem", color: "#fff" }}>{s.name}</div>
-                                                <div style={{ color: "#94a3b8", fontSize: "0.8rem", display: "flex", alignItems: "center", gap: "0.3rem" }}><BusinessTypeIcon name={s.business_type_icon} size={13} /> {s.business_type_label}</div>
+                                                <div style={{ color: "#94a3b8", fontSize: "0.8rem", display: "flex", alignItems: "center", gap: "0.3rem" }}><BusinessTypeIcon name={s.business_type_icon} size={13} /> {tx(s.business_type_label)}</div>
                                             </div>
                                             {s.logo_url && s.cover_url && (
                                                 <img src={imgUrl(s.logo_url)} alt="" style={{ width: 40, height: 40, borderRadius: 10, objectFit: "cover" }} />
@@ -144,7 +151,7 @@ export default function ExplorePage() {
                                             <Stars rating={s.avg_rating} />
                                             {s.self_booking_enabled && (
                                                 <span style={{ background: "rgba(74,222,128,.15)", color: "#4ade80", fontSize: "0.72rem", padding: "0.2rem 0.6rem", borderRadius: 8, fontWeight: 600 }}>
-                                                    📅 קביעה אונליין
+                                                    {tx("📅 קביעה אונליין")}
                                                 </span>
                                             )}
                                         </div>

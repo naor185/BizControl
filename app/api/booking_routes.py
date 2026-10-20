@@ -34,12 +34,12 @@ def get_booking_info(slug: str, db: Session = Depends(get_db)):
 
     studio = db.scalar(select(Studio).where(Studio.slug == slug, Studio.is_active == True))  # noqa
     if not studio:
-        raise HTTPException(404, "Studio not found")
+        raise HTTPException(404, "העסק לא נמצא")
     raise_if_archived(db, studio)
 
     settings = db.get(StudioSettings, studio.id)
     if not settings or not getattr(settings, "self_booking_enabled", False):
-        raise HTTPException(403, "Online booking is not enabled for this studio")
+        raise HTTPException(403, "קביעת תור אונליין לא פעילה בעסק הזה")
 
     services = db.scalars(
         select(Service).where(
@@ -62,6 +62,7 @@ def get_booking_info(slug: str, db: Session = Depends(get_db)):
         "studio_name": studio.name,
         "logo_url": logo_address(studio.logo_url, getattr(settings, "logo_filename", None)),
         "primary_color": studio.primary_color or "#7c3aed",
+        "locale": (getattr(settings, "default_locale", None) or "he"),   # the business's language — the page speaks it
         "timezone": getattr(settings, "timezone", "Asia/Jerusalem") or "Asia/Jerusalem",
         "calendar_start_hour": getattr(settings, "calendar_start_hour", "09") or "09",
         "calendar_end_hour": getattr(settings, "calendar_end_hour", "21") or "21",
@@ -103,22 +104,22 @@ def get_available_slots(
 
     studio = db.scalar(select(Studio).where(Studio.slug == slug, Studio.is_active == True))  # noqa
     if not studio:
-        raise HTTPException(404, "Studio not found")
+        raise HTTPException(404, "העסק לא נמצא")
     raise_if_archived(db, studio)
 
     settings = db.get(StudioSettings, studio.id)
     if not settings or not getattr(settings, "self_booking_enabled", False):
-        raise HTTPException(403, "Online booking not enabled")
+        raise HTTPException(403, "קביעת תור אונליין לא פעילה בעסק הזה")
 
     service = db.get(Service, _uuid.UUID(service_id))
     if not service or service.studio_id != studio.id:
-        raise HTTPException(404, "Service not found")
+        raise HTTPException(404, "השירות לא נמצא")
 
     # Parse date
     try:
         target_date = date.fromisoformat(booking_date)
     except ValueError:
-        raise HTTPException(400, "Invalid date format")
+        raise HTTPException(400, "תאריך לא תקין")
 
     # Don't allow past dates
     today = datetime.now(timezone.utc).date()
@@ -169,16 +170,16 @@ def create_booking(slug: str, payload: BookingRequest, db: Session = Depends(get
 
     studio = db.scalar(select(Studio).where(Studio.slug == slug, Studio.is_active == True))  # noqa
     if not studio:
-        raise HTTPException(404, "Studio not found")
+        raise HTTPException(404, "העסק לא נמצא")
     raise_if_archived(db, studio)
 
     settings = db.get(StudioSettings, studio.id)
     if not settings or not getattr(settings, "self_booking_enabled", False):
-        raise HTTPException(403, "Online booking not enabled")
+        raise HTTPException(403, "קביעת תור אונליין לא פעילה בעסק הזה")
 
     service = db.get(Service, _uuid.UUID(payload.service_id))
     if not service or service.studio_id != studio.id:
-        raise HTTPException(404, "Service not found")
+        raise HTTPException(404, "השירות לא נמצא")
 
     # Find or create client by phone
     client = db.scalar(
@@ -298,7 +299,7 @@ def public_request_appointment(
 
     studio = db.scalar(select(Studio).where(Studio.slug == slug, Studio.is_active == True))  # noqa
     if not studio:
-        raise HTTPException(404, "Studio not found")
+        raise HTTPException(404, "העסק לא נמצא")
     raise_if_archived(db, studio)
 
     req_id = str(_uuid.uuid4())
@@ -366,7 +367,7 @@ def public_join_wait_list(slug: str, payload: WaitListJoinIn, db: Session = Depe
 
     studio = db.scalar(select(Studio).where(Studio.slug == slug, Studio.is_active == True))  # noqa
     if not studio:
-        raise HTTPException(404, "Studio not found")
+        raise HTTPException(404, "העסק לא נמצא")
     raise_if_archived(db, studio)
 
     from app.models.wait_list import WaitListEntry

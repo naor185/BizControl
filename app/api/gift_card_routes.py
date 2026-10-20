@@ -11,6 +11,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from app.core.features import require_module
+from app.core.i18n import studio_locale
 from pydantic import BaseModel
 from app.utils.phone import OptionalPhone, Phone
 from sqlalchemy import text
@@ -1208,6 +1209,7 @@ def public_gift_card_shop_info(studio_id: str, db: Session = Depends(get_db)):
         "paybox_link": row[4],
         "min_amount_cents": row[5] if row[5] is not None else 100,
         "max_amount_cents": row[6] if row[6] is not None else 0,
+        "locale": studio_locale(db, studio_id),     # the business's language — the page speaks it
     }
 
 

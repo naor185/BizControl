@@ -70,6 +70,7 @@ def _resolve_code(db: Session, code: str) -> tuple[str, str] | None:
 
 
 _DEFAULT_OPTOUT_MESSAGE = "לחיצה על הכפתור תסיר אותך מקבלת הודעות שיווקיות מ-{studio_name}."
+_DEFAULT_OPTOUT_MESSAGE_EN = "Tap the button to stop receiving marketing messages from {studio_name}."
 
 
 @router.get("/{token}/info")
@@ -92,12 +93,14 @@ def optout_page_info(token: str, db: Session = Depends(get_db)):
     if not row:
         raise HTTPException(status_code=404, detail="לא נמצא")
 
-    studio_name = row[0] or "העסק"
+    from app.core.i18n import studio_locale
+    locale = studio_locale(db, studio_id)            # the business's language — the page speaks it
+    studio_name = row[0] or ("the business" if locale == "en" else "העסק")
     logo_url = logo_address(row[1], row[2])
-    template = row[3] or _DEFAULT_OPTOUT_MESSAGE
+    template = row[3] or (_DEFAULT_OPTOUT_MESSAGE_EN if locale == "en" else _DEFAULT_OPTOUT_MESSAGE)
     message = template.replace("{studio_name}", studio_name)
 
-    return {"studio_name": studio_name, "logo_url": logo_url, "message": message}
+    return {"studio_name": studio_name, "logo_url": logo_url, "message": message, "locale": locale}
 
 
 @router.post("/{token}/optout")

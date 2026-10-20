@@ -93,7 +93,7 @@ export default function RoomRentals({ rooms, terms, canOverride }: { rooms: Room
                         <ul className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-100">
                             {list.filter(r => ilDay(r.starts_at) === day).map(r => (
                                 <li key={r.id} className="px-3 py-2 flex items-center gap-2 min-h-12">
-                                    <span dir="ltr" className="text-sm font-bold tabular-nums text-slate-900 w-24 shrink-0 text-right">{ilTime(r.starts_at)}–{ilTime(r.ends_at)}</span>
+                                    <span dir="ltr" className="text-sm font-bold tabular-nums text-slate-900 w-24 shrink-0 text-page-start">{ilTime(r.starts_at)}–{ilTime(r.ends_at)}</span>
                                     <div className="min-w-0 flex-1">
                                         <p className="text-sm text-slate-900 truncate">{r.renter} · {r.room_name}</p>
                                         <p className="text-[11px] text-slate-500">

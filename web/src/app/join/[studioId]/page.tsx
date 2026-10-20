@@ -7,6 +7,8 @@ import LandingPageTemplate from "@/components/LandingPageTemplate";
 import ArchivedNotice from "@/components/ArchivedNotice";
 import { usePlatformTheme } from "@/lib/usePlatformTheme";
 
+import { tx, speakBusiness, langHeader } from "@/lib/i18n";
+import AfterMount from "@/components/AfterMount";
 // Define the API URL directly since this page is public and doesn't use the standard authenticated api fetcher for everything.
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:8000";
 
@@ -26,9 +28,15 @@ type PublicStudioInfo = {
     landing_page_image_2: string | null;
     landing_page_image_3: string | null;
     club_open?: boolean;          // the club is in the business's plan
+    locale?: string;              // the business's language — the page speaks it
 };
 
+// in the browser only: the page speaks the business's language, which the server's first page doesn't know
 export default function JoinStudioPage() {
+    return <AfterMount><JoinStudio /></AfterMount>;
+}
+
+function JoinStudio() {
     const params = useParams();
     const studioId = params.studioId as string;
     const theme = usePlatformTheme();
@@ -55,7 +63,7 @@ export default function JoinStudioPage() {
                 if (!res.ok) throw new Error("Studio not found");
                 return res.json();
             })
-            .then(data => setInfo(data))
+            .then((data: PublicStudioInfo) => { speakBusiness(data.locale); setInfo(data); })
             .catch(e => setErr(e.message))
             .finally(() => setLoading(false));
     }, [studioId]);
@@ -64,7 +72,7 @@ export default function JoinStudioPage() {
         e.preventDefault();
         if (birthDate) {
             const year = parseInt(birthDate.split("-")[0]);
-            if (year < 1900 || year > new Date().getFullYear()) { setSubmitErr("תאריך לידה לא תקין"); return; }
+            if (year < 1900 || year > new Date().getFullYear()) { setSubmitErr(tx("תאריך לידה לא תקין")); return; }
         }
         setSubmitting(true);
         setSubmitErr(null);
@@ -72,7 +80,7 @@ export default function JoinStudioPage() {
         try {
             const res = await fetch(`${API_BASE}/api/public/studio/${studioId}/join`, {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: { "Content-Type": "application/json", ...langHeader() },
                 body: JSON.stringify({
                     full_name: fullName,
                     phone: phone,
@@ -84,7 +92,7 @@ export default function JoinStudioPage() {
 
             if (!res.ok) {
                 const data = await res.json();
-                throw new Error(errorText(data.detail, "שגיאה בהרשמה"));
+                throw new Error(errorText(data.detail, tx("שגיאה בהרשמה")));
             }
 
             setSuccess(true);
@@ -95,15 +103,15 @@ export default function JoinStudioPage() {
         }
     };
 
-    if (loading) return <div className="min-h-screen flex items-center justify-center">טוען נתונים...</div>;
+    if (loading) return <div className="min-h-screen flex items-center justify-center">{tx("טוען נתונים...")}</div>;
     if (err === "archived") return <ArchivedNotice />;
-    if (err || !info) return <div className="min-h-screen flex items-center justify-center text-red-500">העסק לא נמצא</div>;
+    if (err || !info) return <div className="min-h-screen flex items-center justify-center text-red-500">{tx("העסק לא נמצא")}</div>;
     if (info.club_open === false) {          // the club is not in the business's plan
         return (
-            <div className="min-h-screen flex items-center justify-center bg-[var(--background)] px-4" dir="rtl">
+            <div className="min-h-screen flex items-center justify-center bg-[var(--background)] px-4">
                 <div className="text-center space-y-2 max-w-sm">
                     <h1 className="text-2xl font-bold text-slate-800">{info.name}</h1>
-                    <p className="text-slate-500">מועדון הלקוחות של העסק לא פעיל כרגע.</p>
+                    <p className="text-slate-500">{tx("מועדון הלקוחות של העסק לא פעיל כרגע.")}</p>
                 </div>
             </div>
         );

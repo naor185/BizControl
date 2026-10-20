@@ -132,7 +132,7 @@ def test_the_client_fills_it_from_a_whatsapp_link_and_the_artist_signs_in_the_st
     signed = client.post(f"/api/public/health/{token}", json={"answers": answers, "age": 28, "signature": SIG},
                          headers={"x-forwarded-for": "203.0.113.7, 10.0.0.1", "user-agent": "iPhone"})
     assert signed.status_code == 200, signed.text
-    assert signed.json() == {"status": "signed", "business_name": "Studio ink-health"}           # nothing of what was signed
+    assert signed.json() == {"status": "signed", "business_name": "Studio ink-health", "locale": "he"}           # nothing of what was signed
     assert client.post(f"/api/public/health/{token}", json={"answers": answers, "age": 28,
                                                             "signature": SIG}).status_code == 410  # closed once filled
     assert client.get(f"/api/public/health/{token}").json()["status"] == "signed"

@@ -7,6 +7,8 @@ import LandingPageTemplate from "@/components/LandingPageTemplate";
 import ArchivedNotice from "@/components/ArchivedNotice";
 import { usePlatformTheme } from "@/lib/usePlatformTheme";
 
+import { tx, speakBusiness, langHeader } from "@/lib/i18n";
+import AfterMount from "@/components/AfterMount";
 type LandingData = {
     studio_id: string;
     studio_name: string;
@@ -24,6 +26,7 @@ type LandingData = {
     landing_page_image_3: string | null;
     points_on_signup: number;
     club_open?: boolean;          // the club is in the business's plan
+    locale?: string;              // the business's language — the page speaks it
 };
 
 function imgUrl(filename: string | null | undefined): string | null {
@@ -33,7 +36,12 @@ function imgUrl(filename: string | null | undefined): string | null {
     return `${base}/uploads/${filename}`;
 }
 
+// in the browser only: the page speaks the business's language, which the server's first page doesn't know
 export default function StudioLandingPage() {
+    return <AfterMount><StudioLanding /></AfterMount>;
+}
+
+function StudioLanding() {
     const params = useParams();
     const searchParams = useSearchParams();
     const slug = params?.slug as string;
@@ -76,7 +84,7 @@ export default function StudioLandingPage() {
                 if (!res.ok) throw new Error("not found");
                 return res.json();
             })
-            .then(setData)
+            .then((d: LandingData) => { speakBusiness(d.locale); setData(d); })
             .catch(() => setNotFound(true))
             .finally(() => setLoading(false));
     }, [slug, apiBase]);
@@ -86,7 +94,7 @@ export default function StudioLandingPage() {
         if (!data) return;
         if (birthDate) {
             const year = parseInt(birthDate.split("-")[0]);
-            if (year < 1900 || year > new Date().getFullYear()) { setSubmitErr("תאריך לידה לא תקין"); return; }
+            if (year < 1900 || year > new Date().getFullYear()) { setSubmitErr(tx("תאריך לידה לא תקין")); return; }
         }
         setSubmitting(true);
         setSubmitErr(null);
@@ -96,7 +104,7 @@ export default function StudioLandingPage() {
             const utmMedium = sessionStorage.getItem("utm_medium") || searchParams.get("utm_medium") || null;
             const res = await fetch(`${apiBase}/api/public/studio/${data.studio_id}/join`, {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: { "Content-Type": "application/json", ...langHeader() },
                 body: JSON.stringify({
                     full_name: fullName,
                     phone,
@@ -110,7 +118,7 @@ export default function StudioLandingPage() {
             });
             if (!res.ok) {
                 const err = await res.json().catch(() => ({}));
-                throw new Error(errorText(err?.detail, "שגיאה בהרשמה"));
+                throw new Error(errorText(err?.detail, tx("שגיאה בהרשמה")));
             }
             const result = await res.json().catch(() => ({}));
             setJoinedPoints(result?.loyalty_points ?? 0);
@@ -120,7 +128,7 @@ export default function StudioLandingPage() {
                 setSuccess(true);
             }
         } catch (e: unknown) {
-            setSubmitErr((e as Error)?.message || "שגיאה בהרשמה, נסה שוב");
+            setSubmitErr((e as Error)?.message || tx("שגיאה בהרשמה, נסה שוב"));
         } finally {
             setSubmitting(false);
         }
@@ -138,11 +146,11 @@ export default function StudioLandingPage() {
 
     if (notFound || !data) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-[var(--background)]" dir="rtl">
+            <div className="min-h-screen flex items-center justify-center bg-[var(--background)]">
                 <div className="text-center space-y-4">
                     <p className="text-6xl">🔍</p>
-                    <h1 className="text-2xl font-bold text-slate-800">העסק לא נמצא</h1>
-                    <p className="text-slate-500">הקישור לא תקין או שהעסק אינו פעיל</p>
+                    <h1 className="text-2xl font-bold text-slate-800">{tx("העסק לא נמצא")}</h1>
+                    <p className="text-slate-500">{tx("הקישור לא תקין או שהעסק אינו פעיל")}</p>
                 </div>
             </div>
         );
@@ -151,10 +159,10 @@ export default function StudioLandingPage() {
     // the club is not in the business's plan — no join form (app/services/club.py)
     if (data.club_open === false) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-[var(--background)] px-4" dir="rtl">
+            <div className="min-h-screen flex items-center justify-center bg-[var(--background)] px-4">
                 <div className="text-center space-y-2 max-w-sm">
                     <h1 className="text-2xl font-bold text-slate-800">{data.studio_name}</h1>
-                    <p className="text-slate-500">מועדון הלקוחות של העסק לא פעיל כרגע.</p>
+                    <p className="text-slate-500">{tx("מועדון הלקוחות של העסק לא פעיל כרגע.")}</p>
                 </div>
             </div>
         );

@@ -878,6 +878,7 @@ def get_studio_profile(slug: str, db: Session = Depends(get_db), authorization: 
         "logo_url": logo_address(studio.logo_url, settings.logo_filename),
         "cover_url": settings.marketplace_cover_url,
         "primary_color": studio.primary_color or "#7c3aed",
+        "locale": getattr(settings, "default_locale", None) or "he",   # the business's language
         "description": settings.marketplace_description,
         "city": settings.marketplace_city,
         "address": settings.studio_address,

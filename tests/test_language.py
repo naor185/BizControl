@@ -34,3 +34,23 @@ def test_a_server_message_in_the_requests_language(client, db_session):
     assert en.json()["detail"] == "Breaks are for staff on a shift"
     # a phone set to English sends Accept-Language: en — the system's own choice (X-Lang) is what counts
     assert client.post("/api/staff/break/start", headers={**eli, "Accept-Language": "en-US"}).json()["detail"] == "הפסקה — לעובדים במשמרת"
+
+
+def test_the_client_pages_speak_the_businesss_language(client, db_session):
+    """The owner, 2026-10-20: the whole system in English, right to left in Hebrew and left to right in English — the
+    pages a business's clients open (booking, club, opt-out…) speak the business's language, not the visitor's."""
+    from sqlalchemy import select
+    from app.core.i18n import say
+    from app.models.studio import Studio
+    owner = register_and_login(client, "lang-pub", "owner@lang-pub.com")
+    s = db_session.scalar(select(Studio).where(Studio.slug == "lang-pub"))
+    assert client.get(f"/api/public/landing/lang-pub").json()["locale"] == "he"
+    client.put("/api/auth/me/locale", headers=owner, json={"locale": "en"})
+    assert client.get(f"/api/public/landing/lang-pub").json()["locale"] == "en"
+    assert client.get(f"/api/public/studio/{s.id}").json()["locale"] == "en"
+    r = client.get("/api/book/no-such-shop/info", headers={"X-Lang": "en"})
+    assert (r.status_code, r.json()["detail"]) == (404, "Business not found")
+    # a message with a value inside, and the word that fills it
+    assert say("הקופון SUMMER הופסק", "en") == "The coupon SUMMER was stopped"
+    assert say("ההודעה לא נמצא", "en") == "The message not found"
+    assert say("הקופון SUMMER הופסק", "he") == "הקופון SUMMER הופסק"

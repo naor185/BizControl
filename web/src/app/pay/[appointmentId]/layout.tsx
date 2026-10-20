@@ -14,9 +14,10 @@ export async function generateMetadata(
         if (!data) return { title: "תשלום — BizControl" };
 
         const logoUrl = data.logo_filename ? `${API}/uploads/${data.logo_filename}` : null;
+        const en = data.locale === "en";           // the business's language
         const title = data.appointment_title
-            ? `תשלום עבור ${data.appointment_title}`
-            : "אישור תשלום";
+            ? (en ? `Payment for ${data.appointment_title}` : `תשלום עבור ${data.appointment_title}`)
+            : (en ? "Payment confirmation" : "אישור תשלום");
 
         return {
             title,

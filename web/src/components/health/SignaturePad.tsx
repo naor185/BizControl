@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Eraser } from "lucide-react";
 
+import { tx } from "@/lib/i18n";
 // A signature with a finger or a pencil — pointer events, so it works the same on an iPad, an iPhone and with a mouse.
 // onChange gives the signature as a PNG data URL, or null once cleared.
 export default function SignaturePad({ label, onChange }: { label: string; onChange: (dataUrl: string | null) => void }) {
@@ -70,7 +71,7 @@ export default function SignaturePad({ label, onChange }: { label: string; onCha
                 <span className="text-sm font-semibold text-slate-700">{label}</span>
                 <button type="button" onClick={clear} disabled={empty}
                     className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-slate-900 disabled:opacity-30">
-                    <Eraser className="h-3.5 w-3.5" aria-hidden /> ניקוי
+                    <Eraser className="h-3.5 w-3.5" aria-hidden /> {tx("ניקוי")}
                 </button>
             </div>
             <div className="relative">
@@ -79,7 +80,7 @@ export default function SignaturePad({ label, onChange }: { label: string; onCha
                     className="w-full h-44 rounded-xl border-2 border-dashed border-slate-300 bg-white touch-none cursor-crosshair" />
                 {empty && (
                     <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm text-slate-400">
-                        לחתום כאן באצבע
+                        {tx("לחתום כאן באצבע")}
                     </span>
                 )}
             </div>

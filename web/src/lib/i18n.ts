@@ -25,6 +25,23 @@ let txLocale: Locale = typeof window === "undefined" ? "he" : savedLocale();
 
 export function setTxLocale(l: Locale) { txLocale = l; }
 
+/** A page to the business's clients — booking, payment, gift card, joining the club, the health form… — speaks the
+ *  business's language (the `locale` its public answer carries), not the device's: the texts (tx) and the direction,
+ *  Hebrew right to left and English left to right. Called with the answer, before the page shows it. */
+export function speakBusiness(locale: string | null | undefined): Locale {
+    const l: Locale = locale === "en" ? "en" : "he";
+    txLocale = l;
+    if (typeof document !== "undefined") {
+        document.documentElement.lang = l;
+        document.documentElement.dir = l === "en" ? "ltr" : "rtl";
+    }
+    return l;
+}
+
+/** The X-Lang header in the page's language — a public page's requests (plain fetch, not apiFetch) get the server's
+ *  messages in it too. */
+export const langHeader = (): Record<string, string> => ({ "X-Lang": txLocale });
+
 /** The dates' and numbers' locale for the chosen language. */
 export const intl = (): string => (txLocale === "en" ? "en-GB" : "he-IL");
 
