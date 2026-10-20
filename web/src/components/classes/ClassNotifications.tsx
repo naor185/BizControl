@@ -86,9 +86,9 @@ function EventRow({ ev, terms, canEdit, open, onToggleOpen, onChange }: {
         <li className="px-5 py-4">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div className="min-w-0">
-                    <p className="text-sm font-semibold text-slate-800">{fillTerms(ev.label, terms)}</p>
+                    <p className="text-sm font-semibold text-slate-800">{fillTerms(tx(ev.label), terms)}</p>
                     <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-2 flex-wrap">
-                        <span>{tx("אל: ")}{fillTerms(ev.recipient, terms)}</span>
+                        <span>{tx("אל: ")}{fillTerms(tx(ev.recipient), terms)}</span>
                         {ev.always_on && (
                             <span className="inline-flex items-center gap-1 text-amber-800 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">
                                 <Lock className="w-3 h-3" aria-hidden />{tx(" תמיד נשלחת — ")}{terms.client_plural} {tx("חייבים לדעת")}
@@ -135,7 +135,7 @@ function Wording({ id, ev, terms, canEdit, onChange }: {
     const dirty = draft.trim() !== ch.body.trim();
     const known = new Set(ev.placeholders.map(p => p.key));
     const unknown = [...new Set([...draft.matchAll(/\{(\w+)\}/g)].map(m => m[1]).filter(k => !known.has(k)))];
-    const samples = Object.fromEntries(ev.placeholders.map(p => [p.key, p.sample]));
+    const samples = Object.fromEntries(ev.placeholders.map(p => [p.key, tx(p.sample)]));
     const preview = draft.replace(/\{(\w+)\}/g, (whole, k: string) => (k in samples ? samples[k] : whole));
 
     const insert = (key: string) => {
@@ -210,7 +210,7 @@ function Wording({ id, ev, terms, canEdit, onChange }: {
                                 {ev.placeholders.map(p => (
                                     <button key={p.key} type="button" onClick={() => insert(p.key)}
                                         className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 hover:border-indigo-400 hover:text-indigo-700">
-                                        {fillTerms(p.label, terms)}
+                                        {fillTerms(tx(p.label), terms)}
                                     </button>
                                 ))}
                             </div>

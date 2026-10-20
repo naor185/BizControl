@@ -192,6 +192,88 @@ def month_lines(f: dict) -> dict | None:
     return {"good": good, "improve": improve, "focus": focus}
 
 
+# The same summaries in English (the owner, 2026-10-20: the whole system in English) — rebuilt from the saved
+# numbers when an English reader opens it; the Hebrew one may have been reworded by the AI, this one is the plain text.
+MONTHS_EN = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October",
+             "November", "December"]
+
+
+def week_lines_en(f: dict) -> dict | None:
+    if not (f["revenue"] or f["revenue_before"] or f["appointments"] or f["appointments_before"]):
+        return None
+    good: list[str] = []
+    improve: list[str] = []
+    _compare(good, improve, f["revenue"], f["revenue_before"],
+             f"Revenue last week: {_ils(f['revenue'])} — {{change}}% more than the week before.",
+             f"Revenue last week: {_ils(f['revenue'])} — {{change}}% less than the week before.")
+    _compare(good, improve, f["appointments"], f["appointments_before"],
+             f"{f['appointments']} appointments — {{change}}% more than the week before.",
+             f"{f['appointments']} appointments — {{change}}% less than the week before.")
+    if f["first_timers"]:
+        good.append("One new client came for the first time." if f["first_timers"] == 1
+                    else f"{f['first_timers']} new clients came for the first time.")
+    if f["no_shows"] >= 2:
+        improve.append(f"{f['no_shows']} clients didn't show up — a deposit or another reminder before the appointment will help.")
+    elif f["appointments"] >= 5 and not f["no_shows"]:
+        good.append("No client missed an appointment this week.")
+    behind = f["goal"] > 0 and f["goal_days_elapsed"] >= 3 and f["goal_projected"] < f["goal"] * 0.95
+    if f["goal"] > 0 and f["goal_days_elapsed"] >= 3:
+        pct = round(f["goal_projected"] / f["goal"] * 100)
+        if behind:
+            improve.append(f"At this pace the month will close at about {pct}% of the goal — {_ils(f['goal_missing'])} short.")
+        else:
+            good.append(f"You're on pace for this month's goal — about {pct}% of it.")
+    if f["fill_ahead"] < 40:
+        improve.append(f"This week is only {f['fill_ahead']}% full.")
+    if f["fill_ahead"] < 40:
+        focus = "This week's goal: fill the calendar — a short message to regular clients, or an offer for the empty hours."
+    elif behind and f["avg_appointment"] > 0:
+        focus = (f"This week's goal: about {math.ceil(f['goal_missing'] / f['avg_appointment'])} more appointments by "
+                 "the end of the month to reach the goal.")
+    elif f["lapsed"] >= 3:
+        focus = f"This week's goal: bring back clients who haven't come in a while — there are {f['lapsed']}."
+    else:
+        focus = "This week's goal: keep the pace — you're on the right track."
+    return {"good": good, "improve": improve, "focus": focus}
+
+
+def month_lines_en(f: dict) -> dict | None:
+    if not (f["revenue"] or f["revenue_before"] or f["appointments"]):
+        return None
+    name = MONTHS_EN[f["month"] - 1]
+    good: list[str] = []
+    improve: list[str] = []
+    if f["goal"] > 0:
+        pct = round(f["revenue"] / f["goal"] * 100)
+        if f["revenue"] >= f["goal"]:
+            good.append(f"You reached {name}'s goal: {_ils(f['revenue'])} of {_ils(f['goal'])} — {pct}%.")
+        else:
+            improve.append(f"{name} closed at {_ils(f['revenue'])} — {pct}% of the goal. {_ils(f['goal'] - f['revenue'])} short.")
+    _compare(good, improve, f["revenue"], f["revenue_before"],
+             f"Revenue in {name}: {_ils(f['revenue'])} — {{change}}% more than the month before.",
+             f"Revenue in {name}: {_ils(f['revenue'])} — {{change}}% less than the month before.")
+    if f["revenue_year_ago"]:
+        _compare(good, improve, f["revenue"], f["revenue_year_ago"],
+                 f"Against {name} last year: {{change}}% more.", f"Against {name} last year: {{change}}% less.")
+    _compare(good, improve, f["appointments"], f["appointments_before"],
+             f"{f['appointments']} appointments — {{change}}% more than the month before.",
+             f"{f['appointments']} appointments — {{change}}% less than the month before.")
+    if f["first_timers"]:
+        good.append(f"{f['first_timers']} new clients came for the first time.")
+    if f["no_shows"] >= 3:
+        improve.append(f"{f['no_shows']} clients didn't show up — worth asking for a deposit or adding a reminder.")
+    if f["goal"] <= 0:
+        focus = "The goal for the new month: set a revenue goal — then I can tell you every day whether you're on pace."
+    elif f["revenue"] >= f["goal"]:
+        focus = "The goal for the new month: keep what worked — and maybe raise the goal a little."
+    elif f["lapsed"] >= 3:
+        focus = (f"The goal for the new month: bring back the {f['lapsed']} clients who haven't come in a while, "
+                 "and fill the empty hours.")
+    else:
+        focus = "The goal for the new month: fill the empty hours in the calendar — the fastest way to reach the goal."
+    return {"good": good, "improve": improve, "focus": focus}
+
+
 _NUM = re.compile(r"\d[\d,.]*")
 
 
@@ -289,7 +371,7 @@ def sweep(db: Session, now: datetime | None = None, use_ai: bool = True) -> int:
     return made
 
 
-def latest(db: Session, studio_id, now: datetime | None = None) -> dict | None:
+def latest(db: Session, studio_id, now: datetime | None = None, lang: str = "he") -> dict | None:
     """The summary to show on לוח בקרה: this week's (made last Sunday) or, in the month's first week, the month's."""
     from app.models.viki_summary import VikiSummary
     now = now or datetime.now(timezone.utc)
@@ -298,6 +380,20 @@ def latest(db: Session, studio_id, now: datetime | None = None) -> dict | None:
                      .order_by(VikiSummary.created_at.desc())).first()
     if row is None:
         return None
+    if lang == "en":                                   # rebuilt in English from the numbers it was made from
+        try:
+            facts = json.loads(row.facts or "{}")
+            lines = (week_lines_en if row.kind == "weekly" else month_lines_en)(facts)
+        except (KeyError, TypeError, ValueError):
+            lines = None
+        if lines:
+            if row.kind == "weekly":
+                start = date.fromisoformat(row.period)
+                title = f"The week of {start:%d/%m}–{start + timedelta(days=6):%d/%m}"
+            else:
+                y, m = map(int, row.period.split("-"))
+                title = f"{MONTHS_EN[m - 1]} {y}"
+            return {"kind": row.kind, "period": row.period, "title": title, **lines}
     if row.kind == "weekly":
         start = date.fromisoformat(row.period)
         title = f"הסיכום של שבוע {start:%d/%m}–{start + timedelta(days=6):%d/%m}"

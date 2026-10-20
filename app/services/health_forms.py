@@ -39,6 +39,29 @@ DEFAULT_QUESTIONS = [
 DEFAULT_CLOSING = ("אני מצהיר/ה שכל הפרטים שמסרתי נכונים ומלאים, ושאעדכן את העסק לפני הטיפול על כל שינוי "
                    "במצב הבריאות שלי.")
 
+# the ready-made form for a business that works in English (app/core/i18n.studio_locale)
+DEFAULT_EN = {
+    "title": "Health declaration",
+    "intro": ("Before the treatment we ask you to answer the following questions. The information stays with us only, "
+              "and is used to protect your health and fit the treatment to you."),
+    "questions": [
+        "Do you have heart disease, or high or low blood pressure?",
+        "Do you have diabetes?",
+        "Do you have a blood clotting disorder, or take blood thinners?",
+        "Do you have epilepsy or a tendency to faint?",
+        "Are you allergic — to latex, dyes, metals, medicines, numbing creams or anything else?",
+        "Do you take medication regularly (including acne treatment, such as Roaccutane)?",
+        "Do you have a skin condition, wound, scar or mole in the treatment area?",
+        "Do you tend to get raised scars (keloids)?",
+        "Do you have an infectious disease (such as hepatitis) or a disease that weakens the immune system?",
+        "Are you pregnant or breastfeeding?",
+        "Have you had alcohol or used drugs in the last 24 hours?",
+    ],
+    "more": "Is there any other medical information we should know?",
+    "closing": ("I declare that all the details I gave are true and complete, and that I will tell the business before "
+                "the treatment about any change in my health."),
+}
+
 STATUSES = ("waiting_client", "waiting_performer", "signed")
 KINDS = ("yes_no", "text", "none")            # none — read only, nothing to answer
 FILE_TYPES = {"application/pdf", "image/jpeg", "image/png", "image/webp"}
@@ -61,6 +84,13 @@ def form(db: Session, studio_id) -> dict:
     f = db.scalar(select(HealthForm).where(HealthForm.studio_id == studio_id))
     file = db.get(HealthFormFile, f.file_id) if f and f.file_id else None
     if f is None:
+        from app.core.i18n import studio_locale
+        if studio_locale(db, studio_id) == "en":           # the ready-made form in the business's language
+            qs = [{"id": f"q{i + 1}", "text": t, "kind": "yes_no"} for i, t in enumerate(DEFAULT_EN["questions"])] + [
+                {"id": "q_more", "text": DEFAULT_EN["more"], "kind": "text"}]
+            return {"title": DEFAULT_EN["title"], "intro": DEFAULT_EN["intro"], "questions": qs,
+                    "closing": DEFAULT_EN["closing"], "ask_age": True, "file": None, "saved": False,
+                    "enabled": True, "auto_send": "off", "validity": "forever"}
         return {"title": DEFAULT_TITLE, "intro": DEFAULT_INTRO, "questions": _default_questions(),
                 "closing": DEFAULT_CLOSING, "ask_age": True, "file": None, "saved": False,
                 "enabled": True, "auto_send": "off", "validity": "forever"}

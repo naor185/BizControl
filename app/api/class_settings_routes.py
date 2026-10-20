@@ -64,14 +64,18 @@ def set_settings(body: SettingsIn, ctx: AuthContext = Depends(require_action("cl
 # ── notifications ────────────────────────────────────────────────────────────
 
 def _notifications_out(db: Session, studio_id) -> list[dict]:
+    from app.core.i18n import studio_locale
+    from app.services.client_language import speak
+    lang = studio_locale(db, studio_id)        # the system's texts in the business's language, as its clients get them
     sample = notifications.sample_context(db, studio_id)
     out = []
     for ev in notifications.EVENTS.values():
         channels = []
         for ch in notifications.event_channels(ev):
             on, body = notifications.channel_setting(db, studio_id, ev.key, ch)
-            channels.append({"channel": ch, "enabled": on, "body": body, "default_body": ev.texts.get(ch, ""),
-                             "is_default_body": body == ev.texts.get(ch, "")})
+            default = ev.texts.get(ch, "")
+            channels.append({"channel": ch, "enabled": on, "body": speak(body, lang) if body == default else body,
+                             "default_body": speak(default, lang), "is_default_body": body == default})
         out.append({"event": ev.key, "label": ev.label, "audience": ev.audience, "recipient": ev.recipient,
                     "always_on": ev.always_on, "module": ev.module, "channels": channels,
                     "placeholders": [{"key": k, "label": notifications.PLACEHOLDERS[k][0], "sample": sample[k]}
@@ -116,7 +120,11 @@ def set_notification(event: str, body: NotificationIn, ctx: AuthContext = Depend
     if body.enabled is not None:
         row.enabled = None if body.enabled == ev.default_on else body.enabled
     if text is not None:
-        row.body = None if not text or text == ev.texts.get(body.channel, "").strip() else text
+        from app.core.i18n import studio_locale
+        from app.services.client_language import speak
+        default = ev.texts.get(body.channel, "")
+        same = {default.strip(), (speak(default, studio_locale(db, ctx.studio_id)) or "").strip()}   # either language
+        row.body = None if not text or text in same else text
     db.commit()
     return _notifications_out(db, ctx.studio_id)
 

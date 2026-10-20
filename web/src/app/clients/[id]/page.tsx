@@ -743,7 +743,7 @@ export default function ClientProfilePage() {
                                             return (
                                                 <div key={inv.id} className="flex items-center justify-between p-3 rounded-xl border border-slate-100 bg-slate-50 text-sm">
                                                     <div>
-                                                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${cls} ms-2`}>{inv.doc_type_label}</span>
+                                                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${cls} ms-2`}>{tx(inv.doc_type_label)}</span>
                                                         <span className="font-bold">#{inv.doc_number}</span>
                                                         <div className="text-[10px] text-slate-400 mt-0.5">{new Date(inv.issued_at).toLocaleDateString(intl())}</div>
                                                     </div>

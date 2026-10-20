@@ -29,7 +29,9 @@ function load(): Promise<Terms> {
     const token = getToken();
     if (!cached || cached.token !== token) {
         const words = apiFetch<{ terms: Terms; example_service: string | null }>("/api/studio/upload/terms")
-            .then(r => ({ ...LOADING, ...r.terms, example_service: r.example_service }))
+            // the field's words in the user's language (lib/en.ts) — a word the owner wrote stays as written
+            .then(r => ({ ...LOADING, ...Object.fromEntries(Object.entries(r.terms).map(([k, v]) => [k, typeof v === "string" ? tx(v) : v])),
+                          example_service: r.example_service ? tx(r.example_service) : r.example_service }))
             .catch(() => { cached = null; return LOADING; });
         cached = { token, words };
     }

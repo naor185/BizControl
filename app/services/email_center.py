@@ -184,6 +184,17 @@ def send_email(
     From:     {from_name} via BizControl <notification_email>
     Reply-To: studio reply_to → system default
     """
+    # A business that works in English: the system's own e-mail texts in English (services/client_language) — the
+    # ones sent straight from here too (password, invitations, the subscription's notices), not only the queue's
+    if studio_id:
+        try:
+            import uuid as _uuid
+            from app.core.i18n import studio_locale
+            from app.services.client_language import speak
+            if studio_locale(db, _uuid.UUID(str(studio_id))) == "en":
+                subject, html_content = speak(subject, "en") or subject, speak(html_content, "en") or html_content
+        except Exception:
+            log.exception("[email_center] couldn't say the e-mail in the business's language")
     settings = get_system_settings(db)
 
     if not settings.get("email_sending_enabled", True):

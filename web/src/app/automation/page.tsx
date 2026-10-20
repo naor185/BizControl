@@ -389,7 +389,7 @@ function MarketplaceTab({ settings, handleChange, apiFetch }: { settings: any; h
                             }`}
                         >
                             <BusinessTypeIcon name={opt.icon} size={24} />
-                            <span>{opt.label}</span>
+                            <span>{tx(opt.label)}</span>
                         </button>
                     ))}
                 </div>

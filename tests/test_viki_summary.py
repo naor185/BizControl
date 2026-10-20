@@ -63,6 +63,8 @@ def test_the_weekly_summary_from_the_numbers_once(client, db_session):
 
     r = client.get("/api/viki", headers=h).json()
     assert r["summary"]["kind"] == "weekly" and r["summary"]["good"] == shown["good"]
+    en = client.get("/api/viki", headers={**h, "X-Lang": "en"}).json()["summary"]
+    assert en["good"][0] == "Revenue last week: ₪1,000 — 100% more than the week before." and en["title"].startswith("The week of")
 
 
 def test_the_monthly_summary_against_the_goal(client, db_session):
@@ -100,3 +102,15 @@ def test_the_ai_may_only_say_it_more_warmly(monkeypatch):
     assert not by_ai and said == lines
     monkeypatch.setattr(ai, "complete_json", lambda prompt, max_tokens=0: None)            # no AI — as they were
     assert viki_summary.warmer(lines, "weekly") == (lines, False)
+
+
+def test_the_summary_in_english_from_the_same_numbers():
+    """The owner, 2026-10-20: the whole system in English — the summary is rebuilt from the saved numbers."""
+    f = {"revenue": 1000.0, "revenue_before": 500.0, "appointments": 3, "appointments_before": 1, "first_timers": 3,
+         "no_shows": 0, "fill_ahead": 30, "goal": 0.0, "goal_projected": 0.0, "goal_days_elapsed": 0,
+         "goal_missing": 0.0, "avg_appointment": 0.0, "lapsed": 0}
+    lines = viki_summary.week_lines_en(f)
+    assert lines["good"][:3] == ["Revenue last week: ₪1,000 — 100% more than the week before.",
+                                 "3 appointments — 200% more than the week before.",
+                                 "3 new clients came for the first time."]
+    assert lines["improve"] == ["This week is only 30% full."] and lines["focus"].startswith("This week's goal:")

@@ -38,7 +38,7 @@ def _lang(request: Request) -> str:
 def get_suggestions(request: Request, ctx: AuthContext = Depends(require_permission("money")), db: Session = Depends(get_db)):
     from app.services.viki_summary import latest
     left = viki.for_user(db, ctx.studio_id, ctx.user_id, _lang(request))
-    return {"suggestions": left[:viki.SHOWN], "more": max(0, len(left) - viki.SHOWN), "summary": latest(db, ctx.studio_id)}
+    return {"suggestions": left[:viki.SHOWN], "more": max(0, len(left) - viki.SHOWN), "summary": latest(db, ctx.studio_id, lang=_lang(request))}
 
 
 @router.post("/answer", status_code=204)

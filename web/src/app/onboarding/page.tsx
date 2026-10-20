@@ -174,7 +174,7 @@ function OnboardingPageInner() {
                                     <label className={labelCls}>{tx("קטגוריה *")}</label>
                                     <select className={inputCls} value={category} onChange={e => setCategory(e.target.value)}>
                                         <option value="">{tx("בחרו קטגוריה")}</option>
-                                        {types.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}
+                                        {types.map(t => <option key={t.key} value={t.key}>{tx(t.label)}</option>)}
                                     </select>
                                     {category === "other" && (
                                         <input
@@ -253,7 +253,7 @@ function OnboardingPageInner() {
                                                 <div className="flex-1">
                                                     <div className="flex items-center justify-between">
                                                         <span className="font-bold text-slate-800 text-sm">
-                                                            {plan.label}
+                                                            {tx(plan.label)}
                                                             {plan.is_trial && (
                                                                 <span className="ms-2 text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-semibold">
                                                                     {plan.days} {tx("ימים חינם")}
@@ -272,7 +272,7 @@ function OnboardingPageInner() {
                                                             {plan.features.filter(f => f.enabled).slice(0, 6).map(f => (
                                                                 <div key={f.key} className="text-xs text-slate-500 flex items-center gap-1">
                                                                     <span className={isBizControl ? "text-violet-400" : "text-sky-400"}>✓</span>
-                                                                    {f.label}{f.limit ? tx(" (עד {0})", { 0: f.limit }) : ""}
+                                                                    {tx(f.label)}{f.limit ? tx(" (עד {0})", { 0: f.limit }) : ""}
                                                                 </div>
                                                             ))}
                                                         </div>

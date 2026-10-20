@@ -302,6 +302,7 @@ def send_whatsapp_message(to_phone: str, body: str, settings=None, db: Session |
     provider = getattr(settings, "whatsapp_provider", None) if settings else None
     studio_id = getattr(settings, "studio_id", None) if settings else None
     using_platform_fallback = False
+    lang = getattr(settings, "default_locale", None) if settings else None     # the business's, before a fallback
 
     # Fall back to platform WhatsApp if studio has none configured
     if not provider and db is not None:
@@ -317,7 +318,8 @@ def send_whatsapp_message(to_phone: str, body: str, settings=None, db: Session |
     # Append system footer when sending from BizControl's own number — not on a message from the company itself,
     # which the owner may answer
     if using_platform_fallback and footer:
-        body = body.rstrip() + _PLATFORM_FOOTER
+        from app.services.client_language import speak
+        body = body.rstrip() + speak(_PLATFORM_FOOTER, "en" if lang == "en" else "he")
 
     instance_id_used = ""
     try:
@@ -385,6 +387,7 @@ def process_due_jobs(db: Session, limit: int = 20) -> int:
     count = 0
     needs_commit = False
     _shabbat_cache: dict = {}  # studio_id -> block_shabbat_messages bool
+    _lang_cache: dict = {}     # studio_id -> the business's language
     _SHABBAT_NOTE = ("עדיין לא נשלחה — חסימת הודעות בשבת פעילה בהגדרות האוטומציה. "
                       "ההודעה תישלח אוטומטית מיד אחרי צאת השבת.")
 
@@ -471,6 +474,20 @@ def process_due_jobs(db: Session, limit: int = 20) -> int:
             # a message from the company to a business owner (the superadmin's CRM): BizControl's own name and number
             from app.services import platform_outreach
             from_company = getattr(job, "reminder_type", None) == platform_outreach.KIND
+
+            # A business that works in English talks to its clients in English: the system's own lines, said in the
+            # business's language just before they go (services/client_language) — not the company's own messages
+            if job.channel in ("whatsapp", "email") and not from_company:
+                sid = str(job.studio_id)
+                if sid not in _lang_cache:
+                    from app.core.i18n import studio_locale
+                    _lang_cache[sid] = studio_locale(db, job.studio_id)
+                if _lang_cache[sid] == "en":
+                    from app.services.client_language import speak
+                    if job.channel == "email" and not getattr(job, "subject", None):
+                        job.subject = "הודעה מהעסק"
+                    job.body = speak(job.body, "en")
+                    job.subject = speak(getattr(job, "subject", None), "en")
 
             if job.channel == "email":
                 # All emails go through the central Email Center — no per-studio

@@ -638,3 +638,22 @@ EN.update({   # the data import's and the AI's messages
     "אפשר לבטל רק ייבוא שכבר רץ": "Only an import that already ran can be undone",
     "לא מוגדר GROQ_API_KEY / GEMINI_API_KEY / OPENAI_API_KEY": "GROQ_API_KEY / GEMINI_API_KEY / OPENAI_API_KEY isn't set",
 })
+
+EN.update({   # the classes' notices in the bell (services/notifications, the staff's events)
+    "שיעור התמלא": "Class is full",
+    "שיעור בסיכון: הנרשמים מתחת למינימום לפני שעת הבדיקה": "Class at risk: bookings below the minimum before the check time",
+    "מנוי הוקפא, נעצר או בוטל על ידי עובד": "A membership was frozen, stopped or canceled by staff",
+    "לקוח ביקש הקפאה או עצירה": "A client asked for a freeze or a stop",
+    "הוקפא": "was frozen", "נעצר": "was stopped", "בוטל": "was canceled", "הקפאה": "a freeze", "עצירה": "a stop",
+})
+PATTERNS.update({
+    "אין יותר מקומות ב{} ב-{} בשעה {}": "No more spots in {0} on {1} at {2}",
+    "ב{} ב-{} בשעה {} רשומים {} מתוך מינימום {}": "{0} on {1} at {2}: {3} booked of a minimum of {4}",
+    "המנוי של {} {} על ידי {}": "{0}'s membership {1} by {2}",
+    "{} ביקש/ה {} של המנוי": "{0} asked for {1} of the membership",
+})
+for _k in ("{} — רק לבעלים או למנהל", "{} לא נמצא", "{} בשעה {} · {}", "{} בשעה {}", "{} שבועות", "{} ימים", "{} שעות", "{} דקות"):
+    if _k in PATTERNS:
+        PATTERNS[_k] = PATTERNS.pop(_k)            # the general ones last
+_PATTERNS_RX = [(re.compile("^" + re.escape(he).replace(re.escape("{}"), "(.+?)") + "$", re.S), en)
+                for he, en in PATTERNS.items()]
