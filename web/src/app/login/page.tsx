@@ -68,7 +68,12 @@ function parseErr(msg: string, locale: string): { text: string; field: FieldErr 
 function LoginContent() {
     const router = useRouter();
     const sp = useSearchParams();
-    const nextUrl = useMemo(() => sp.get("next") || "/calendar", [sp]);
+    // where to go after signing in — only a screen of this site: not another site ("//…", "https://…") and not the
+    // sign-in screen itself (a nested "/login?next=/login?next=…")
+    const nextUrl = useMemo(() => {
+        const n = sp.get("next") || "";
+        return n.startsWith("/") && !n.startsWith("//") && !n.startsWith("/login") ? n : "/calendar";
+    }, [sp]);
 
     const { t, locale, setLocale, dir } = useLang();
     const [email, setEmail] = useState("");

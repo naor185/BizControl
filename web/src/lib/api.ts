@@ -182,8 +182,12 @@ export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promi
             // "Session expired" error and no way back in is worse than
             // redirecting — send them to login.
             clearToken();
-            const next = encodeURIComponent(window.location.pathname + window.location.search);
-            window.location.href = `/login?next=${next}`;
+            // already on the sign-in screen (the gate sent them there first): keep its return address — a second
+            // redirect nested it ("/login?next=/login?next=/dashboard")
+            if (!window.location.pathname.startsWith("/login")) {
+                const next = encodeURIComponent(window.location.pathname + window.location.search);
+                window.location.href = `/login?next=${next}`;
+            }
             throw new Error("Session expired");
         }
 
