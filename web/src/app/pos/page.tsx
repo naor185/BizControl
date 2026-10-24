@@ -182,7 +182,8 @@ export default function PosPage() {
     const [products, setProducts] = useState<Product[]>([]);
     const [cart, setCart] = useState<CartItem[]>([]);
     const [method, setMethod] = useState("cash");
-    // who did the work / made the sale — the one at the till unless changed (the owner, 2026-10-24)
+    // who sold the items — asked only when the cart has items (an earring, a cream); the one at the till unless changed.
+    // Work done through an appointment is the appointment's artist's (the owner, 2026-10-24)
     const [team, setTeam] = useState<{ id: string; display_name: string | null; email: string }[]>([]);
     const [performerId, setPerformerId] = useState<string>("");
     const [client, setClient] = useState<ClientResult | null>(null);
@@ -347,6 +348,7 @@ export default function PosPage() {
     const giftCardDiscountCents = giftCardInfo ? Math.min(giftCardDiscount * 100, Math.max(0, subtotal - discountCents - pointsDiscountCents)) : 0;
     const total = Math.max(0, subtotal - discountCents - pointsDiscountCents - giftCardDiscountCents);
     const cartCount = cart.reduce((s, i) => s + i.quantity, 0);
+    const hasItems = cart.some(i => !!i.product_id);        // items from the catalog — an earring, a cream
 
     const handleCheckout = async () => {
         if (cart.length === 0) { toast.error(tx("העגלה ריקה")); return; }
@@ -363,7 +365,7 @@ export default function PosPage() {
                     coupon_code: couponDiscount > 0 ? couponCode.trim().toUpperCase() : null,
                     send_receipt: client?.phone ? sendReceipt : false,
                     idempotency_key: checkoutKeyRef.current,
-                    performer_id: performerId || null,
+                    performer_id: hasItems ? (performerId || null) : null,
                 }),
             });
             checkoutKeyRef.current = crypto.randomUUID();
@@ -672,10 +674,10 @@ export default function PosPage() {
                     </div>
                 </div>
 
-                {/* Who did it — the work or the sale (counts in the team's sales) */}
-                {team.length > 1 && (
+                {/* Who sold the items (counts in the team's sales) — only when the cart has items */}
+                {hasItems && team.length > 1 && (
                     <label className="flex items-center justify-between gap-2 rounded-xl px-3 py-2 border border-slate-200 bg-white">
-                        <span className="text-xs font-semibold text-slate-700">{tx("מי ביצע / מכר")}</span>
+                        <span className="text-xs font-semibold text-slate-700">{tx("מי מכר")}</span>
                         <select value={performerId} onChange={e => setPerformerId(e.target.value)}
                             className="text-sm font-bold text-slate-800 bg-transparent outline-none max-w-[60%]">
                             {team.map(m => <option key={m.id} value={m.id}>{m.display_name || m.email}</option>)}

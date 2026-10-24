@@ -24,9 +24,9 @@ def test_the_till_records_who_did_it(client, db_session):
     other = register_and_login(client, "perf-other", "owner@perf-other.com")
     stranger = client.get("/api/auth/me", headers=other).json()["id"]
 
-    first = _sale(client, owner)                                           # nobody chosen — the one at the till
+    first = _sale(client, owner)                                           # nothing chosen — no seller (an appointment's work)
     assert first.status_code == 200, first.text
-    assert first.json()["performer_name"] == (me.get("display_name") or me["email"])
+    assert first.json()["performer_name"] is None and me["id"]
     second = _sale(client, owner, performer_id=dana)
     assert second.status_code == 200 and second.json()["performer_name"] == "דנה"
     assert _sale(client, owner, performer_id=stranger).status_code == 400   # another business's — never

@@ -24,7 +24,7 @@ class PosTransaction(Base):
     studio_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("studios.id", ondelete="CASCADE"), nullable=False, index=True)
     client_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("clients.id", ondelete="SET NULL"), nullable=True, index=True)
     cashier_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
-    # who did the work or made the sale (the tattoo, the product) — chosen at the till; the cashier by default
+    # who sold the items (an earring, a cream) — chosen at the till when the sale has items; none otherwise
     performer_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
     total_cents: Mapped[int] = mapped_column(Integer, nullable=False)

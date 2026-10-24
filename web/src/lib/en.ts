@@ -5163,4 +5163,8 @@ export const EN: Record<string, string> = {
     "התשלום התקבל ונרשם": "Payment received and recorded",
     "התשלום נרשם, התור מאושר והקבלה הופקה": "The payment is recorded, the appointment is approved and the receipt was issued",
     "התשלום נרשם והתור מאושר": "The payment is recorded and the appointment is approved",
+
+    // ── Till: sold by (2026-10-24) ──
+    "מי מכר": "Sold by",
+    "מכר/ה: {0}": "sold by: {0}",
 };

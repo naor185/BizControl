@@ -45,7 +45,7 @@ class CheckoutIn(BaseModel):
     notes: Optional[str] = None
     send_receipt: bool = True
     idempotency_key: Optional[str] = None
-    performer_id: Optional[str] = None     # who did the work / made the sale — the signed-in one when not given
+    performer_id: Optional[str] = None     # who sold the items (an earring, a cream) — none when not given
 
 
 class TransactionItemOut(BaseModel):
@@ -185,9 +185,10 @@ def pos_checkout(
     discount = max(0, body.discount_cents)
     total = max(0, subtotal - discount)
 
-    # Who did the work / made the sale: one of this business's active team, else the one at the till
+    # Who sold the items — one of this business's active team; chosen at the till only for items sold (an earring, a
+    # cream): the work of an appointment is its artist's (the owner, 2026-10-24)
     from app.models.user import User
-    performer_id = ctx.user_id
+    performer_id = None
     if body.performer_id:
         try:
             _pid = uuid.UUID(str(body.performer_id))

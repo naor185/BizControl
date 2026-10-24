@@ -32,7 +32,7 @@ type PosTransaction = {
     id: string;
     client_name: string | null;
     cashier_name: string | null;
-    performer_name?: string | null;   // who did the work / made the sale (chosen at the till)
+    performer_name?: string | null;   // who sold the items (chosen at the till)
     total_cents: number;
     discount_cents: number;
     method: string;
@@ -158,7 +158,7 @@ export default function Page() {
                 notes: (t.discount_cents > 0
                     ? tx("קופה — {0} פריטים, הנחה ₪{1}", { 0: t.items_count, 1: (t.discount_cents / 100).toFixed(0) })
                     : tx("קופה — {0} פריטים", { 0: t.items_count }))
-                    + (t.performer_name ? tx(" · ביצע/ה: {0}", { 0: t.performer_name }) : ""),
+                    + (t.performer_name ? tx(" · מכר/ה: {0}", { 0: t.performer_name }) : ""),
                 clientId: null,
                 clientName: t.client_name,
                 isWalkIn: false,
