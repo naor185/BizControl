@@ -286,8 +286,7 @@ function LoginContent() {
     if (nativeUnlock === "show") return (
         <div className="own-safe-area min-h-screen relative overflow-hidden flex flex-col items-center justify-center p-6 bg-gradient-to-b from-[#001a2e] to-[#003055]" dir={dir}>
             <div className="w-full max-w-sm text-center">
-                <img src="/logo.png" alt="BizControl" className="w-32 h-32 object-contain drop-shadow-2xl mx-auto mb-6" />
-                <div className="font-black text-2xl text-white tracking-tight drop-shadow-lg mb-1">BizControl</div>
+                <img src="/logo.png" alt="BizControl" className="w-48 h-auto object-contain mx-auto mb-4" style={{ filter: "drop-shadow(0 0 2px rgba(255,255,255,.95)) drop-shadow(0 0 10px rgba(255,255,255,.55))" }} />
                 <p className="text-sm text-blue-200/70 mb-10">{locale.startsWith("en") ? "Welcome back" : "ברוך שובך"}</p>
 
                 <button
@@ -446,10 +445,9 @@ function LoginContent() {
             <div className="relative z-10 min-h-screen flex flex-col items-center justify-center p-6">
 
                 <div className="mb-8 flex flex-col items-center">
-                    <div className="mb-3">
-                        <img src="/logo.png" alt="BizControl" className="w-40 h-40 object-contain drop-shadow-2xl" />
-                    </div>
-                    <div className="font-black text-3xl text-white tracking-tight drop-shadow-lg">BizControl</div>
+                    {/* BizControl's one logo — the whale and "Biz Control", as in the side menu (the owner, 2026-10-24),
+                        no box behind it; a light glow keeps its dark "Control" readable on this dark screen */}
+                    <img src="/logo.png" alt="BizControl" className="w-56 h-auto object-contain mb-2" style={{ filter: "drop-shadow(0 0 2px rgba(255,255,255,.95)) drop-shadow(0 0 10px rgba(255,255,255,.55))" }} />
                     <div className="text-sm text-blue-200/80 mt-1">{locale.startsWith("en") ? "Your business, simply managed" : "ניהול העסק שלך, בפשטות"}</div>
                 </div>
 
