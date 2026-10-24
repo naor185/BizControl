@@ -48,6 +48,7 @@ SERVICE_TYPES = frozenset({
     "new_appointment", "reschedule", "appointment_cancelled", "no_show",
     "1day", "3day", "7day", "same_day", "2hours", "clock_in_nudge", "1day_email", "3day_email", "7day_email", "same_day_email",
     "deposit_24h", "aftercare", "post_payment",
+    "payment_request",       # a link to pay for what the client bought (services/payment_requests)
     "health_form",           # the link to fill the health declaration before the treatment (services/health_forms)
     # receipts and purchases
     "receipt_link", "receipt_link_email", "pos_receipt",
@@ -61,6 +62,7 @@ SERVICE_TYPES = frozenset({
     # to the studio's staff, not to clients
     "new_lead", "manual",
     "deposit_reported",      # a client says they paid the deposit (services/deposit_report)
+    "payment_request_reported",   # a client says they paid through a payment link (services/payment_requests)
     "task_assigned", "task_overdue", "task_done",   # a worker's task (services/team_tasks)
     "schedule_published",                           # a worker's shifts for the week (services/schedule)
     "swap_request", "swap_answer", "request_decided", "late_nudge",   # a worker's requests — swaps, time off (services/staff_requests)
