@@ -25,6 +25,7 @@ type PaymentModalProps = {
 
 export default function PaymentModal({ isOpen, onClose, onSuccess, appointment }: PaymentModalProps) {
     const plan = usePlan();            // paying with points, the club's and the gift card's links follow the plan
+    const [sendingLink, setSendingLink] = useState(false);
     const [amount, setAmount] = useState<string>("");
     const [method, setMethod] = useState<string>("cash");
     const [type, setType] = useState<string>("payment");
@@ -70,6 +71,25 @@ export default function PaymentModal({ isOpen, onClose, onSuccess, appointment }
     }, [appointment, isOpen]);
 
     useBackButtonClose(isOpen, onClose);
+
+    const sendPayLink = async () => {
+        if (!appointment) return;
+        const cents = Math.round(parseFloat(amount || "0") * 100);
+        if (!(cents > 0)) return;
+        setSendingLink(true);
+        try {
+            await apiFetch("/api/payment-requests", {
+                method: "POST",
+                body: JSON.stringify({ client_id: appointment.client_id, appointment_id: appointment.appointment_id, amount_cents: cents }),
+            });
+            toast.success(tx("הקישור לתשלום נשלח ל-{0} בוואטסאפ — כשישלם, יופיע לאישור בלוח הבקרה", { 0: appointment.client_name }));
+            onClose();
+        } catch (e) {
+            toast.error((e as { message?: string })?.message || tx("השליחה נכשלה"));
+        } finally {
+            setSendingLink(false);
+        }
+    };
 
     if (!isOpen || !appointment) return null;
 
@@ -488,6 +508,16 @@ export default function PaymentModal({ isOpen, onClose, onSuccess, appointment }
                             {sendReceipt ? tx("📨 שלח קבלה ללקוח") : tx("🔕 לא לשלוח קבלה ללקוח")}
                         </span>
                         <Switch as="span" size="sm" checked={sendReceipt} onColor="bg-sky-500" />
+                    </button>
+                </div>
+
+                {/* No card terminal? Send the client a link to pay this amount (services/payment_requests) — approved on
+                    לוח בקרה, recorded then as this appointment's payment with its receipt */}
+                <div className="px-4 pt-3 shrink-0">
+                    <button type="button" onClick={sendPayLink}
+                        disabled={sendingLink || !(parseFloat(amount || "0") > 0) || usePoints || (couponValid && couponDiscount > 0)}
+                        className="w-full py-2.5 border-2 border-sky-500 text-sky-700 hover:bg-sky-50 text-sm font-bold rounded-xl transition-all disabled:opacity-50">
+                        {sendingLink ? tx("שולח...") : tx("📲 שליחת קישור לתשלום בוואטסאפ")}
                     </button>
                 </div>
 

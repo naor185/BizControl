@@ -20,6 +20,7 @@ from app.models.audit_log import AuditLog
 from app.models.studio_integration import StudioIntegration
 from app.models.booking_request import BookingRequest
 from app.models.pos_transaction import PosTransaction, PosTransactionItem
+from app.models.payment_request import PaymentRequest
 from app.models.birthday_coupon import BirthdayCoupon
 from app.models.coupon import Coupon, CouponUse
 from app.models.user_pin_settings import UserPinSettings

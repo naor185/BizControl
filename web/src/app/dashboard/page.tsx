@@ -13,6 +13,7 @@ import { apiFetch, imgUrl } from "@/lib/api";
 import { whatsappNumber } from "@/lib/format";
 import PaymentModal from "@/components/PaymentModal";
 import DepositConfirmModal, { type DepositToConfirm } from "@/components/DepositConfirmModal";
+import PaymentRequestsCard from "@/components/PaymentRequestsCard";
 import SetupChecklist from "@/components/SetupChecklist";
 import LeadsContent from "@/components/LeadsContent";
 import BizFindExposureCard from "@/components/BizFindExposureCard";
@@ -348,6 +349,9 @@ export default function Page() {
                             )}
                         </div>
                     )}
+
+                    {/* ── LINKS TO PAY sent to clients — waiting, or reported paid (components/PaymentRequestsCard) ── */}
+                    <PaymentRequestsCard />
 
                     {/* ── PENDING DEPOSITS ── */}
                     {pendingDeposits.length > 0 && (

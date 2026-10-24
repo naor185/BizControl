@@ -659,3 +659,14 @@ _PATTERNS_RX = [(re.compile("^" + re.escape(he).replace(re.escape("{}"), "(.+?)"
                 for he, en in PATTERNS.items()]
 
 EN.update({"איש הצוות לא נמצא": "Team member not found"})   # the till: who did the work / made the sale
+
+EN.update({   # a link to pay (services/payment_requests)
+    "פריט לא תקין": "Invalid item", "התשלום כבר אושר": "The payment was already approved", "הקישור בוטל": "The link was canceled",
+    "דיווח על תשלום בקישור": "A payment was reported through a link",
+})
+PATTERNS.update({"{} — ₪{} · עם צילום": "{0} — ₪{1} · with a picture"})
+for _k in ("{} — רק לבעלים או למנהל", "{} לא נמצא", "{} בשעה {} · {}", "{} בשעה {}", "{} שבועות", "{} ימים", "{} שעות", "{} דקות"):
+    if _k in PATTERNS:
+        PATTERNS[_k] = PATTERNS.pop(_k)
+_PATTERNS_RX = [(re.compile("^" + re.escape(he).replace(re.escape("{}"), "(.+?)") + "$", re.S), en)
+                for he, en in PATTERNS.items()]

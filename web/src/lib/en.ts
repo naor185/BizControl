@@ -5167,4 +5167,28 @@ export const EN: Record<string, string> = {
     // ── Till: sold by (2026-10-24) ──
     "מי מכר": "Sold by",
     "מכר/ה: {0}": "sold by: {0}",
+
+    // ── Payment links (2026-10-24) ──
+    "הקישור בוטל": "The link was canceled",
+    "לפרטים — פנו אל {0}.": "For details — contact {0}.",
+    "התשלום התקבל — תודה!": "Payment received — thank you!",
+    "{0} אישר/ה את התשלום.": "{0} approved the payment.",
+    "קיבלנו — העסק קיבל הודעה ויאשר את התשלום בקרוב.": "Got it — the business was notified and will approve the payment soon.",
+    "היי {0}, לתשלום עבור:": "Hi {0}, payment for:",
+    "סכום לתשלום:": "Amount to pay:",
+    "הערות לעסק (אופציונלי)": "Notes for the business (optional)",
+    "שילמתי — עדכנו את העסק ✅": "I've paid — let the business know ✅",
+    "בלחיצה העסק מקבל הודעה מיד, עם הצילום אם צירפת. הקבלה תישלח אליך אחרי שהעסק יאשר את התשלום.": "Tapping notifies the business right away, with the picture if you attached one. The receipt is sent to you once the business approves the payment.",
+    "לבטל את הקישור לתשלום של {0}?": "Cancel {0}'s payment link?",
+    "קישורים לתשלום": "Payment links",
+    "קישורים שנשלחו ללקוחות בוואטסאפ — מי שלחץ \"שילמתי\" מסומן, עם הצילום ששלח": "Links sent to clients on WhatsApp — whoever tapped \"I've paid\" is marked, with the picture they sent",
+    "הלקוח דיווח ששילם": "The client reported paying",
+    "נשלח — מחכה לתשלום": "Sent — waiting for payment",
+    "התשלום התקבל": "Payment received",
+    "המכירה נרשמה בקופה והקבלה הופקה": "The sale was recorded in the till and the receipt issued",
+    "התשלום נרשם בתור והקבלה הופקה": "The payment was recorded on the appointment and the receipt issued",
+    "אישור קבלת תשלום": "Confirm the payment",
+    "הקישור לתשלום נשלח ל-{0} בוואטסאפ — כשישלם, יופיע לאישור בלוח הבקרה": "The payment link was sent to {0} on WhatsApp — once they pay, it shows on the dashboard for approval",
+    "📲 שליחת קישור לתשלום בוואטסאפ": "📲 Send a payment link on WhatsApp",
+    "קישור לתשלום — בלי נקודות, גיפט קארד או קופון": "A payment link — without points, a gift card or a coupon",
 };

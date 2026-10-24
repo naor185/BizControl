@@ -1130,6 +1130,31 @@ def ensure_schema():
             )
         """)
         cur.execute("CREATE INDEX IF NOT EXISTS ix_pos_transaction_items_txn ON pos_transaction_items (transaction_id)")
+        # a link to pay sent to a client on WhatsApp — from the till or an appointment (models/payment_request)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS payment_requests (
+                id UUID PRIMARY KEY,
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                client_id UUID REFERENCES clients(id) ON DELETE SET NULL,
+                appointment_id UUID REFERENCES appointments(id) ON DELETE SET NULL,
+                items JSONB NOT NULL DEFAULT '[]',
+                discount_cents INTEGER NOT NULL DEFAULT 0,
+                amount_cents INTEGER NOT NULL,
+                performer_id UUID REFERENCES users(id) ON DELETE SET NULL,
+                created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+                status VARCHAR(10) NOT NULL DEFAULT 'waiting'
+                    CONSTRAINT ck_payment_requests_status CHECK (status IN ('waiting','reported','paid','canceled')),
+                reported_at TIMESTAMPTZ,
+                client_note TEXT,
+                proof_url TEXT,
+                paid_at TIMESTAMPTZ,
+                paid_method VARCHAR(20),
+                pos_transaction_id UUID,
+                payment_id UUID,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_payment_requests_studio ON payment_requests (studio_id, status)")
         # who sold the items (an earring, a cream) — chosen at the till when the sale has items (the owner, 2026-10-24)
         cur.execute("ALTER TABLE pos_transactions ADD COLUMN IF NOT EXISTS performer_id UUID REFERENCES users(id) ON DELETE SET NULL")
         # Allow paybox in existing pos_transactions if constraint is present (idempotent via DROP/ADD)

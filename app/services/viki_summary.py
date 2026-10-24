@@ -419,7 +419,8 @@ def latest(db: Session, studio_id, now: datetime | None = None, lang: str = "he"
 
 def ahead(db: Session, studio_id, now: datetime | None = None, lang: str = "he") -> dict | None:
     """From Thursday to Saturday: next week and the one after, as the calendar stands now — how full, how many
-    appointments, how many still wait for a deposit (the owner, 2026-10-24: "towards the end of the week she should
+    appointments, how many still wait for a deposit (the facts; the nudge to fill a week is ויקי's suggestion, with its
+    button) (the owner, 2026-10-24: "towards the end of the week she should
     tell me about next week, or the week after"). None on the other days, or with nothing booked and nothing to say."""
     from app.api.dashboard_routes import calendar_fill
     from app.models.appointment import Appointment
@@ -442,15 +443,11 @@ def ahead(db: Session, studio_id, now: datetime | None = None, lang: str = "he")
         if en:
             line = (f"{'Next week' if i == 0 else 'The week after'} ({span}): {fill['count']} appointments, "
                     f"the calendar is {fill['percent']}% full.")
-            if fill["percent"] < 40:
-                line += " Worth filling — a short message to regular clients, or an offer for the empty hours."
             if waiting:
                 line += f" {waiting} still waiting for a deposit."
         else:
             line = (f"{'השבוע הבא' if i == 0 else 'השבוע שאחריו'} ({_ltr(span)}): {fill['count']} תורים, "
                     f"היומן מלא ב-{fill['percent']}%.")
-            if fill["percent"] < 40:
-                line += " כדאי למלא — הודעה קצרה ללקוחות קבועים, או מבצע לשעות הריקות."
             if waiting:
                 line += f" {waiting} עוד מחכים למקדמה."
         lines.append(line)

@@ -350,6 +350,34 @@ export default function PosPage() {
     const cartCount = cart.reduce((s, i) => s + i.quantity, 0);
     const hasItems = cart.some(i => !!i.product_id);        // items from the catalog — an earring, a cream
 
+    // The card terminal isn't connected — send the client a link to pay instead (services/payment_requests): Bit /
+    // PayBox / a bank transfer and "שילמתי"; the business approves it on לוח בקרה and the sale is recorded then, with
+    // its receipt and who sold the items. Not with club points, a gift card or a coupon — those are taken here.
+    const [sendingLink, setSendingLink] = useState(false);
+    const linkBlocked = pointsDiscount > 0 || !!giftCardInfo || couponDiscount > 0;
+    const sendPayLink = async () => {
+        if (!client?.phone || cart.length === 0) return;
+        setSendingLink(true);
+        try {
+            await apiFetch("/api/payment-requests", {
+                method: "POST",
+                body: JSON.stringify({
+                    client_id: client.id,
+                    items: cart.map(i => ({ product_id: i.product_id, description: i.description, quantity: i.quantity, unit_price_cents: i.unit_price_cents })),
+                    discount_cents: discountCents,
+                    performer_id: hasItems ? (performerId || null) : null,
+                }),
+            });
+            toast.success(tx("הקישור לתשלום נשלח ל-{0} בוואטסאפ — כשישלם, יופיע לאישור בלוח הבקרה", { 0: client.full_name }));
+            setCart([]); setCalcDisplay("0"); setItemDesc(""); setClient(null); setClientSearch(""); setDiscountUnlocked(false);
+            setDiscountPct(0);
+        } catch (e) {
+            toast.error((e as Error)?.message || tx("השליחה נכשלה"));
+        } finally {
+            setSendingLink(false);
+        }
+    };
+
     const handleCheckout = async () => {
         if (cart.length === 0) { toast.error(tx("העגלה ריקה")); return; }
         setLoading(true);
@@ -710,6 +738,13 @@ export default function PosPage() {
                     className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold py-3 rounded-2xl text-sm transition-all shadow-md active:scale-95">
                     {loading ? tx("מעבד...") : tx("💳 גבה ₪{0}", { 0: (total/100).toFixed(2) })}
                 </button>
+                {client?.phone && cart.length > 0 && (
+                    <button type="button" onClick={sendPayLink} disabled={sendingLink || linkBlocked}
+                        title={linkBlocked ? tx("קישור לתשלום — בלי נקודות, גיפט קארד או קופון") : undefined}
+                        className="w-full bg-white border-2 border-sky-500 text-sky-700 hover:bg-sky-50 disabled:opacity-50 font-bold py-2.5 rounded-2xl text-sm transition-all">
+                        {sendingLink ? tx("שולח...") : tx("📲 שליחת קישור לתשלום בוואטסאפ")}
+                    </button>
+                )}
             </div>
         </div>
     );

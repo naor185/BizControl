@@ -425,6 +425,9 @@ PATTERNS: dict[str, str] = {
     "תקופת הניסיון מסתיימת בעוד {} ימים": "The trial ends in {0} days",
     "המנוי יפוג בעוד {} ימים": "The subscription expires in {0} days",
     "BizControl — {}": "BizControl — {0}",
+    # a link to pay (services/payment_requests)
+    "לתשלום ב{}: {} · {}": "Payment to {0}: {1} · {2}",
+    "לתשלום ב{}: {}": "Payment to {0}: {1}",
     # the generic greeting with a note after it — last
     "היי {}, {}": "Hi {0}, {1}",
 }
