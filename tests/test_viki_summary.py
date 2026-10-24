@@ -114,3 +114,59 @@ def test_the_summary_in_english_from_the_same_numbers():
                                  "3 appointments — 200% more than the week before.",
                                  "3 new clients came for the first time."]
     assert lines["improve"] == ["This week is only 30% full."] and lines["focus"].startswith("This week's goal:")
+
+
+def test_a_refund_is_money_out_and_the_summary_follows_the_calendar(client, db_session):
+    """The owner, 2026-10-24: ויקי said ₪5,898 for a ₪4,898 week (a refunded deposit counted as income), and "the week
+    is only 4% full" stayed on after the calendar was filled. The summary is worked out every time it is shown."""
+    from app.models.payment import Payment
+    h = register_and_login(client, "live-shop", "owner@live-shop.com")
+    studio = db_session.scalar(select(Studio).where(Studio.slug == "live-shop"))
+    studio.subscription_plan = "pro"
+    owner_id = client.get("/api/auth/me", headers=h).json()["id"]
+    sunday = _sunday()
+    last = sunday - timedelta(days=7)
+    c = Client(studio_id=studio.id, full_name="דנה", phone="0500000999")
+    db_session.add(c)
+    db_session.flush()
+    appt = Appointment(studio_id=studio.id, client_id=c.id, artist_id=owner_id, title="קעקוע", status="done",
+                       starts_at=_at(last + timedelta(days=2), 11), ends_at=_at(last + timedelta(days=2), 12))
+    db_session.add(appt)
+    db_session.flush()
+    for amount, kind in ((50000, "payment"), (50000, "deposit"), (50000, "refund")):        # ₪500 in, ₪500 back
+        db_session.add(Payment(studio_id=studio.id, client_id=c.id, appointment_id=appt.id, amount_cents=amount,
+                               currency="ILS", type=kind, status="paid", method="bit",
+                               created_at=_at(last + timedelta(days=1), 12)))
+    db_session.commit()
+    assert viki_summary.week_facts(db_session, studio.id, last)["revenue"] == 500.0
+    assert viki_summary.sweep(db_session, now=_at(sunday, 10), use_ai=False) >= 1
+    before = viki_summary.week_facts(db_session, studio.id, last)["fill_ahead"]
+    for d in range(1, 5):                                     # the owner fills this week after the summary was made
+        db_session.add(Appointment(studio_id=studio.id, client_id=c.id, artist_id=owner_id, title="קעקוע",
+                                   starts_at=_at(sunday + timedelta(days=d), 9), ends_at=_at(sunday + timedelta(days=d), 21)))
+    db_session.commit()
+    shown = viki_summary.latest(db_session, studio.id, now=_at(sunday, 11))
+    after = viki_summary.week_facts(db_session, studio.id, last)["fill_ahead"]
+    assert after > before and not any(f"מלא רק ב-{before}%" in line for line in shown["improve"])
+    assert "\u2066" in shown["title"]                        # the date range stays left to right in Hebrew
+
+
+def test_from_thursday_the_weeks_ahead(client, db_session):
+    h = register_and_login(client, "ahead-shop", "owner@ahead-shop.com")
+    studio = db_session.scalar(select(Studio).where(Studio.slug == "ahead-shop"))
+    owner_id = client.get("/api/auth/me", headers=h).json()["id"]
+    sunday = _sunday()
+    c = Client(studio_id=studio.id, full_name="דנה", phone="0500000998")
+    db_session.add(c)
+    db_session.flush()
+    nxt = sunday + timedelta(days=7)
+    db_session.add(Appointment(studio_id=studio.id, client_id=c.id, artist_id=owner_id, title="קעקוע",
+                               starts_at=_at(nxt + timedelta(days=1), 10), ends_at=_at(nxt + timedelta(days=1), 12),
+                               deposit_amount_cents=20000))
+    db_session.commit()
+    assert viki_summary.ahead(db_session, studio.id, now=_at(sunday + timedelta(days=2), 10)) is None     # Tuesday
+    got = viki_summary.ahead(db_session, studio.id, now=_at(sunday + timedelta(days=4), 10))             # Thursday
+    assert got["title"] == "השבועות הבאים" and got["lines"][0].startswith("השבוע הבא")
+    assert "1 תורים" in got["lines"][0] and "1 עוד מחכים למקדמה" in got["lines"][0]
+    en = viki_summary.ahead(db_session, studio.id, now=_at(sunday + timedelta(days=5), 10), lang="en")
+    assert en["lines"][0].startswith("Next week") and en["lines"][1].startswith("The week after")

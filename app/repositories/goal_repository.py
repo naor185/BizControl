@@ -4,7 +4,7 @@ from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from typing import Optional, Tuple
 
-from sqlalchemy import Date, and_, cast, func, literal_column, select
+from sqlalchemy import Date, and_, case, cast, func, literal_column, select
 from sqlalchemy.orm import Session
 
 from app.models.monthly_goal import MonthlyGoal
@@ -48,12 +48,15 @@ class GoalRepository:
         return db_goal
 
     def _cents_by_day(self, studio_id: uuid.UUID, start: datetime, end: datetime) -> dict[date, int]:
-        """Money in (paid payments without club points, and paid till sales) per day on the clock in Israel."""
+        """Money in (paid payments without club points, and paid till sales, less refunds) per day on the clock in Israel."""
         def il_day(col):
             # a literal zone, not a bound value — GROUP BY must repeat the exact same expression
             return cast(func.timezone(literal_column("'Asia/Jerusalem'"), col), Date)
 
-        payments = select(il_day(Payment.created_at), func.sum(Payment.amount_cents)).where(
+        # a refund is its own row with a positive amount (type "refund") — money that went back out (2026-10-24: a
+        # refunded ₪500 deposit was counted as ₪500 more income, and ויקי said ₪5,898 for a ₪4,898 week)
+        net = case((Payment.type == "refund", -Payment.amount_cents), else_=Payment.amount_cents)
+        payments = select(il_day(Payment.created_at), func.sum(net)).where(
             Payment.studio_id == studio_id, Payment.status == "paid", money_received(),
             Payment.created_at >= start, Payment.created_at < end,
         ).group_by(il_day(Payment.created_at))

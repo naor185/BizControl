@@ -371,8 +371,16 @@ def sweep(db: Session, now: datetime | None = None, use_ai: bool = True) -> int:
     return made
 
 
+def _ltr(text: str) -> str:
+    """A date range kept left to right inside a Hebrew line ("11/10–17/10" showed as "17/10–11/10")."""
+    return f"\u2066{text}\u2069"
+
+
 def latest(db: Session, studio_id, now: datetime | None = None, lang: str = "he") -> dict | None:
-    """The summary to show on לוח בקרה: this week's (made last Sunday) or, in the month's first week, the month's."""
+    """The summary on לוח בקרה: last week's (made on Sunday) or, in the month's first week, last month's — worked out
+    from the data every time it is shown (2026-10-24: "the week is only 4% full" stayed on after the owner filled the
+    calendar). The period's numbers as they are now, the week ahead as it is now; the saved lines only when the numbers
+    can't be read."""
     from app.models.viki_summary import VikiSummary
     now = now or datetime.now(timezone.utc)
     row = db.scalars(select(VikiSummary).where(VikiSummary.studio_id == studio_id,
@@ -380,25 +388,70 @@ def latest(db: Session, studio_id, now: datetime | None = None, lang: str = "he"
                      .order_by(VikiSummary.created_at.desc())).first()
     if row is None:
         return None
-    if lang == "en":                                   # rebuilt in English from the numbers it was made from
-        try:
-            facts = json.loads(row.facts or "{}")
-            lines = (week_lines_en if row.kind == "weekly" else month_lines_en)(facts)
-        except (KeyError, TypeError, ValueError):
-            lines = None
-        if lines:
-            if row.kind == "weekly":
-                start = date.fromisoformat(row.period)
-                title = f"The week of {start:%d/%m}–{start + timedelta(days=6):%d/%m}"
-            else:
-                y, m = map(int, row.period.split("-"))
-                title = f"{MONTHS_EN[m - 1]} {y}"
-            return {"kind": row.kind, "period": row.period, "title": title, **lines}
+    en = lang == "en"
+    try:
+        if row.kind == "weekly":
+            start = date.fromisoformat(row.period)
+            facts = week_facts(db, studio_id, start)
+            lines = (week_lines_en if en else week_lines)(facts)
+            title = (f"The week of {start:%d/%m}–{start + timedelta(days=6):%d/%m}" if en else
+                     f"הסיכום של שבוע {_ltr(f'{start:%d/%m}–{start + timedelta(days=6):%d/%m}')}")
+        else:
+            y, m = map(int, row.period.split("-"))
+            facts = month_facts(db, studio_id, y, m)
+            lines = (month_lines_en if en else month_lines)(facts)
+            title = f"{MONTHS_EN[m - 1]} {y}" if en else f"סיכום {MONTHS[m - 1]} {y}"
+    except Exception as e:                               # the numbers can't be read now — what was saved
+        log.warning("viki summary live facts failed for %s: %s", studio_id, e)
+        db.rollback()
+        lines, title = None, ""
+    if lines:
+        return {"kind": row.kind, "period": row.period, "title": title, **lines}
     if row.kind == "weekly":
         start = date.fromisoformat(row.period)
-        title = f"הסיכום של שבוע {start:%d/%m}–{start + timedelta(days=6):%d/%m}"
+        title = f"הסיכום של שבוע {_ltr(f'{start:%d/%m}–{start + timedelta(days=6):%d/%m}')}"
     else:
         y, m = map(int, row.period.split("-"))
         title = f"סיכום {MONTHS[m - 1]} {y}"
     return {"kind": row.kind, "period": row.period, "title": title, "good": json.loads(row.good),
             "improve": json.loads(row.improve), "focus": row.focus}
+
+
+def ahead(db: Session, studio_id, now: datetime | None = None, lang: str = "he") -> dict | None:
+    """From Thursday to Saturday: next week and the one after, as the calendar stands now — how full, how many
+    appointments, how many still wait for a deposit (the owner, 2026-10-24: "towards the end of the week she should
+    tell me about next week, or the week after"). None on the other days, or with nothing booked and nothing to say."""
+    from app.api.dashboard_routes import calendar_fill
+    from app.models.appointment import Appointment
+    now = now or datetime.now(timezone.utc)
+    today = now.astimezone(IL).date()
+    sunday_based = (today.weekday() + 1) % 7                 # 0 = Sunday … 6 = Saturday
+    if sunday_based < 4:                                     # Sunday–Wednesday: the week has just begun
+        return None
+    en = lang == "en"
+    next_sunday = today + timedelta(days=7 - sunday_based)
+    lines = []
+    for i, start in enumerate((next_sunday, next_sunday + timedelta(days=7))):
+        end = start + timedelta(days=7)
+        fill = calendar_fill(db, studio_id, start, end)
+        waiting = db.scalar(select(func.count(Appointment.id)).where(
+            Appointment.studio_id == studio_id, Appointment.status == "scheduled",
+            Appointment.starts_at >= _utc(start), Appointment.starts_at < _utc(end),
+            Appointment.deposit_amount_cents > 0, Appointment.payment_verified_at.is_(None))) or 0
+        span = f"{start:%d/%m}–{end - timedelta(days=1):%d/%m}"
+        if en:
+            line = (f"{'Next week' if i == 0 else 'The week after'} ({span}): {fill['count']} appointments, "
+                    f"the calendar is {fill['percent']}% full.")
+            if fill["percent"] < 40:
+                line += " Worth filling — a short message to regular clients, or an offer for the empty hours."
+            if waiting:
+                line += f" {waiting} still waiting for a deposit."
+        else:
+            line = (f"{'השבוע הבא' if i == 0 else 'השבוע שאחריו'} ({_ltr(span)}): {fill['count']} תורים, "
+                    f"היומן מלא ב-{fill['percent']}%.")
+            if fill["percent"] < 40:
+                line += " כדאי למלא — הודעה קצרה ללקוחות קבועים, או מבצע לשעות הריקות."
+            if waiting:
+                line += f" {waiting} עוד מחכים למקדמה."
+        lines.append(line)
+    return {"title": "The weeks ahead" if en else "השבועות הבאים", "lines": lines}

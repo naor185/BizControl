@@ -8,7 +8,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { followSection } from "@/lib/sectionLinks";
-import { CircleCheck, Lightbulb, Target, TriangleAlert } from "lucide-react";
+import { CalendarDays, CircleCheck, Lightbulb, Target, TriangleAlert } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { Switch } from "@/components/ui/switch";
 import Viki from "./Viki";
@@ -18,6 +18,8 @@ import { tx } from "@/lib/i18n";
 type Suggestion = { key: string; tone: "warn" | "tip" | "good"; text: string; action: { label: string; href: string } | null };
 // the week's (Sunday) or the month's (the 1st) — services/viki_summary
 type Summary = { kind: "weekly" | "monthly"; title: string; good: string[]; improve: string[]; focus: string };
+// from Thursday: next week and the one after, as the calendar stands now — services/viki_summary.ahead
+type Ahead = { title: string; lines: string[] };
 
 const TONE = {
     warn: { icon: TriangleAlert, ring: "border-amber-200 bg-amber-50/60", fg: "text-amber-600" },
@@ -29,13 +31,14 @@ export default function VikiCard() {
     const [items, setItems] = useState<Suggestion[] | null>(null);
     const [more, setMore] = useState(0);
     const [summary, setSummary] = useState<Summary | null>(null);
+    const [ahead, setAhead] = useState<Ahead | null>(null);
     const [hidden, setHidden] = useState(false);
     const [pops, setPops] = useState(popupsOn);
     const [busy, setBusy] = useState<string | null>(null);
     const pathname = usePathname();
 
-    const load = () => apiFetch<{ suggestions: Suggestion[]; more: number; summary: Summary | null }>("/api/viki")
-        .then(r => { setItems(r.suggestions); setMore(r.more); setSummary(r.summary); })
+    const load = () => apiFetch<{ suggestions: Suggestion[]; more: number; summary: Summary | null; ahead?: Ahead | null }>("/api/viki")
+        .then(r => { setItems(r.suggestions); setMore(r.more); setSummary(r.summary); setAhead(r.ahead ?? null); })
         .catch(() => setHidden(true));
 
     useEffect(() => { load(); }, []);
@@ -89,6 +92,20 @@ export default function VikiCard() {
                         <p className="mt-3 flex items-start gap-2 text-sm font-bold text-sky-800">
                             <Target className="w-4 h-4 shrink-0 mt-0.5" aria-hidden />{summary.focus}
                         </p>
+                    </div>
+                </div>
+            )}
+            {ahead && ahead.lines.length > 0 && (
+                <div className="px-5 pt-4">
+                    <div className="rounded-xl border border-sky-200 bg-sky-50/60 p-4">
+                        <div className="text-sm font-black text-slate-800">{ahead.title}</div>
+                        <ul className="mt-2 space-y-1">
+                            {ahead.lines.map(line => (
+                                <li key={line} className="flex items-start gap-2 text-sm text-slate-700">
+                                    <CalendarDays className="w-4 h-4 shrink-0 mt-0.5 text-sky-600" aria-hidden />{line}
+                                </li>
+                            ))}
+                        </ul>
                     </div>
                 </div>
             )}
