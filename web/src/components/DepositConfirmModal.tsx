@@ -39,6 +39,7 @@ export default function DepositConfirmModal({ deposit, onClose, onConfirmed }: {
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [receiptId, setReceiptId] = useState<string | null>(null);
+    const [done, setDone] = useState(false);       // approved — the window says so, with or without a receipt
     useBackButtonClose(true, onClose);
 
     const confirm = async () => {
@@ -51,9 +52,9 @@ export default function DepositConfirmModal({ deposit, onClose, onConfirmed }: {
             const res = await apiFetch<{ invoice_id: string | null }>(
                 `/api/appointments/${deposit.appointmentId}/verify-payment?method=${method}&send_receipt=${sendReceipt}${other}`,
                 { method: "POST" });
-            onConfirmed();
             if (res.invoice_id) setReceiptId(res.invoice_id);
-            else onClose();
+            setDone(true);
+            onConfirmed();
         } catch (e: unknown) {
             setError((e as { message?: string })?.message || tx("האישור לא נשמר"));
         } finally {
@@ -61,21 +62,25 @@ export default function DepositConfirmModal({ deposit, onClose, onConfirmed }: {
         }
     };
 
-    if (receiptId) return (
+    if (done) return (
         <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4" onClick={onClose}>
             <div className="bg-white rounded-3xl w-full max-w-sm p-8 text-center shadow-2xl" onClick={e => e.stopPropagation()}>
                 <Receipt className="w-12 h-12 mx-auto mb-3 text-emerald-600" aria-hidden />
-                <div className="text-xl font-black text-slate-800 mb-1">{tx("קבלה נוצרה!")}</div>
-                <div className="text-sm text-slate-500 mb-6">{tx("המקדמה אושרה והקבלה הופקה בהצלחה")}</div>
+                <div className="text-xl font-black text-slate-800 mb-1">{tx("המקדמה התקבלה")}</div>
+                <div className="text-sm text-slate-500 mb-6">
+                    {receiptId ? tx("התשלום נרשם, התור מאושר והקבלה הופקה") : tx("התשלום נרשם והתור מאושר")}
+                </div>
                 <div className="flex gap-3">
                     <button type="button" onClick={onClose}
                         className="flex-1 py-3 rounded-2xl border border-slate-200 text-slate-600 font-semibold text-sm">
                         {tx("סגור")}
                     </button>
-                    <button type="button" onClick={() => window.open(`/receipt/${receiptId}`, "_blank")}
-                        className="flex-[2] py-3 rounded-2xl bg-slate-900 text-white font-black text-sm hover:bg-slate-700 transition">
-                        {tx("צפה בקבלה")}
-                    </button>
+                    {receiptId && (
+                        <button type="button" onClick={() => window.open(`/receipt/${receiptId}`, "_blank")}
+                            className="flex-[2] py-3 rounded-2xl bg-slate-900 text-white font-black text-sm hover:bg-slate-700 transition">
+                            {tx("צפה בקבלה")}
+                        </button>
+                    )}
                 </div>
             </div>
         </div>

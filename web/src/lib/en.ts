@@ -5157,4 +5157,10 @@ export const EN: Record<string, string> = {
     "סכום המקדמה": "Deposit amount",
     "סכום המקדמה נקבע בכל שירות — וכך הוא מתמלא ביומן ובקביעת תור אונליין. אפשר לשנות אותו לתור מסוים ביומן.": "The deposit amount is set on each service — that's how it fills in the calendar and in online booking. You can change it for a single appointment in the calendar.",
     "לשירותים": "To services",
+
+    // ── Payment feedback (2026-10-24) ──
+    "התור אושר בלי מקדמה": "The appointment is approved without a deposit",
+    "התשלום התקבל ונרשם": "Payment received and recorded",
+    "התשלום נרשם, התור מאושר והקבלה הופקה": "The payment is recorded, the appointment is approved and the receipt was issued",
+    "התשלום נרשם והתור מאושר": "The payment is recorded and the appointment is approved",
 };

@@ -8,6 +8,7 @@ import { Bell, BellRing, ChevronDown, CircleCheck, Lock, MessageCircle, Target }
 import { useCallback, useEffect, useRef, useState } from "react";
 import RequireAuth from "@/components/RequireAuth";
 import AppShell from "@/components/AppShell";
+import { toast } from "@/lib/toast";
 import { apiFetch, imgUrl } from "@/lib/api";
 import { whatsappNumber } from "@/lib/format";
 import PaymentModal from "@/components/PaymentModal";
@@ -106,9 +107,11 @@ export default function Page() {
         date: string;
     } | null>(null);
 
-    const fetchData = async () => {
+    // silent: after a payment — the numbers refresh behind the open window, the screen stays (2026-10-24: the full
+    // "loading" screen unmounted the deposit window with its "approved" message, then it opened again, empty)
+    const fetchData = async (silent = false) => {
         try {
-            setLoading(true);
+            if (!silent) setLoading(true);
             const [paymentsData, pendingData, depositsData, occData, todayRevData, pendingGiftCardsData] = await Promise.all([
                 apiFetch<DailyPayment[]>("/api/dashboard/daily-payments"),
                 apiFetch<PendingPayment[]>("/api/dashboard/pending-payments"),
@@ -153,6 +156,7 @@ export default function Page() {
         try {
             await apiFetch(`/api/appointments/${id}/waive-deposit`, { method: "POST" });
             setPendingDeposits(prev => prev.filter(d => d.appointment_id !== id));
+            toast.success(tx("התור אושר בלי מקדמה"));
         } catch (e: any) {
             alert(e?.message || tx("שגיאה"));
         } finally {
@@ -193,7 +197,7 @@ export default function Page() {
         try { localStorage.setItem(LEADS_OPEN_KEY, next ? "1" : "0"); } catch { /* per-viewer convenience only */ }
     };
 
-    const handlePaymentSuccess = () => { setIsPaymentModalOpen(false); fetchData(); };
+    const handlePaymentSuccess = () => { setIsPaymentModalOpen(false); toast.success(tx("✅ התשלום אושר בהצלחה!")); fetchData(true); };
 
     if (loading) return (
         <RequireAuth><AppShell title={tx("לוח בקרה")}>
@@ -285,8 +289,13 @@ export default function Page() {
                                                 <button
                                                     onClick={async () => {
                                                         if (confirm(tx("לאשר קבלת תשלום מ-{0}?", { 0: p.client_name }))) {
-                                                            await apiFetch(`/api/appointments/${p.appointment_id}/verify-payment`, { method: "POST" });
-                                                            fetchData();
+                                                            try {
+                                                                await apiFetch(`/api/appointments/${p.appointment_id}/verify-payment`, { method: "POST" });
+                                                                toast.success(tx("התשלום התקבל ונרשם"));
+                                                            } catch (e) {
+                                                                toast.error((e as Error)?.message || tx("האישור לא נשמר"));
+                                                            }
+                                                            fetchData(true);
                                                         }
                                                     }}
                                                     className="px-3 py-1.5 bg-emerald-600 text-white text-xs font-semibold rounded-lg hover:bg-emerald-700 transition"
@@ -579,7 +588,7 @@ export default function Page() {
                     <DepositConfirmModal deposit={depositCashier} onClose={() => setDepositCashier(null)}
                         onConfirmed={() => {
                             setPendingDeposits(prev => prev.filter(x => x.appointment_id !== depositCashier.appointmentId));
-                            fetchData();
+                            fetchData(true);
                         }} />
                 )}
             </AppShell>
