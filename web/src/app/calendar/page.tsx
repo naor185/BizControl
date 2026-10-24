@@ -394,8 +394,6 @@ function Calendar() {
     const [status, setStatus] = useState("scheduled");
     const [notes, setNotes] = useState("");
     const [depositAmount, setDepositAmount] = useState<number | "">("");
-    const [defaultDepositAmount, setDefaultDepositAmount] = useState(0);
-    const [depositMinDuration, setDepositMinDuration] = useState<number | null>(null);
 
     // New client mini-form state
     const [showNewClientForm, setShowNewClientForm] = useState(false);
@@ -464,8 +462,6 @@ function Calendar() {
                     setCalendarEndHour(eh === "00:00" ? "24:00:00" : `${eh}:00`);
                     setDraftEndHour(eh);
                 }
-                if (settings.deposit_fixed_amount_ils) setDefaultDepositAmount(settings.deposit_fixed_amount_ils);
-                if (settings.deposit_min_duration_minutes) setDepositMinDuration(settings.deposit_min_duration_minutes);
             }
             // Load service catalog
             try {
@@ -656,13 +652,10 @@ function Calendar() {
             });
     }, [appointments, clients, filterArtistNames, filterTreatments, filterStatuses]);
 
-    function autoDeposit(startIso: string, endIso: string): number | "" {
-        if (!defaultDepositAmount) return "";
-        if (depositMinDuration) {
-            const diffMin = (new Date(endIso).getTime() - new Date(startIso).getTime()) / 60000;
-            if (diffMin < depositMinDuration) return "";
-        }
-        return defaultDepositAmount;
+    // The deposit comes from the services chosen for the appointment (each service's own amount — the one place for it,
+    // the owner 2026-10-24); a time picked before any service has none yet.
+    function autoDeposit(_startIso: string, _endIso: string): number | "" {
+        return "";
     }
 
     async function handleCreateNewClient() {
@@ -2130,7 +2123,7 @@ function Calendar() {
                                                         setPickedServiceIds(ids);
                                                         setTitle(picked.map(s => s.name).join(" + "));
                                                         const deposit = picked.filter(s => s.requires_deposit)
-                                                            .reduce((sum, s) => sum + (s.deposit_amount_cents / 100 || Number(defaultDepositAmount) || 0), 0);
+                                                            .reduce((sum, s) => sum + (s.deposit_amount_cents / 100 || 0), 0);
                                                         setDepositAmount(deposit || "");
                                                     }}
                                                     className={`px-3 py-1 rounded-full text-sm font-semibold border transition-all ${pickedServiceIds.includes(svc.id) ? "bg-blue-600 text-white border-blue-600" : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-blue-50 hover:border-blue-300"}`}

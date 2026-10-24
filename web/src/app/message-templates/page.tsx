@@ -89,7 +89,8 @@ const GROUPS: Group[] = [
               hints: ["client_name","appointment_title","appointment_date","appointment_time","artist_name","studio_address","map_link","portfolio_link","cancellation_free_days"] },
             { id: "deposit_request", title: tx("בקשת מקדמה"), when: tx("מיד כשנקבע תור שדורש מקדמה"), autoDetails: true,
               templateKey: "deposit_request_wa_template",
-              hints: ["client_name","appointment_title","appointment_date","appointment_time","studio_address","map_link","bit_link","paybox_link","payment_link","deposit_amount","cancellation_free_days"] },
+              // one link for the deposit — the payment page has Bit, PayBox, the bank transfer and "שילמתי" (2026-10-24)
+              hints: ["client_name","appointment_title","appointment_date","appointment_time","studio_address","map_link","payment_link","deposit_amount","cancellation_free_days"] },
             { id: "deposit_approved", title: tx("המקדמה התקבלה"), when: tx("כשמאשרים שהמקדמה שולמה"), autoDetails: true,
               templateKey: "deposit_approved_wa_template",
               hints: ["client_name","appointment_date","appointment_time","artist_name","studio_address","map_link","portfolio_link","cancellation_free_days","deposit_lock_days"] },

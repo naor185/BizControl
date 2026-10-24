@@ -1500,37 +1500,12 @@ export default function AutomationSettingsPage() {
                                     )}
                                 </div>
 
-                                {/* Deposit Auto-Fill */}
-                                <div className="bg-white rounded-2xl border border-slate-100 shadow-xl shadow-slate-200/40 p-6 md:p-10 relative overflow-hidden">
-                                    <div className="absolute top-0 start-0 w-32 h-32 bg-emerald-500/10 rounded-ee-full -z-10"></div>
-                                    <h3 className="text-2xl font-bold text-slate-800 mb-2">{tx("מקדמה אוטומטית ביומן")}</h3>
-                                    <p className="text-slate-500 text-sm mb-8">{tx("כאשר קובעים תור ביומן, שדה המקדמה יתמלא אוטומטית על פי הגדרות אלו.")}</p>
-                                    <div className="grid md:grid-cols-2 gap-8">
-                                        <div className="bg-emerald-50 p-6 rounded-2xl border border-emerald-100">
-                                            <label className="block text-base font-bold text-slate-800 mb-2">{tx("סכום מקדמה קבוע 💳")}</label>
-                                            <p className="text-sm text-slate-500 mb-4">{tx("כמה ₪ יוצג אוטומטית בשדה המקדמה בעת קביעת תור? (0 = ללא)")}</p>
-                                            <div className="flex items-center gap-3">
-                                                <input type="number" min="0"
-                                                    value={settings.deposit_fixed_amount_ils || ""}
-                                                    placeholder="0"
-                                                    onChange={e => handleChange("deposit_fixed_amount_ils", e.target.value === "" ? 0 : parseInt(e.target.value) || 0)}
-                                                    className="w-24 text-center bg-white border border-emerald-200 rounded-xl px-4 py-3 font-bold text-xl outline-none focus:ring-2 focus:ring-emerald-500" />
-                                                <span className="text-slate-600 font-medium">₪</span>
-                                            </div>
-                                        </div>
-                                        <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
-                                            <label className="block text-base font-bold text-slate-800 mb-2">{tx("מינימום דקות לתור עם מקדמה ⏱️")}</label>
-                                            <p className="text-sm text-slate-500 mb-4">{tx("מקדמה תתמלא אוטומטית רק אם התור ארוך מ-X דקות. (ריק = תמיד)")}</p>
-                                            <div className="flex items-center gap-3">
-                                                <input type="number" min="0"
-                                                    value={settings.deposit_min_duration_minutes ?? ""}
-                                                    onChange={e => handleChange("deposit_min_duration_minutes", e.target.value === "" ? null : parseInt(e.target.value) || 0)}
-                                                    placeholder={tx("ללא הגבלה")}
-                                                    className="w-32 placeholder:text-sm placeholder:font-normal text-center bg-white border border-slate-200 rounded-xl px-4 py-3 font-bold text-xl outline-none focus:ring-2 focus:ring-blue-500" />
-                                                <span className="text-slate-600 font-medium">{tx("דקות")}</span>
-                                            </div>
-                                        </div>
-                                    </div>
+                                {/* The deposit's amount — on each service, the one place for it (the owner, 2026-10-24: "one place"; the
+                                    fixed amount and the minimum length that were here are gone) */}
+                                <div className="bg-white rounded-2xl border border-slate-100 shadow-xl shadow-slate-200/40 p-6 md:p-10">
+                                    <h3 className="text-2xl font-bold text-slate-800 mb-2">{tx("סכום המקדמה")}</h3>
+                                    <p className="text-slate-500 text-sm mb-4">{tx("סכום המקדמה נקבע בכל שירות — וכך הוא מתמלא ביומן ובקביעת תור אונליין. אפשר לשנות אותו לתור מסוים ביומן.")}</p>
+                                    <a href="/services" className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-emerald-700">{tx("לשירותים")}</a>
                                 </div>
 
                                 {/* Cancellation Policy — merged from branding tab */}

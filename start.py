@@ -3186,6 +3186,21 @@ def ensure_schema():
                 FROM studios s WHERE s.id = ss.studio_id AND s.is_platform
             """)
 
+        if _once("nctattoo_deposit_one_link_v1"):
+            # The owner (2026-10-24, "one link"): Nctattoo's own deposit-request text sent a direct Bit link and asked for a
+            # screenshot, while the deposit reminder sent the payment page — two different links. Its Bit line and the
+            # screenshot line become the one payment page (Bit, bank transfer, the picture, "שילמתי"); the rest of the
+            # owner's words stay. Read-only check before: the exact text below, the only one of its kind. Only when the
+            # text is still exactly that.
+            _old = (" ניתן לשלם ב: ביט: {bit_link}  \n\nאחרי העברת המקדמה שלח אסמכתא (צילום מסך) ונאשר את התור ✅ \n")
+            _new = "\nלתשלום המקדמה ולאישור התור: {payment_link}\n\n"
+            cur.execute("""SELECT ss.studio_id, ss.deposit_request_wa_template FROM studio_settings ss
+                           JOIN studios s ON s.id = ss.studio_id WHERE s.name = 'Nctattoo'""")
+            for _sid, _tpl in cur.fetchall():
+                if _tpl and _tpl.count(_old) == 1:
+                    cur.execute("UPDATE studio_settings SET deposit_request_wa_template = %s WHERE studio_id = %s",
+                                (_tpl.replace(_old, _new), _sid))
+
         conn.commit()
         cur.close()
         conn.close()
