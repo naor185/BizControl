@@ -11,7 +11,7 @@ export async function generateMetadata(
             { next: { revalidate: 60 } }
         ).then(r => r.ok ? r.json() : null);
 
-        if (!data) return { title: "קבלה — BizControl" };
+        if (!data) return { title: "קבלה — BizControl", robots: { index: false, follow: false } };
 
         const logoUrl = data.business_logo_url || null;
         const businessName = data.business_name || "BizControl";
@@ -19,13 +19,14 @@ export async function generateMetadata(
 
         return {
             title,
+            robots: { index: false, follow: false },   // a private link — never in a search engine
             openGraph: {
                 title,
                 images: logoUrl ? [{ url: logoUrl, width: 400, height: 400 }] : [],
             },
         };
     } catch {
-        return { title: "קבלה — BizControl" };
+        return { title: "קבלה — BizControl", robots: { index: false, follow: false } };
     }
 }
 

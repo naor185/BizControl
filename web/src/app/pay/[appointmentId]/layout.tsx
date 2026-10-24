@@ -11,9 +11,10 @@ export async function generateMetadata(
             { next: { revalidate: 60 } }
         ).then(r => r.ok ? r.json() : null);
 
-        if (!data) return { title: "תשלום — BizControl" };
+        if (!data) return { title: "תשלום — BizControl", robots: { index: false, follow: false } };
 
-        const logoUrl = data.logo_filename ? `${API}/uploads/${data.logo_filename}` : null;
+        // a logo in the cloud is a full address; one on this server, a file name
+        const logoUrl = data.logo_filename ? (String(data.logo_filename).startsWith("http") ? data.logo_filename : `${API}/uploads/${data.logo_filename}`) : null;
         const en = data.locale === "en";           // the business's language
         const title = data.appointment_title
             ? (en ? `Payment for ${data.appointment_title}` : `תשלום עבור ${data.appointment_title}`)
@@ -21,13 +22,14 @@ export async function generateMetadata(
 
         return {
             title,
+            robots: { index: false, follow: false },   // a private link — never in a search engine
             openGraph: {
                 title,
                 images: logoUrl ? [{ url: logoUrl, width: 400, height: 400 }] : [],
             },
         };
     } catch {
-        return { title: "תשלום — BizControl" };
+        return { title: "תשלום — BizControl", robots: { index: false, follow: false } };
     }
 }
 

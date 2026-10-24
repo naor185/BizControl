@@ -195,7 +195,7 @@ function PaymentPage() {
                 <div className="flex flex-col items-center text-center mb-10">
                     <div className="w-20 h-20 bg-white rounded-2xl shadow-lg flex items-center justify-center mb-4 border border-slate-100">
                         {info.logo_filename ? (
-                            <img src={`${API}/uploads/${info.logo_filename}`} alt="Logo" className="max-w-[70%] max-h-[70%] object-contain" />
+                            <img src={info.logo_filename.startsWith("http") ? info.logo_filename : `${API}/uploads/${info.logo_filename}`} alt="Logo" className="max-w-[70%] max-h-[70%] object-contain" />
                         ) : (
                             <span className="text-2xl font-bold" style={{ color: theme.primary }}>B</span>
                         )}

@@ -205,7 +205,7 @@ export default function WalletDesignerPage() {
         }).catch(() => {});
         apiFetch<{ studio_name?: string; logo_filename?: string | null }>("/api/studio/automation/settings").then(s => {
             if (s.studio_name) setStudioName(s.studio_name);
-            if (s.logo_filename) setStudioLogoUrl(`${API_BASE}/uploads/${s.logo_filename}`);
+            if (s.logo_filename) setStudioLogoUrl(s.logo_filename.startsWith("http") ? s.logo_filename : `${API_BASE}/uploads/${s.logo_filename}`);
         }).catch(() => {});
         apiFetch<WalletStatus>("/api/wallet-design/status").then(s => {
             setWalletStatus(s);

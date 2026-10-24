@@ -69,7 +69,7 @@ function GiftCardShop() {
         fetch(`${API}/api/public/gift-cards/shop/${studioId}/view`, { method: "POST" }).catch(() => {});
     }, [studioId]);
 
-    const resolvedLogo = info?.logo_url || (info?.logo_filename ? `${API}/uploads/${info.logo_filename}` : null);
+    const resolvedLogo = info?.logo_url || (info?.logo_filename ? (info.logo_filename.startsWith("http") ? info.logo_filename : `${API}/uploads/${info.logo_filename}`) : null);
 
     const minIls = info ? (info.min_amount_cents || 100) / 100 : 1;
     const maxIls = info && info.max_amount_cents ? info.max_amount_cents / 100 : Infinity;
