@@ -463,6 +463,14 @@ def get_analytics(ctx: AuthContext = Depends(require_studio_ctx), db: Session = 
                 ),
             )
         ) or 0
+        # the till's sales they did the work for or made (chosen at the till — pos_transactions.performer_id)
+        rev_cents += db.scalar(
+            select(func.sum(PosTransaction.total_cents)).where(
+                PosTransaction.studio_id == ctx.studio_id,
+                PosTransaction.status == "paid",
+                PosTransaction.performer_id == artist.id,
+            )
+        ) or 0
         artists.append({
             "name": artist.display_name or artist.email,
             "appointments": appt_count,

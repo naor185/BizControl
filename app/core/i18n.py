@@ -657,3 +657,5 @@ for _k in ("{} — רק לבעלים או למנהל", "{} לא נמצא", "{} �
         PATTERNS[_k] = PATTERNS.pop(_k)            # the general ones last
 _PATTERNS_RX = [(re.compile("^" + re.escape(he).replace(re.escape("{}"), "(.+?)") + "$", re.S), en)
                 for he, en in PATTERNS.items()]
+
+EN.update({"איש הצוות לא נמצא": "Team member not found"})   # the till: who did the work / made the sale

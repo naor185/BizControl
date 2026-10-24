@@ -5150,4 +5150,11 @@ export const EN: Record<string, string> = {
     "פילאטיס / כושר": "Pilates / fitness",
     "ספא / קוסמטיקה": "Spa / cosmetics",
     "קליניקה / מרפאה": "Clinic",
+
+    // ── Till performer, deposit in one place (2026-10-24) ──
+    "מי ביצע / מכר": "Who did it / sold",
+    "ביצע/ה: {0}": "done by: {0}",
+    "סכום המקדמה": "Deposit amount",
+    "סכום המקדמה נקבע בכל שירות — וכך הוא מתמלא ביומן ובקביעת תור אונליין. אפשר לשנות אותו לתור מסוים ביומן.": "The deposit amount is set on each service — that's how it fills in the calendar and in online booking. You can change it for a single appointment in the calendar.",
+    "לשירותים": "To services",
 };

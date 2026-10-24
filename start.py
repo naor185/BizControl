@@ -1130,6 +1130,8 @@ def ensure_schema():
             )
         """)
         cur.execute("CREATE INDEX IF NOT EXISTS ix_pos_transaction_items_txn ON pos_transaction_items (transaction_id)")
+        # who did the work or made the sale — chosen at the till, the signed-in one by default (the owner, 2026-10-24)
+        cur.execute("ALTER TABLE pos_transactions ADD COLUMN IF NOT EXISTS performer_id UUID REFERENCES users(id) ON DELETE SET NULL")
         # Allow paybox in existing pos_transactions if constraint is present (idempotent via DROP/ADD)
         cur.execute("""
             DO $$

@@ -45,6 +45,7 @@ class CheckoutIn(BaseModel):
     notes: Optional[str] = None
     send_receipt: bool = True
     idempotency_key: Optional[str] = None
+    performer_id: Optional[str] = None     # who did the work / made the sale — the signed-in one when not given
 
 
 class TransactionItemOut(BaseModel):
@@ -61,6 +62,7 @@ class TransactionOut(BaseModel):
     client_id: Optional[str]
     client_name: Optional[str]
     cashier_name: Optional[str]
+    performer_name: Optional[str] = None
     total_cents: int
     discount_cents: int
     method: str
@@ -76,6 +78,7 @@ def _build_transaction_out(db: Session, txn: PosTransaction) -> TransactionOut:
     from app.models.user import User
     client = db.get(Client, txn.client_id) if txn.client_id else None
     cashier = db.get(User, txn.cashier_id) if txn.cashier_id else None
+    performer = db.get(User, txn.performer_id) if txn.performer_id else None
     items = db.scalars(
         select(PosTransactionItem).where(PosTransactionItem.transaction_id == txn.id)
     ).all()
@@ -84,6 +87,7 @@ def _build_transaction_out(db: Session, txn: PosTransaction) -> TransactionOut:
         client_id=str(txn.client_id) if txn.client_id else None,
         client_name=client.full_name if client else None,
         cashier_name=cashier.display_name or cashier.email if cashier else None,
+        performer_name=performer.display_name or performer.email if performer else None,
         total_cents=txn.total_cents,
         discount_cents=txn.discount_cents,
         method=txn.method,
@@ -181,11 +185,25 @@ def pos_checkout(
     discount = max(0, body.discount_cents)
     total = max(0, subtotal - discount)
 
+    # Who did the work / made the sale: one of this business's active team, else the one at the till
+    from app.models.user import User
+    performer_id = ctx.user_id
+    if body.performer_id:
+        try:
+            _pid = uuid.UUID(str(body.performer_id))
+        except ValueError:
+            raise HTTPException(status_code=400, detail="איש הצוות לא נמצא")
+        _p = db.get(User, _pid)
+        if not _p or _p.studio_id != ctx.studio_id or not _p.is_active:
+            raise HTTPException(status_code=400, detail="איש הצוות לא נמצא")
+        performer_id = _p.id
+
     # Create transaction
     txn = PosTransaction(
         studio_id=ctx.studio_id,
         client_id=client.id if client else None,
         cashier_id=ctx.user_id,
+        performer_id=performer_id,
         total_cents=total,
         discount_cents=discount,
         method=body.method,
@@ -363,12 +381,14 @@ def pos_checkout(
     # Build response
     from app.models.user import User
     cashier = db.get(User, ctx.user_id) if ctx.user_id else None
+    performer = db.get(User, txn.performer_id) if txn.performer_id else None
 
     return TransactionOut(
         id=str(txn.id),
         client_id=str(txn.client_id) if txn.client_id else None,
         client_name=client.full_name if client else None,
         cashier_name=cashier.display_name or cashier.email if cashier else None,
+        performer_name=performer.display_name or performer.email if performer else None,
         total_cents=txn.total_cents,
         discount_cents=txn.discount_cents,
         method=txn.method,
@@ -446,6 +466,7 @@ def pos_history(
     for t in txns:
         client = db.get(Client, t.client_id) if t.client_id else None
         cashier = db.get(User, t.cashier_id) if t.cashier_id else None
+        performer = db.get(User, t.performer_id) if t.performer_id else None
         items = db.scalars(
             select(PosTransactionItem).where(PosTransactionItem.transaction_id == t.id)
         ).all()
@@ -453,6 +474,7 @@ def pos_history(
             "id": str(t.id),
             "client_name": client.full_name if client else "אנונימי",
             "cashier_name": cashier.display_name or cashier.email if cashier else None,
+            "performer_name": performer.display_name or performer.email if performer else None,
             "total_cents": t.total_cents,
             "discount_cents": t.discount_cents,
             "method": t.method,
@@ -475,6 +497,7 @@ def pos_transaction_detail(
     from app.models.user import User
     client = db.get(Client, txn.client_id) if txn.client_id else None
     cashier = db.get(User, txn.cashier_id) if txn.cashier_id else None
+    performer = db.get(User, txn.performer_id) if txn.performer_id else None
     items = db.scalars(
         select(PosTransactionItem).where(PosTransactionItem.transaction_id == txn.id)
     ).all()
@@ -484,6 +507,7 @@ def pos_transaction_detail(
         "client_id": str(txn.client_id) if txn.client_id else None,
         "client_name": client.full_name if client else "אנונימי",
         "cashier_name": cashier.display_name or cashier.email if cashier else None,
+        "performer_name": performer.display_name or performer.email if performer else None,
         "total_cents": txn.total_cents,
         "discount_cents": txn.discount_cents,
         "method": txn.method,
