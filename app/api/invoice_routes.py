@@ -1126,6 +1126,16 @@ def create_credit_note(
         {"cid": credit_id, "id": invoice_id}
     )
 
+    # a receipt of a payment: the money given back, as on the payments page (crud/payment.record_refund)
+    if orig.source == "payment" and orig.source_id:
+        from sqlalchemy import select
+        from app.crud.payment import record_refund
+        from app.models.payment import Payment
+        paid = db.scalar(select(Payment).where(Payment.id == orig.source_id, Payment.studio_id == ctx.studio_id,
+                                               Payment.type != "refund"))
+        if paid is not None:
+            record_refund(db, paid, orig.total_cents or 0, method=body.payment_method)
+
     # Restore inventory
     for item in orig_items:
         if item.product_id:

@@ -254,6 +254,32 @@ def create_payment(db: Session, studio_id: UUID, data) -> Payment:
 
     return obj
 
+
+def record_refund(db: Session, payment: Payment, amount_cents: int, method: str | None = None) -> Payment:
+    """The money given back on `payment` (a credit note on its receipt): a refund tied to what was paid for, so the
+    income nets out — לוח בקרה, ויקי, the client's balance. Every credit note on a payment records it, from the payments
+    page and from the documents page alike (2026-10-26: the documents page issued the credit note only, and the money
+    stayed counted as income). Not committed."""
+    refund = Payment(
+        studio_id=payment.studio_id,
+        appointment_id=payment.appointment_id,
+        membership_id=payment.membership_id,
+        class_booking_id=payment.class_booking_id,
+        course_enrollment_id=payment.course_enrollment_id,
+        room_rental_id=payment.room_rental_id,
+        rental_package_id=payment.rental_package_id,
+        client_id=payment.client_id,
+        amount_cents=abs(amount_cents),
+        currency=payment.currency,
+        type="refund",
+        status="paid",
+        method=method or payment.method,
+        notes=f"[זיכוי אוטומטי] עבור תשלום {str(payment.id)[:8]}",
+    )
+    db.add(refund)
+    return refund
+
+
 def _auto_create_invoice(db: Session, studio_id: UUID, payment: Payment, appt, client, *, send_receipt: bool = True) -> str:
     """Create an invoice/receipt automatically when a payment is recorded."""
     import uuid as _uuid

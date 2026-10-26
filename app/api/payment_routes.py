@@ -235,23 +235,8 @@ def issue_credit_note(
     )
 
     # Create a matching refund Payment so dashboard revenue = net 0
-    refund_payment = Payment(
-        studio_id=ctx.studio_id,
-        appointment_id=payment.appointment_id,
-        membership_id=payment.membership_id,            # tied to what was paid for, like the payment itself
-        class_booking_id=payment.class_booking_id,
-        course_enrollment_id=payment.course_enrollment_id,
-        room_rental_id=payment.room_rental_id,
-        rental_package_id=payment.rental_package_id,
-        client_id=payment.client_id,
-        amount_cents=abs(orig.get("total_cents") or 0),
-        currency=payment.currency,
-        type="refund",
-        status="paid",
-        method=payment.method,
-        notes=f"[זיכוי אוטומטי] עבור תשלום {str(payment_id)[:8]}",
-    )
-    db.add(refund_payment)
+    from app.crud.payment import record_refund
+    record_refund(db, payment, orig.get("total_cents") or 0)
     db.commit()
 
     credit_row = db.execute(text("SELECT * FROM invoices WHERE id = :id"), {"id": credit_id}).fetchone()

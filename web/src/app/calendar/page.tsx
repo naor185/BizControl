@@ -16,7 +16,7 @@ import PickerBox from "@/components/ui/picker-box";
 import BottomSheet from "@/components/ui/bottom-sheet";
 import { HIDE_BOOKING_BANNER_KEY } from "@/lib/localPrefs";
 import StaffReminderRulesSettings from "@/components/StaffReminderRulesSettings";
-import { Users, UsersRound, CalendarPlus, Pin, X, Clock, Repeat, TriangleAlert, BellRing, CircleCheck, Hourglass, Coffee, Lock } from "lucide-react";
+import { Users, UsersRound, CalendarPlus, Pin, X, Clock, Repeat, TriangleAlert, BellRing, CircleCheck, Hourglass, Coffee, Lock, Undo2 } from "lucide-react";
 import type { ClassSession, Room } from "@/lib/classes";
 import { SessionSheet } from "@/components/classes/ClassSchedule";
 import { TemplateSheet, type TemplatePreset } from "@/components/classes/ClassTemplates";
@@ -86,6 +86,8 @@ import heLocale from '@fullcalendar/core/locales/he';
 import { tx, intl } from "@/lib/i18n";
 type Client = { id: string; full_name: string; phone?: string | null; is_walk_in?: boolean; cancellation_count?: number; no_show_count?: number; };
 type Artist = { id: string; email: string; display_name?: string | null };
+// a deposit to give back after a cancellation in time (services/deposit_refund)
+type RefundOffer = { invoice_id: string; amount: number; client_name: string; days_before: number; free_days: number };
 type Appointment = {
     id: string;
     title: string;
@@ -377,6 +379,7 @@ function Calendar() {
     // Delete Modal State
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [deleteReason, setDeleteReason] = useState("");
+    const [refundOffer, setRefundOffer] = useState<RefundOffer | null>(null);
 
     // Payment Modal State
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
@@ -1046,12 +1049,20 @@ function Calendar() {
 
     const confirmDelete = async () => {
         if (!selectedEventId) return;
+        const canceledId = selectedEventId;
         try {
             const url = deleteReason ? `/api/appointments/${selectedEventId}?reason=${deleteReason}` : `/api/appointments/${selectedEventId}`;
             await apiFetch(url, { method: "DELETE" });
             setIsDeleteModalOpen(false);
             setIsModalOpen(false);
             loadData();
+            // canceled in time with a deposit paid — ask whether to give it back (the owner, 2026-10-26;
+            // services/deposit_refund). A no-show isn't a cancellation; only who may issue a credit note is asked.
+            if (deleteReason !== "no_show" && (myRole === "owner" || myRole === "admin")) {
+                apiFetch<{ offer: RefundOffer | null }>(`/api/appointments/${canceledId}/deposit-refund`)
+                    .then(r => { if (r.offer) setRefundOffer(r.offer); })
+                    .catch(() => {});
+            }
         } catch (e: any) {
             showToast(e?.message || tx("שגיאה במחיקת התור"), "error");
         }
@@ -2314,6 +2325,37 @@ function Calendar() {
                         </div>
                     </div>
                 )}
+
+                {/* After a cancellation in time: give the deposit back? A yes opens its receipt with the credit note */}
+                {refundOffer && (() => {
+                    const days = (n: number) => n === 1 ? tx("יום אחד") : tx("{0} ימים", { 0: n });
+                    return (
+                        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+                            <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+                                <div className="p-6">
+                                    <div className="w-11 h-11 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mb-3">
+                                        <Undo2 size={22} />
+                                    </div>
+                                    <h3 className="text-xl font-bold text-slate-800 mb-2">{tx("להחזיר את המקדמה?")}</h3>
+                                    <p className="text-sm text-slate-600 leading-relaxed">
+                                        {tx("על התור של {0} התקבלה מקדמה של ₪{1}. הוא בוטל {2} לפני מועדו — בתוך זמן הביטול שלך ({3} לפני), ולפי מדיניות הביטולים מגיע החזר מלא.", {
+                                            0: refundOffer.client_name || tx("הלקוח"), 1: refundOffer.amount.toLocaleString(),
+                                            2: days(refundOffer.days_before), 3: days(refundOffer.free_days),
+                                        })}
+                                    </p>
+                                    <p className="text-xs text-slate-400 mt-2">{tx("בלחיצה על זיכוי תעבור לקבלה של המקדמה — שם בוחרים איך הכסף מוחזר ומפיקים את הזיכוי.")}</p>
+                                </div>
+                                <div className="bg-slate-50 p-4 flex justify-end gap-3 rounded-b-3xl border-t border-slate-100">
+                                    <button onClick={() => setRefundOffer(null)} className="px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-200 rounded-xl transition-colors">{tx("לא עכשיו")}</button>
+                                    <button onClick={() => router.push(`/invoices?credit=${refundOffer.invoice_id}`)}
+                                        className="px-5 py-2 text-sm font-bold text-white bg-red-600 shadow-lg shadow-red-600/20 hover:bg-red-700 rounded-xl transition-all">
+                                        {tx("כן, לזיכוי המקדמה")}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })()}
 
                 {/* Type Chooser — appointment vs task */}
                 {showTypeChooser && (

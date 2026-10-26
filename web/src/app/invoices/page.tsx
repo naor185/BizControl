@@ -5,6 +5,7 @@ import Link from "next/link";
 import AppShell from "@/components/AppShell";
 import RequireAuth from "@/components/RequireAuth";
 import { apiFetch, getCurrentUserRole } from "@/lib/api";
+import { useToast } from "@/components/ui/toast";
 
 import { tx, intl } from "@/lib/i18n";
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -135,6 +136,8 @@ export default function InvoicesPage() {
     const [filterDate, setFilterDate] = useState("");
     const [viewInvoice, setViewInvoice] = useState<Invoice | null>(null);
     const [viewLoading, setViewLoading] = useState<string | null>(null);
+    const [creditFromLink, setCreditFromLink] = useState(false);
+    const { toast } = useToast();
 
     const loadSettings = useCallback(async () => {
         const s = await apiFetch<InvoiceSettings>("/api/invoices/settings");
@@ -165,6 +168,17 @@ export default function InvoicesPage() {
 
     useEffect(() => { loadSettings(); loadSeries(); }, []);
     useEffect(() => { if (tab === "documents") loadInvoices(); }, [tab, loadInvoices]);
+
+    // from the calendar, after a cancellation in time (services/deposit_refund): ?credit=<the deposit's receipt> —
+    // the receipt opens with the credit note ready; the address is cleaned so a refresh doesn't open it again
+    useEffect(() => {
+        const id = new URLSearchParams(window.location.search).get("credit");
+        if (!id) return;
+        window.history.replaceState(null, "", "/invoices");
+        apiFetch<Invoice>(`/api/invoices/${id}`)
+            .then(full => { setCreditFromLink(true); setViewInvoice(full); })
+            .catch(() => toast(tx("הקבלה לא נמצאה"), "error"));
+    }, [toast]);
 
     const getPdfUrl = (id: string) => `/receipt/${id}`;
 
@@ -308,12 +322,15 @@ export default function InvoicesPage() {
 
     const createCredit = async (id: string, paymentMethod: string, notes: string) => {
         try {
-            await apiFetch(`/api/invoices/${id}/credit`, {
+            const credit = await apiFetch<Invoice>(`/api/invoices/${id}/credit`, {
                 method: "POST",
                 body: JSON.stringify({ payment_method: paymentMethod || null, notes: notes || null }),
             });
             await loadInvoices();
             setViewInvoice(null);
+            setCreditFromLink(false);
+            // every money action says it's done (the owner, 2026-10-24)
+            toast(tx("הזיכוי הופק — ₪{0} הוחזרו ללקוח", { 0: Math.abs(credit.total_ils).toLocaleString() }), "success");
         } catch (e: unknown) { alert((e as Error).message); }
     };
 
@@ -397,7 +414,8 @@ export default function InvoicesPage() {
             {viewInvoice && (
                 <InvoiceDetailModal
                     invoice={viewInvoice}
-                    onClose={() => setViewInvoice(null)}
+                    startWithCredit={creditFromLink}
+                    onClose={() => { setViewInvoice(null); setCreditFromLink(false); }}
                     onDownload={() => downloadPdf(viewInvoice)}
                     getPdfUrl={() => getPdfUrl(viewInvoice.id)}
                     onCredit={(method, notes) => createCredit(viewInvoice.id, method, notes)}
@@ -548,17 +566,19 @@ const METHOD_LABELS_FE: Record<string, string> = {
     check: tx("צ'ק"), other: tx("אחר"),
 };
 
-function InvoiceDetailModal({ invoice, onClose, onDownload, getPdfUrl, onCredit }: {
+function InvoiceDetailModal({ invoice, onClose, onDownload, getPdfUrl, onCredit, startWithCredit = false }: {
     invoice: Invoice;
     onClose: () => void;
     onDownload: () => void;
     getPdfUrl: () => string;
     onCredit: (method: string, notes: string) => void;
+    startWithCredit?: boolean;      // from the calendar: a deposit to give back after a cancellation in time
 }) {
     const [showActions, setShowActions] = useState(false);
-    const [showCreditForm, setShowCreditForm] = useState(false);
-    const [creditMethod, setCreditMethod] = useState("cash");
-    const [creditNotes, setCreditNotes] = useState("");
+    const [showCreditForm, setShowCreditForm] = useState(startWithCredit);
+    // the deposit goes back the way it came, unless the owner picks otherwise
+    const [creditMethod, setCreditMethod] = useState(startWithCredit && invoice.payment_method ? invoice.payment_method : "cash");
+    const [creditNotes, setCreditNotes] = useState(startWithCredit ? tx("החזר מקדמה — התור בוטל בזמן") : "");
     const [creditLoading, setCreditLoading] = useState(false);
     const isCredit = invoice.doc_type === "credit";
     // a credit note gives money back — the owner's decision (2026-09-26): management only (the server checks too)

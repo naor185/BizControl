@@ -10,7 +10,7 @@ log = get_logger(__name__)
 
 from app.db.deps import get_db
 from app.core.deps import require_studio_ctx, AuthContext
-from app.core.permissions import no_workers, require_roles, Perms
+from app.core.permissions import no_workers, require_permission, require_roles, Perms
 from app.schemas.appointment import AppointmentCreate, AppointmentUpdate, AppointmentOut
 from app.crud.appointment import (
     create_appointment, list_appointments, get_appointment, get_appointment_out, update_appointment, cancel_appointment, hard_delete_appointment
@@ -482,6 +482,15 @@ def cancel(appointment_id: UUID, reason: str | None = Query(default=None), hard_
             log.exception("Wait list notification failed")
 
     return None
+
+@router.get("/{appointment_id}/deposit-refund")
+def deposit_refund_offer(appointment_id: UUID, ctx: AuthContext = Depends(require_permission("receipts")),
+                         db: Session = Depends(get_db)):
+    """Right after a cancellation: a deposit to give back by the cancellation policy — the calendar asks the owner
+    (services/deposit_refund). Only who may issue a credit note is asked."""
+    from app.services.deposit_refund import offer
+    return {"offer": offer(db, ctx.studio_id, appointment_id)}
+
 
 def _whose(db: Session, appt) -> str:
     """The activity log: " של דנה כהן · 14.10 11:00" """

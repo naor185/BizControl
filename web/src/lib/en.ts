@@ -5191,4 +5191,16 @@ export const EN: Record<string, string> = {
     "הקישור לתשלום נשלח ל-{0} בוואטסאפ — כשישלם, יופיע לאישור בלוח הבקרה": "The payment link was sent to {0} on WhatsApp — once they pay, it shows on the dashboard for approval",
     "📲 שליחת קישור לתשלום בוואטסאפ": "📲 Send a payment link on WhatsApp",
     "קישור לתשלום — בלי נקודות, גיפט קארד או קופון": "A payment link — without points, a gift card or a coupon",
+    // giving a deposit back after a cancellation in time (2026-10-26)
+    "להחזיר את המקדמה?": "Give the deposit back?",
+    "על התור של {0} התקבלה מקדמה של ₪{1}. הוא בוטל {2} לפני מועדו — בתוך זמן הביטול שלך ({3} לפני), ולפי מדיניות הביטולים מגיע החזר מלא.":
+        "A ₪{1} deposit was received for {0}'s appointment. It was canceled {2} ahead — within your cancellation time ({3} ahead), so by your cancellation policy a full refund is due.",
+    "הלקוח": "the client",
+    "יום אחד": "one day",
+    "בלחיצה על זיכוי תעבור לקבלה של המקדמה — שם בוחרים איך הכסף מוחזר ומפיקים את הזיכוי.":
+        "Credit takes you to the deposit's receipt — choose there how the money goes back and issue the credit note.",
+    "כן, לזיכוי המקדמה": "Yes, credit the deposit",
+    "הקבלה לא נמצאה": "The receipt wasn't found",
+    "החזר מקדמה — התור בוטל בזמן": "Deposit refund — the appointment was canceled in time",
+    "הזיכוי הופק — ₪{0} הוחזרו ללקוח": "Credit note issued — ₪{0} given back to the client",
 };
