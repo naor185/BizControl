@@ -93,8 +93,8 @@ def suggestions(db: Session, studio_id, now: datetime | None = None, lang: str =
                   f"At the current pace the month will close at about {_ils(projected)} — {pct}% of the goal ({_ils(target)}). To reach the goal you need {_ils(missing)} more{more}"),
                 w("לפתוח את היומן", "Open the calendar"), "/calendar")
         else:
-            add(35, f"goal_pace:{ym}", "good", w(f"אתה בקצב טוב: בקצב הזה החודש ייסגר בערך ב-{_ils(projected)} — {pct}% מהיעד.",
-                                                f"You're on a good pace: at this pace the month will close at about {_ils(projected)} — {pct}% of the goal."))
+            add(35, f"goal_pace:{ym}", "good", w(f"אתה בקצב טוב: בקצב הזה החודש ייסגר בערך ב-{_ils(projected)} — {pct}% מהיעד ({_ils(target)}).",
+                                                f"You're on a good pace: at this pace the month will close at about {_ils(projected)} — {pct}% of the goal ({_ils(target)})."))
 
     # ── leads waiting for an answer ──
     waiting = _count(db, select(Lead.id).where(Lead.studio_id == studio_id, Lead.status == "new",
@@ -118,9 +118,11 @@ def suggestions(db: Session, studio_id, now: datetime | None = None, lang: str =
     next_week = calendar_fill(db, studio_id, week_start + timedelta(days=7), week_start + timedelta(days=14))
     work_days = getattr(settings, "work_days", None)
     if next_week["percent"] < 40 and (work_days is None or len(work_days) > 0):
+        from app.services.viki_summary import fill_words
+        nums = (next_week["count"], next_week["booked_minutes"], next_week["total_minutes"])
         add(70, f"fill_next:{(week_start + timedelta(days=7)).isoformat()}", "warn",
-            w(f"השבוע הבא מלא רק ב-{next_week['percent']}%. זה זמן טוב להזכיר ללקוחות שאפשר לקבוע — הודעה קצרה ללקוחות קבועים עושה פלאים.",
-              f"Next week is only {next_week['percent']}% full. A good time to remind clients they can book — a short message to regulars works wonders."),
+            w(f"השבוע הבא מלא רק ב-{next_week['percent']}%: {fill_words(*nums)}. זה זמן טוב להזכיר ללקוחות שאפשר לקבוע — הודעה קצרה ללקוחות קבועים עושה פלאים.",
+              f"Next week is only {next_week['percent']}% full: {fill_words(*nums, en=True)}. A good time to remind clients they can book — a short message to regulars works wonders."),
             *((w("לשלוח הודעה ללקוחות", "Message your clients"), "/broadcasts?audience=all") if can_broadcast else (w("לפתוח את היומן", "Open the calendar"), "/calendar")))
 
     # ── no-shows, while the reminder two hours before is off ──

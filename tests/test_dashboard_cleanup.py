@@ -29,10 +29,12 @@ def test_the_fill_counts_working_days_only_and_says_it_simply(client, db_session
 
     occ = client.get("/api/dashboard/occupancy", headers=h).json()
     assert set(occ) == {"today", "this_week", "last_week", "this_month", "last_month"}
-    assert occ["this_week"] == {"percent": 10, "count": 1}                 # 5 hours of 5 days × 10 hours, not of 7 days
-    assert occ["last_week"] == {"percent": 0, "count": 0}
+    # 5 hours of 5 days × 10 hours, not of 7 days — and the hours themselves (ויקי says them, not only the %)
+    assert occ["this_week"] == {"percent": 10, "count": 1, "booked_minutes": 300, "total_minutes": 3000}
+    assert occ["last_week"] == {"percent": 0, "count": 0, "booked_minutes": 0, "total_minutes": 3000}
     today_is_a_work_day = (datetime.now(IL).weekday() + 1) % 7 in (0, 1, 2, 3, 4)
-    assert occ["today"] == ({"percent": 50, "count": 1} if today_is_a_work_day else {"percent": 0, "count": 1})
+    assert ({k: occ["today"][k] for k in ("percent", "count")}
+            == ({"percent": 50, "count": 1} if today_is_a_work_day else {"percent": 0, "count": 1}))
 
     st.work_days = []                                                     # no working day set — nothing to divide by
     db_session.commit()

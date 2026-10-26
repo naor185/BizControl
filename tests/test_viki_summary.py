@@ -54,8 +54,9 @@ def test_the_weekly_summary_from_the_numbers_once(client, db_session):
     row = db_session.scalar(select(VikiSummary).where(VikiSummary.studio_id == studio.id, VikiSummary.kind == "weekly"))
     assert row.period == last.isoformat()
     shown = viki_summary.latest(db_session, studio.id)
-    assert shown["good"][:3] == ["ההכנסות בשבוע שעבר: ₪1,000 — 100% יותר מהשבוע שלפניו.",
-                                 "3 תורים — 200% יותר מהשבוע שלפניו.",
+    # every percentage with its numbers (the owner, 2026-10-24: "not only percentages — 6 against how many")
+    assert shown["good"][:3] == ["ההכנסות בשבוע שעבר: ₪1,000, לעומת ₪500 בשבוע שלפניו — 100% יותר.",
+                                 "3 תורים בשבוע שעבר, לעומת 1 בשבוע שלפניו — 200% יותר.",
                                  "3 לקוחות חדשים הגיעו בפעם הראשונה."]
     assert shown["focus"].startswith("המטרה השבוע:")
     [n] = db_session.scalars(select(Notification).where(Notification.studio_id == studio.id, Notification.type == "viki_summary")).all()
@@ -64,7 +65,7 @@ def test_the_weekly_summary_from_the_numbers_once(client, db_session):
     r = client.get("/api/viki", headers=h).json()
     assert r["summary"]["kind"] == "weekly" and r["summary"]["good"] == shown["good"]
     en = client.get("/api/viki", headers={**h, "X-Lang": "en"}).json()["summary"]
-    assert en["good"][0] == "Revenue last week: ₪1,000 — 100% more than the week before." and en["title"].startswith("The week of")
+    assert en["good"][0] == "Revenue last week: ₪1,000, against ₪500 the week before — 100% more." and en["title"].startswith("The week of")
 
 
 def test_the_monthly_summary_against_the_goal(client, db_session):
@@ -107,13 +108,30 @@ def test_the_ai_may_only_say_it_more_warmly(monkeypatch):
 def test_the_summary_in_english_from_the_same_numbers():
     """The owner, 2026-10-20: the whole system in English — the summary is rebuilt from the saved numbers."""
     f = {"revenue": 1000.0, "revenue_before": 500.0, "appointments": 3, "appointments_before": 1, "first_timers": 3,
-         "no_shows": 0, "fill_ahead": 30, "goal": 0.0, "goal_projected": 0.0, "goal_days_elapsed": 0,
+         "no_shows": 0, "fill_ahead": 30, "fill_ahead_count": 4, "fill_ahead_booked_min": 690, "fill_ahead_work_min": 2400,
+         "goal": 0.0, "goal_projected": 0.0, "goal_days_elapsed": 0, "goal_current": 0.0,
          "goal_missing": 0.0, "avg_appointment": 0.0, "lapsed": 0}
     lines = viki_summary.week_lines_en(f)
-    assert lines["good"][:3] == ["Revenue last week: ₪1,000 — 100% more than the week before.",
-                                 "3 appointments — 200% more than the week before.",
+    assert lines["good"][:3] == ["Revenue last week: ₪1,000, against ₪500 the week before — 100% more.",
+                                 "3 appointments last week, against 1 the week before — 200% more.",
                                  "3 new clients came for the first time."]
-    assert lines["improve"] == ["This week is only 30% full."] and lines["focus"].startswith("This week's goal:")
+    assert lines["improve"] == ["This week is only 30% full: 4 appointments — 11.5 of 40 working hours booked."]
+    assert lines["focus"].startswith("This week's goal:")
+    he = viki_summary.week_lines(f)
+    assert he["improve"] == ["השבוע מלא רק ב-30%: 4 תורים — 11.5 שעות תפוסות מתוך 40 שעות עבודה."]
+
+
+def test_the_goal_line_says_the_amounts():
+    """Behind the goal: how much so far, out of what, where the pace leads, and what's missing — not only a %."""
+    f = {"revenue": 4898.0, "revenue_before": 21300.0, "appointments": 6, "appointments_before": 14, "first_timers": 0,
+         "no_shows": 0, "fill_ahead": 60, "fill_ahead_count": 9, "fill_ahead_booked_min": 1500, "fill_ahead_work_min": 2400,
+         "goal": 120000.0, "goal_projected": 87600.0, "goal_days_elapsed": 17, "goal_current": 86988.0,
+         "goal_missing": 33012.0, "avg_appointment": 800.0, "lapsed": 0}
+    he = viki_summary.week_lines(f)
+    assert he["improve"] == [
+        "ההכנסות בשבוע שעבר: ₪4,898, לעומת ₪21,300 בשבוע שלפניו — 77% פחות.",
+        "6 תורים בשבוע שעבר, לעומת 14 בשבוע שלפניו — 57% פחות.",
+        "עד עכשיו החודש: ₪86,988 מתוך יעד של ₪120,000. בקצב הנוכחי הוא ייסגר בערך ב-₪87,600 (73% מהיעד) — חסרים עוד ₪33,012."]
 
 
 def test_a_refund_is_money_out_and_the_summary_follows_the_calendar(client, db_session):
@@ -167,6 +185,8 @@ def test_from_thursday_the_weeks_ahead(client, db_session):
     assert viki_summary.ahead(db_session, studio.id, now=_at(sunday + timedelta(days=2), 10)) is None     # Tuesday
     got = viki_summary.ahead(db_session, studio.id, now=_at(sunday + timedelta(days=4), 10))             # Thursday
     assert got["title"] == "השבועות הבאים" and got["lines"][0].startswith("השבוע הבא")
-    assert "1 תורים" in got["lines"][0] and "1 עוד מחכים למקדמה" in got["lines"][0]
+    assert "תור אחד — 2 שעות תפוסות מתוך" in got["lines"][0] and "תור אחד עוד מחכה למקדמה" in got["lines"][0]
+    assert "אין עדיין תורים" in got["lines"][1]
     en = viki_summary.ahead(db_session, studio.id, now=_at(sunday + timedelta(days=5), 10), lang="en")
     assert en["lines"][0].startswith("Next week") and en["lines"][1].startswith("The week after")
+    assert "1 appointment — 2 of" in en["lines"][0]

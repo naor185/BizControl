@@ -782,7 +782,8 @@ def advanced_analytics(ctx: AuthContext = Depends(require_studio_ctx), db: Sessi
 def calendar_fill(db: Session, studio_id, p_start, p_end) -> dict:
     """How full the calendar is from p_start up to (not including) p_end: the appointments' time vs the working time —
     the calendar's hours on the business's working days (settings: work_days, 0 = Sunday), so a day off doesn't count
-    as empty time (the owner, 2026-10-15: "98 hours" made no sense). {percent, count}. לוח בקרה and ויקי."""
+    as empty time (the owner, 2026-10-15: "98 hours" made no sense). {percent, count, booked_minutes, total_minutes}.
+    לוח בקרה and ויקי."""
     tz = pytz.timezone("Asia/Jerusalem")
     settings = db.get(StudioSettings, studio_id)
     start_str = getattr(settings, "calendar_start_hour", None) or "08:00"
@@ -822,7 +823,7 @@ def calendar_fill(db: Session, studio_id, p_start, p_end) -> dict:
         for a in appts
     )
     pct = min(100, round(booked_min / total_min * 100)) if total_min else 0
-    return {"percent": pct, "count": len(appts)}
+    return {"percent": pct, "count": len(appts), "booked_minutes": booked_min, "total_minutes": total_min}
 
 
 @router.get("/occupancy")

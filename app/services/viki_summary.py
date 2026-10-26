@@ -29,6 +29,23 @@ def _ils(amount: float) -> str:
     return f"₪{round(amount):,}"
 
 
+def _h(minutes: float) -> str:
+    """Hours, to the half hour: 14, 14.5."""
+    return f"{round(minutes / 30) / 2:g}"
+
+
+def fill_words(count: int, booked_min: float, work_min: float, en: bool = False) -> str:
+    """How full a week is, in numbers and not only a percentage (the owner, 2026-10-24): "9 תורים — 14 שעות תפוסות
+    מתוך 38 שעות עבודה"."""
+    if en:
+        if not count:
+            return f"no appointments yet — {_h(work_min)} working hours free"
+        return f"{count} appointment{'' if count == 1 else 's'} — {_h(booked_min)} of {_h(work_min)} working hours booked"
+    if not count:
+        return f"אין עדיין תורים — {_h(work_min)} שעות עבודה פנויות"
+    return f"{'תור אחד' if count == 1 else f'{count} תורים'} — {_h(booked_min)} שעות תפוסות מתוך {_h(work_min)} שעות עבודה"
+
+
 def _pct_change(now: float, before: float) -> int:
     return round((now - before) / before * 100) if before else 0
 
@@ -72,14 +89,17 @@ def week_facts(db: Session, studio_id, week_start: date) -> dict:
     prog = GoalRepository(db).get_progress(studio_id, end.year, end.month)
     target = float(prog["target_amount"])
     projected = float(prog["current_daily_avg"]) * prog["days_in_month"] if prog["days_elapsed"] else 0
+    ahead_fill = calendar_fill(db, studio_id, end, end + timedelta(days=7))
     return {
         "revenue": _revenue(db, studio_id, week_start, end), "revenue_before": _revenue(db, studio_id, prev, week_start),
         "appointments": _appointments(db, studio_id, week_start, end),
         "appointments_before": _appointments(db, studio_id, prev, week_start),
         "first_timers": _first_timers(db, studio_id, week_start, end),
         "no_shows": _appointments(db, studio_id, week_start, end, status="no_show"),
-        "fill_ahead": calendar_fill(db, studio_id, end, end + timedelta(days=7))["percent"],
+        "fill_ahead": ahead_fill["percent"], "fill_ahead_count": ahead_fill["count"],
+        "fill_ahead_booked_min": ahead_fill["booked_minutes"], "fill_ahead_work_min": ahead_fill["total_minutes"],
         "goal": target, "goal_projected": projected, "goal_days_elapsed": prog["days_elapsed"],
+        "goal_current": float(prog["current_revenue"]),
         "goal_missing": max(0.0, target - float(prog["current_revenue"])),
         "avg_appointment": viki._avg_appointment_ils(db, studio_id, datetime.now(timezone.utc)),
         "lapsed": viki._count(db, broadcast_recipients_query(studio_id, "lapsed")),
@@ -122,12 +142,15 @@ def week_lines(f: dict) -> dict | None:
         return None
     good: list[str] = []
     improve: list[str] = []
+    # every percentage with the numbers it comes from (the owner, 2026-10-24: "not only percentages — 6 against how many")
+    was = f"לעומת {_ils(f['revenue_before'])} בשבוע שלפניו"
     _compare(good, improve, f["revenue"], f["revenue_before"],
-             f"ההכנסות בשבוע שעבר: {_ils(f['revenue'])} — {{change}}% יותר מהשבוע שלפניו.",
-             f"ההכנסות בשבוע שעבר: {_ils(f['revenue'])} — {{change}}% פחות מהשבוע שלפניו.")
+             f"ההכנסות בשבוע שעבר: {_ils(f['revenue'])}, {was} — {{change}}% יותר.",
+             f"ההכנסות בשבוע שעבר: {_ils(f['revenue'])}, {was} — {{change}}% פחות.")
+    was = f"לעומת {f['appointments_before']} בשבוע שלפניו"
     _compare(good, improve, f["appointments"], f["appointments_before"],
-             f"{f['appointments']} תורים — {{change}}% יותר מהשבוע שלפניו.",
-             f"{f['appointments']} תורים — {{change}}% פחות מהשבוע שלפניו.")
+             f"{f['appointments']} תורים בשבוע שעבר, {was} — {{change}}% יותר.",
+             f"{f['appointments']} תורים בשבוע שעבר, {was} — {{change}}% פחות.")
     if f["first_timers"]:
         good.append("לקוח חדש אחד הגיע בפעם הראשונה." if f["first_timers"] == 1 else f"{f['first_timers']} לקוחות חדשים הגיעו בפעם הראשונה.")
     if f["no_shows"] >= 2:
@@ -138,11 +161,14 @@ def week_lines(f: dict) -> dict | None:
     if f["goal"] > 0 and f["goal_days_elapsed"] >= 3:
         pct = round(f["goal_projected"] / f["goal"] * 100)
         if behind:
-            improve.append(f"בקצב הנוכחי החודש ייסגר בערך ב-{pct}% מהיעד — חסרים {_ils(f['goal_missing'])}.")
+            improve.append(f"עד עכשיו החודש: {_ils(f['goal_current'])} מתוך יעד של {_ils(f['goal'])}. בקצב הנוכחי הוא ייסגר "
+                           f"בערך ב-{_ils(f['goal_projected'])} ({pct}% מהיעד) — חסרים עוד {_ils(f['goal_missing'])}.")
         else:
-            good.append(f"אתה בקצב ליעד החודש — בערך {pct}% ממנו.")
+            good.append(f"אתה בקצב ליעד החודש: עד עכשיו {_ils(f['goal_current'])}, ובקצב הזה הוא ייסגר בערך "
+                        f"ב-{_ils(f['goal_projected'])} מתוך {_ils(f['goal'])} ({pct}%).")
     if f["fill_ahead"] < 40:
-        improve.append(f"השבוע מלא רק ב-{f['fill_ahead']}%.")
+        improve.append(f"השבוע מלא רק ב-{f['fill_ahead']}%: "
+                       f"{fill_words(f['fill_ahead_count'], f['fill_ahead_booked_min'], f['fill_ahead_work_min'])}.")
 
     if f["fill_ahead"] < 40:
         focus = "המטרה השבוע: למלא את היומן — הודעה קצרה ללקוחות קבועים, או מבצע לשעות הריקות."
@@ -159,6 +185,7 @@ def month_lines(f: dict) -> dict | None:
     if not (f["revenue"] or f["revenue_before"] or f["appointments"]):
         return None
     name = MONTHS[f["month"] - 1]
+    prev = MONTHS[(f["month"] - 2) % 12]
     good: list[str] = []
     improve: list[str] = []
     if f["goal"] > 0:
@@ -167,15 +194,18 @@ def month_lines(f: dict) -> dict | None:
             good.append(f"הגעת ליעד של {name}: {_ils(f['revenue'])} מתוך {_ils(f['goal'])} — {pct}%.")
         else:
             improve.append(f"{name} נסגר ב-{_ils(f['revenue'])} — {pct}% מהיעד. חסרו {_ils(f['goal'] - f['revenue'])}.")
+    was = f"לעומת {_ils(f['revenue_before'])} ב{prev}"
     _compare(good, improve, f["revenue"], f["revenue_before"],
-             f"ההכנסות ב{name}: {_ils(f['revenue'])} — {{change}}% יותר מהחודש שלפניו.",
-             f"ההכנסות ב{name}: {_ils(f['revenue'])} — {{change}}% פחות מהחודש שלפניו.")
+             f"ההכנסות ב{name}: {_ils(f['revenue'])}, {was} — {{change}}% יותר.",
+             f"ההכנסות ב{name}: {_ils(f['revenue'])}, {was} — {{change}}% פחות.")
     if f["revenue_year_ago"]:
+        was = f"ב{name} בשנה שעברה: {_ils(f['revenue_year_ago'])}"
         _compare(good, improve, f["revenue"], f["revenue_year_ago"],
-                 f"לעומת {name} בשנה שעברה: {{change}}% יותר.", f"לעומת {name} בשנה שעברה: {{change}}% פחות.")
+                 f"{was} — השנה {{change}}% יותר.", f"{was} — השנה {{change}}% פחות.")
+    was = f"לעומת {f['appointments_before']} ב{prev}"
     _compare(good, improve, f["appointments"], f["appointments_before"],
-             f"{f['appointments']} תורים — {{change}}% יותר מהחודש שלפניו.",
-             f"{f['appointments']} תורים — {{change}}% פחות מהחודש שלפניו.")
+             f"{f['appointments']} תורים ב{name}, {was} — {{change}}% יותר.",
+             f"{f['appointments']} תורים ב{name}, {was} — {{change}}% פחות.")
     if f["first_timers"]:
         good.append(f"{f['first_timers']} לקוחות חדשים הגיעו בפעם הראשונה.")
     if f["no_shows"] >= 3:
@@ -203,12 +233,14 @@ def week_lines_en(f: dict) -> dict | None:
         return None
     good: list[str] = []
     improve: list[str] = []
+    was = f"against {_ils(f['revenue_before'])} the week before"
     _compare(good, improve, f["revenue"], f["revenue_before"],
-             f"Revenue last week: {_ils(f['revenue'])} — {{change}}% more than the week before.",
-             f"Revenue last week: {_ils(f['revenue'])} — {{change}}% less than the week before.")
+             f"Revenue last week: {_ils(f['revenue'])}, {was} — {{change}}% more.",
+             f"Revenue last week: {_ils(f['revenue'])}, {was} — {{change}}% less.")
+    was = f"against {f['appointments_before']} the week before"
     _compare(good, improve, f["appointments"], f["appointments_before"],
-             f"{f['appointments']} appointments — {{change}}% more than the week before.",
-             f"{f['appointments']} appointments — {{change}}% less than the week before.")
+             f"{f['appointments']} appointments last week, {was} — {{change}}% more.",
+             f"{f['appointments']} appointments last week, {was} — {{change}}% less.")
     if f["first_timers"]:
         good.append("One new client came for the first time." if f["first_timers"] == 1
                     else f"{f['first_timers']} new clients came for the first time.")
@@ -220,11 +252,14 @@ def week_lines_en(f: dict) -> dict | None:
     if f["goal"] > 0 and f["goal_days_elapsed"] >= 3:
         pct = round(f["goal_projected"] / f["goal"] * 100)
         if behind:
-            improve.append(f"At this pace the month will close at about {pct}% of the goal — {_ils(f['goal_missing'])} short.")
+            improve.append(f"So far this month: {_ils(f['goal_current'])} of a {_ils(f['goal'])} goal. At this pace it will "
+                           f"close at about {_ils(f['goal_projected'])} ({pct}% of the goal) — {_ils(f['goal_missing'])} still to go.")
         else:
-            good.append(f"You're on pace for this month's goal — about {pct}% of it.")
+            good.append(f"You're on pace for this month's goal: {_ils(f['goal_current'])} so far, and at this pace about "
+                        f"{_ils(f['goal_projected'])} of {_ils(f['goal'])} ({pct}%).")
     if f["fill_ahead"] < 40:
-        improve.append(f"This week is only {f['fill_ahead']}% full.")
+        improve.append(f"This week is only {f['fill_ahead']}% full: "
+                       f"{fill_words(f['fill_ahead_count'], f['fill_ahead_booked_min'], f['fill_ahead_work_min'], en=True)}.")
     if f["fill_ahead"] < 40:
         focus = "This week's goal: fill the calendar — a short message to regular clients, or an offer for the empty hours."
     elif behind and f["avg_appointment"] > 0:
@@ -241,6 +276,7 @@ def month_lines_en(f: dict) -> dict | None:
     if not (f["revenue"] or f["revenue_before"] or f["appointments"]):
         return None
     name = MONTHS_EN[f["month"] - 1]
+    prev = MONTHS_EN[(f["month"] - 2) % 12]
     good: list[str] = []
     improve: list[str] = []
     if f["goal"] > 0:
@@ -249,15 +285,18 @@ def month_lines_en(f: dict) -> dict | None:
             good.append(f"You reached {name}'s goal: {_ils(f['revenue'])} of {_ils(f['goal'])} — {pct}%.")
         else:
             improve.append(f"{name} closed at {_ils(f['revenue'])} — {pct}% of the goal. {_ils(f['goal'] - f['revenue'])} short.")
+    was = f"against {_ils(f['revenue_before'])} in {prev}"
     _compare(good, improve, f["revenue"], f["revenue_before"],
-             f"Revenue in {name}: {_ils(f['revenue'])} — {{change}}% more than the month before.",
-             f"Revenue in {name}: {_ils(f['revenue'])} — {{change}}% less than the month before.")
+             f"Revenue in {name}: {_ils(f['revenue'])}, {was} — {{change}}% more.",
+             f"Revenue in {name}: {_ils(f['revenue'])}, {was} — {{change}}% less.")
     if f["revenue_year_ago"]:
+        was = f"{name} last year: {_ils(f['revenue_year_ago'])}"
         _compare(good, improve, f["revenue"], f["revenue_year_ago"],
-                 f"Against {name} last year: {{change}}% more.", f"Against {name} last year: {{change}}% less.")
+                 f"{was} — this year {{change}}% more.", f"{was} — this year {{change}}% less.")
+    was = f"against {f['appointments_before']} in {prev}"
     _compare(good, improve, f["appointments"], f["appointments_before"],
-             f"{f['appointments']} appointments — {{change}}% more than the month before.",
-             f"{f['appointments']} appointments — {{change}}% less than the month before.")
+             f"{f['appointments']} appointments in {name}, {was} — {{change}}% more.",
+             f"{f['appointments']} appointments in {name}, {was} — {{change}}% less.")
     if f["first_timers"]:
         good.append(f"{f['first_timers']} new clients came for the first time.")
     if f["no_shows"] >= 3:
@@ -440,15 +479,14 @@ def ahead(db: Session, studio_id, now: datetime | None = None, lang: str = "he")
             Appointment.starts_at >= _utc(start), Appointment.starts_at < _utc(end),
             Appointment.deposit_amount_cents > 0, Appointment.payment_verified_at.is_(None))) or 0
         span = f"{start:%d/%m}–{end - timedelta(days=1):%d/%m}"
+        words = fill_words(fill["count"], fill["booked_minutes"], fill["total_minutes"], en=en)
         if en:
-            line = (f"{'Next week' if i == 0 else 'The week after'} ({span}): {fill['count']} appointments, "
-                    f"the calendar is {fill['percent']}% full.")
+            line = f"{'Next week' if i == 0 else 'The week after'} ({span}): {words} ({fill['percent']}% full)."
             if waiting:
                 line += f" {waiting} still waiting for a deposit."
         else:
-            line = (f"{'השבוע הבא' if i == 0 else 'השבוע שאחריו'} ({_ltr(span)}): {fill['count']} תורים, "
-                    f"היומן מלא ב-{fill['percent']}%.")
+            line = f"{'השבוע הבא' if i == 0 else 'השבוע שאחריו'} ({_ltr(span)}): {words} (היומן מלא ב-{fill['percent']}%)."
             if waiting:
-                line += f" {waiting} עוד מחכים למקדמה."
+                line += " תור אחד עוד מחכה למקדמה." if waiting == 1 else f" {waiting} תורים עוד מחכים למקדמה."
         lines.append(line)
     return {"title": "The weeks ahead" if en else "השבועות הבאים", "lines": lines}
