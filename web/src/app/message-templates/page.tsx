@@ -86,7 +86,7 @@ const GROUPS: Group[] = [
         messages: [
             { id: "confirm", title: tx("אישור תור"), when: tx("מיד כשנקבע תור בלי מקדמה"), autoDetails: true,
               templateKey: "confirm_wa_template", emailKey: "confirm_email_template",
-              hints: ["client_name","appointment_title","appointment_date","appointment_time","artist_name","studio_address","map_link","portfolio_link","cancellation_free_days"] },
+              hints: ["client_name","appointment_title","appointment_date","appointment_time","artist_name","studio_address","map_link","portfolio_link"] },
             { id: "deposit_request", title: tx("בקשת מקדמה"), when: tx("מיד כשנקבע תור שדורש מקדמה"), autoDetails: true,
               templateKey: "deposit_request_wa_template",
               // one link for the deposit — the payment page has Bit, PayBox, the bank transfer and "שילמתי" (2026-10-24)
@@ -187,7 +187,8 @@ const READY: Record<string, { label: string; text: string }[]> = {
     confirm: [
         { label: tx("קצר"), text: tx("היי {client_name}, התור שלך נקבע ל-{appointment_date} בשעה {appointment_time}. מחכים לך!") },
         { label: tx("חם"), text: tx("היי {client_name} 😊\nאיזה כיף! קבענו לך תור ל{appointment_title} ב-{appointment_date} בשעה {appointment_time}.\n📍 {studio_address}\n{map_link}\n\nאם משהו משתנה, פשוט כתבו לנו כאן. מחכים לראות אותך!") },
-        { label: tx("רשמי"), text: tx("שלום {client_name},\nתורך ל{appointment_title} נקבע ליום {appointment_date} בשעה {appointment_time}.\nכתובת: {studio_address}\nביטול ללא עלות עד {cancellation_free_days} ימים לפני התור.") },
+        // no deposit, no cancellation cost — the free-cancellation days aren't said here (the owner, 2026-10-26)
+        { label: tx("רשמי"), text: tx("שלום {client_name},\nתורך ל{appointment_title} נקבע ליום {appointment_date} בשעה {appointment_time}.\nכתובת: {studio_address}\nלשינוי או ביטול נשמח שתעדכנו אותנו מראש.") },
     ],
     deposit_request: [
         { label: tx("קצר"), text: tx("היי {client_name}, שריינו לך תור ל-{appointment_date} בשעה {appointment_time}.\nלאישור התור נשמח למקדמה של ₪{deposit_amount}: {payment_link}") },

@@ -83,26 +83,34 @@ def test_saving_the_settings_screen_does_not_make_the_message_texts_the_owners(c
     assert db_session.get(StudioSettings, studio.id).confirm_wa_template == "נתראה, {client_name}!"
 
 
-def _appointment(db, studio):
-    artist = User(studio_id=studio.id, email=f"dana@{studio.slug}.com", password_hash="x", role="artist", display_name="דנה")
-    cl = Client(studio_id=studio.id, full_name="רותם", phone="0501234567", email=f"rotem@{studio.slug}.com")
+def _appointment(db, studio, phone="0501234567", deposit_cents=0):
+    artist = User(studio_id=studio.id, email=f"dana{phone[-2:]}@{studio.slug}.com", password_hash="x", role="artist", display_name="דנה")
+    cl = Client(studio_id=studio.id, full_name="רותם", phone=phone, email=f"rotem{phone[-2:]}@{studio.slug}.com")
     db.add_all([artist, cl])
     db.flush()
     start = datetime.now(timezone.utc) + timedelta(days=3)
     appt = Appointment(studio_id=studio.id, client_id=cl.id, artist_id=artist.id, title="בדיקה",
-                       starts_at=start, ends_at=start + timedelta(hours=1), status="scheduled")
+                       starts_at=start, ends_at=start + timedelta(hours=1), status="scheduled",
+                       deposit_amount_cents=deposit_cents)
     db.add(appt)
     db.commit()
     return appt
 
 
 def test_with_no_text_of_its_own_the_confirmation_names_the_staff_and_the_cancellation_policy(db_session):
+    """The free-cancellation days are about the deposit: said with one, not on an appointment without (a consultation
+    — the owner, 2026-10-26)."""
     from app.crud.automation import enqueue_confirmation_message
     clinic = _studio(db_session, "c7", "medical", studio_address="הרצל 1", cancellation_free_days=3)
     appt = _appointment(db_session, clinic)
     enqueue_confirmation_message(db_session, appt, artist_name="דנה")
     body = db_session.scalar(select(MessageJob.body).where(MessageJob.appointment_id == appt.id, MessageJob.channel == "whatsapp"))
-    assert "רותם" in body and "דנה" in body and "הרצל 1" in body and "ביטול ללא עלות עד 3 ימים" in body
+    assert "רותם" in body and "דנה" in body and "הרצל 1" in body and "ביטול" not in body
+
+    paid = _appointment(db_session, clinic, phone="0501234568", deposit_cents=20000)
+    enqueue_confirmation_message(db_session, paid, artist_name="דנה")
+    body = db_session.scalar(select(MessageJob.body).where(MessageJob.appointment_id == paid.id, MessageJob.channel == "whatsapp"))
+    assert "ביטול ללא עלות עד 3 ימים" in body and "₪200" in body
 
 
 def test_aftercare_goes_out_with_the_clients_name_and_the_fields_text(db_session):

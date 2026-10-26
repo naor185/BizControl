@@ -150,8 +150,10 @@ def enqueue_confirmation_message(db: Session, appt: Appointment, artist_name: st
                     f"לתשלום: {context['payment_link']}",
                     "אחרי התשלום לחצו שם על \"שילמתי\" וצרפו צילום של התשלום — ונאשר את התור ✅",
                 ]
+            # the free-cancellation days are about the deposit — with none (a consultation), there's no cost to
+            # cancel and nothing to say (the owner, 2026-10-26)
             cancellation_days = context.get("cancellation_free_days")
-            if cancellation_days:
+            if has_deposit and cancellation_days:
                 lines += ["", f"ביטול ללא עלות עד {cancellation_days} ימים לפני התור."]
             lines += ["", "מחכים לך! 🙏"]
             wa_body = "\n".join(lines)
