@@ -5203,4 +5203,9 @@ export const EN: Record<string, string> = {
     "הקבלה לא נמצאה": "The receipt wasn't found",
     "החזר מקדמה — התור בוטל בזמן": "Deposit refund — the appointment was canceled in time",
     "הזיכוי הופק — ₪{0} הוחזרו ללקוח": "Credit note issued — ₪{0} given back to the client",
+    // what a credit note reset besides the money (2026-10-26)
+    "{0} נקודות שנצברו בוטלו": "{0} points earned taken back",
+    "{0} נקודות הוחזרו ללקוח": "{0} points given back to the client",
+    "הקופון שוחרר לשימוש חוזר": "the coupon can be used again",
+    "{0} פריטים חזרו למלאי": "{0} items back in stock",
 };

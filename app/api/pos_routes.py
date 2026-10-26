@@ -232,6 +232,7 @@ def pos_checkout(
             db.add(ClientPointsLedger(
                 studio_id=ctx.studio_id,
                 client_id=client.id,
+                pos_transaction_id=txn.id,          # voiding / crediting the sale gives them back
                 delta_points=-actual_redeem,
                 reason=f"מימוש נקודות בקופה",
             ))
@@ -247,6 +248,7 @@ def pos_checkout(
                 db.add(ClientPointsLedger(
                     studio_id=ctx.studio_id,
                     client_id=client.id,
+                    pos_transaction_id=txn.id,      # voiding / crediting the sale takes them back
                     delta_points=points_earned,
                     reason=f"רכישה בקופה — {total / 100:.2f}₪",
                 ))
@@ -542,19 +544,10 @@ def void_transaction(
     if txn.status == "void":
         raise HTTPException(status_code=400, detail="עסקה כבר מבוטלת")
 
-    # Restore stock
-    items = db.scalars(
-        select(PosTransactionItem).where(PosTransactionItem.transaction_id == txn.id)
-    ).all()
-    for item in items:
-        if item.product_id:
-            product = db.get(Product, item.product_id)
-            if product:
-                product.stock_quantity += item.quantity
-
-    txn.status = "void"
-    from app.services import coupons
-    coupons.release(db, pos_transaction_id=txn.id)            # the coupon can be used again
+    # the sale is undone: void, its stock back, its coupon usable again, its points taken / given back
+    # (services/sale_reversal — the same as a credit note on its receipt)
+    from app.services.sale_reversal import undo_till_sale
+    undo_till_sale(db, txn)
     db.commit()
     from app.services.activity_log import ils, record
     record(db, ctx, "money", f"ביטול עסקה בקופה · {ils(txn.total_cents)}")

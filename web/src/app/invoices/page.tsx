@@ -6,6 +6,7 @@ import AppShell from "@/components/AppShell";
 import RequireAuth from "@/components/RequireAuth";
 import { apiFetch, getCurrentUserRole } from "@/lib/api";
 import { useToast } from "@/components/ui/toast";
+import { undoneWords, type Undone } from "@/lib/creditSummary";
 
 import { tx, intl } from "@/lib/i18n";
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -322,7 +323,7 @@ export default function InvoicesPage() {
 
     const createCredit = async (id: string, paymentMethod: string, notes: string) => {
         try {
-            const credit = await apiFetch<Invoice>(`/api/invoices/${id}/credit`, {
+            const credit = await apiFetch<Invoice & { undone?: Undone }>(`/api/invoices/${id}/credit`, {
                 method: "POST",
                 body: JSON.stringify({ payment_method: paymentMethod || null, notes: notes || null }),
             });
@@ -330,7 +331,8 @@ export default function InvoicesPage() {
             setViewInvoice(null);
             setCreditFromLink(false);
             // every money action says it's done (the owner, 2026-10-24)
-            toast(tx("הזיכוי הופק — ₪{0} הוחזרו ללקוח", { 0: Math.abs(credit.total_ils).toLocaleString() }), "success");
+            toast(tx("הזיכוי הופק — ₪{0} הוחזרו ללקוח", { 0: Math.abs(credit.total_ils).toLocaleString() })
+                  + undoneWords(credit.undone), "success");
         } catch (e: unknown) { alert((e as Error).message); }
     };
 

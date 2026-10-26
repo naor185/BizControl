@@ -1157,6 +1157,10 @@ def ensure_schema():
         cur.execute("CREATE INDEX IF NOT EXISTS ix_payment_requests_studio ON payment_requests (studio_id, status)")
         # who sold the items (an earring, a cream) — chosen at the till when the sale has items (the owner, 2026-10-24)
         cur.execute("ALTER TABLE pos_transactions ADD COLUMN IF NOT EXISTS performer_id UUID REFERENCES users(id) ON DELETE SET NULL")
+        # the payment / till sale a club-points line came from — a credit note takes back exactly its points
+        # (services/sale_reversal; the owner, 2026-10-26: "everything resets when a payment is credited")
+        cur.execute("ALTER TABLE client_points_ledger ADD COLUMN IF NOT EXISTS payment_id UUID")
+        cur.execute("ALTER TABLE client_points_ledger ADD COLUMN IF NOT EXISTS pos_transaction_id UUID")
         # Allow paybox in existing pos_transactions if constraint is present (idempotent via DROP/ADD)
         cur.execute("""
             DO $$

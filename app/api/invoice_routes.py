@@ -1126,15 +1126,12 @@ def create_credit_note(
         {"cid": credit_id, "id": invoice_id}
     )
 
-    # a receipt of a payment: the money given back, as on the payments page (crud/payment.record_refund)
+    # a receipt the system issued for a payment or a till sale: the sale is undone — the money back, its points, its
+    # coupon, its stock (services/sale_reversal), as from the payments page
+    undone = None
     if orig.source == "payment" and orig.source_id:
-        from sqlalchemy import select
-        from app.crud.payment import record_refund
-        from app.models.payment import Payment
-        paid = db.scalar(select(Payment).where(Payment.id == orig.source_id, Payment.studio_id == ctx.studio_id,
-                                               Payment.type != "refund"))
-        if paid is not None:
-            record_refund(db, paid, orig.total_cents or 0, method=body.payment_method)
+        from app.services.sale_reversal import undo_receipt
+        undone = undo_receipt(db, ctx.studio_id, orig.source_id, orig.total_cents or 0, method=body.payment_method)
 
     # Restore inventory
     for item in orig_items:
@@ -1153,7 +1150,7 @@ def create_credit_note(
     from app.services.activity_log import ils, record
     record(db, ctx, "receipts", f"הפקת זיכוי {credit_row.doc_number} על {DOC_TYPES.get(orig.doc_type, 'מסמך')} "
                                 f"{orig.doc_number} · {ils(orig.total_cents)}" + (f" · {orig.client_name}" if orig.client_name else ""))
-    return _invoice_to_dict(credit_row)
+    return {**_invoice_to_dict(credit_row), "undone": undone}
 
 
 # ── PDF auth — accepts Authorization header OR ?token= query param ────────────

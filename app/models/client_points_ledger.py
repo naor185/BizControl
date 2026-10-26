@@ -13,6 +13,10 @@ class ClientPointsLedger(Base):
     studio_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("studios.id", ondelete="CASCADE"), nullable=False, index=True)
     client_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("clients.id", ondelete="CASCADE"), nullable=False, index=True)
     appointment_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("appointments.id", ondelete="SET NULL"), nullable=True)
+    # the payment / till sale the points came from or were used on — a credit note reverses exactly these
+    # (services/sale_reversal); empty on lines from before 2026-10-26
+    payment_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    pos_transaction_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
 
     delta_points: Mapped[int] = mapped_column(Integer, nullable=False)
     reason: Mapped[str | None] = mapped_column(Text, nullable=True)

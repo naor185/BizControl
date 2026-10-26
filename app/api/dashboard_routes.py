@@ -12,7 +12,7 @@ from app.models.appointment import Appointment
 from app.models.client import Client
 from app.models.client_points_ledger import ClientPointsLedger
 from app.models.payment import Payment
-from app.crud.payment import money_received
+from app.crud.payment import money_received, net_cents
 from app.models.pos_transaction import PosTransaction
 from app.models.message_job import MessageJob
 from app.models.studio_settings import StudioSettings
@@ -295,10 +295,9 @@ def get_pending_payments(ctx: AuthContext = Depends(require_studio_ctx), db: Ses
     data = []
     for appt, client in results:
         paid_cents = db.scalar(
-            select(func.sum(Payment.amount_cents)).where(
+            select(func.sum(net_cents())).where(            # less what a credit note gave back
                 Payment.appointment_id == appt.id,
                 Payment.status == "paid",
-                Payment.type != "refund",
             )
         ) or 0
         data.append({
@@ -402,10 +401,9 @@ def get_analytics(ctx: AuthContext = Depends(require_studio_ctx), db: Session = 
         label = month_start.strftime("%m/%y")
 
         rev = db.scalar(
-            select(func.sum(Payment.amount_cents)).where(
+            select(func.sum(net_cents())).where(            # less what a credit note gave back
                 Payment.studio_id == ctx.studio_id,
                 Payment.status == "paid",
-                Payment.type != "refund",
                 Payment.created_at >= month_start,
                 Payment.created_at < month_end,
                 money_received(),
@@ -450,10 +448,9 @@ def get_analytics(ctx: AuthContext = Depends(require_studio_ctx), db: Session = 
             )
         ) or 0
         rev_cents = db.scalar(
-            select(func.sum(Payment.amount_cents)).where(
+            select(func.sum(net_cents())).where(            # less what a credit note gave back
                 Payment.studio_id == ctx.studio_id,
                 Payment.status == "paid",
-                Payment.type != "refund",
                 money_received(),
                 Payment.appointment_id.in_(
                     select(Appointment.id).where(
@@ -661,9 +658,9 @@ def advanced_analytics(ctx: AuthContext = Depends(require_studio_ctx), db: Sessi
 
     def _rev(start, end):
         pay = db.scalar(
-            select(func.sum(Payment.amount_cents)).where(
+            select(func.sum(net_cents())).where(            # less what a credit note gave back
                 Payment.studio_id == ctx.studio_id, Payment.status == "paid",
-                Payment.type != "refund", Payment.created_at >= start, Payment.created_at < end,
+                Payment.created_at >= start, Payment.created_at < end,
                 money_received(),
             )
         ) or 0

@@ -146,15 +146,26 @@ def forget_payment(db: Session, payment_id) -> None:
                 db.delete(row)
 
 
-def release(db: Session, *, pos_transaction_id) -> int:
-    """A voided till sale gives its coupon back (a deleted payment's use goes with it — the row cascades)."""
-    uses = db.scalars(select(CouponUse).where(CouponUse.pos_transaction_id == pos_transaction_id)).all()
+def release(db: Session, *, pos_transaction_id=None, payment_id=None) -> int:
+    """A voided till sale or a credited payment gives its coupon back — a birthday coupon is active again, and a
+    payment's discount row ("[מערכת] קופון …") no longer closes a bill (a deleted payment's use goes with it — the row
+    cascades)."""
+    from app.models.payment import Payment
+    if pos_transaction_id is None and payment_id is None:
+        raise ValueError("release: a till sale or a payment")
+    where = (CouponUse.pos_transaction_id == pos_transaction_id) if pos_transaction_id is not None \
+        else (CouponUse.payment_id == payment_id)
+    uses = db.scalars(select(CouponUse).where(where)).all()
     for u in uses:
         if u.birthday_coupon_id:
             b = db.get(BirthdayCoupon, u.birthday_coupon_id)
             if b and b.status == "redeemed":
                 b.status = "active" if b.expires_at >= datetime.now(timezone.utc) else "expired"
                 b.redeemed_at = None
+        if u.discount_payment_id:
+            row = db.get(Payment, u.discount_payment_id)
+            if row is not None and row.status == "paid":
+                row.status = "void"
         db.delete(u)
     return len(uses)
 

@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from typing import List, Optional, Tuple
 
-from sqlalchemy import select, and_, func
+from sqlalchemy import select, and_, case, func
 from sqlalchemy.orm import Session
 
 from app.models.work_session import WorkSession
@@ -132,17 +132,15 @@ class StaffRepository:
             # 3. Sum commission pay (if applicable)
             c_pay = Decimal("0.00")
             if user.pay_type == "commission" and user.commission_rate > 0:
-                # Sum payments from appointments where user is the artist
-                # Payment.type != "refund" matters: a refund is stored as a
-                # SECOND, separate positive-amount Payment row (see
-                # payment_routes.py's refund handler) rather than negating
-                # the original — every other revenue query in this codebase
-                # (dashboard_routes.py, client_routes.py, crud/payment.py)
-                # excludes refund rows for exactly this reason. Without it,
-                # a refunded appointment's amount was summed twice (original
-                # + refund), overpaying commission on fully-refunded work.
+                # Sum payments from appointments where user is the artist, less
+                # the money given back: a refund is a SECOND, separate positive-
+                # amount Payment row (crud/payment.record_refund — every credit
+                # note), so it counts as minus. Summing it as plus paid commission
+                # twice; leaving it out paid commission on credited work (the
+                # owner, 2026-10-26: "everything resets when a payment is
+                # credited"). A refund in a later month comes off that month.
                 commission_stmt = select(
-                    func.sum(Payment.amount_cents)
+                    func.sum(case((Payment.type == "refund", -Payment.amount_cents), else_=Payment.amount_cents))
                 ).join(
                     Appointment, Appointment.id == Payment.appointment_id
                 ).where(
@@ -150,7 +148,6 @@ class StaffRepository:
                         Appointment.artist_id == user.id,
                         Payment.studio_id == studio_id,
                         Payment.status == "paid",
-                        Payment.type != "refund",
                         Payment.created_at >= start_date,
                         Payment.created_at <= end_date
                     )

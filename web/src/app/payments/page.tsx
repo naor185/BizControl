@@ -10,6 +10,7 @@ import { Receipt, Banknote, CreditCard, Smartphone, Wallet, Landmark, MoreHorizo
 import Link from "next/link";
 
 import { tx, intl } from "@/lib/i18n";
+import { undoneWords, type Undone } from "@/lib/creditSummary";
 type Payment = {
     id: string;
     client_id: string;
@@ -200,8 +201,8 @@ export default function Page() {
         if (!creditingId) return;
         try {
             setIsCrediting(true);
-            await apiFetch(`/api/payments/${creditingId}/credit`, { method: "POST" });
-            toast.success(tx("זיכוי הופק בהצלחה"));
+            const credit = await apiFetch<{ undone?: Undone }>(`/api/payments/${creditingId}/credit`, { method: "POST" });
+            toast.success(tx("זיכוי הופק בהצלחה") + undoneWords(credit.undone));
             setCreditingId(null);
             loadPayments();
         } catch (e: any) {

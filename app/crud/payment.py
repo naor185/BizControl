@@ -16,7 +16,7 @@ def award_points(db: Session, studio_id, client: Client, payment: Payment, perce
     if points > 0:
         client.loyalty_points = int(client.loyalty_points or 0) + points
         db.add(ClientPointsLedger(studio_id=studio_id, client_id=client.id, appointment_id=appointment_id,
-                                  delta_points=points, reason=f"Cashback for payment {payment.id}"))
+                                  payment_id=payment.id, delta_points=points, reason=f"Cashback for payment {payment.id}"))
     return points
 
 
@@ -25,6 +25,13 @@ def money_received():
     money for it, so every sum of what was paid leaves it out."""
     from sqlalchemy import or_
     return or_(Payment.notes.is_(None), ~Payment.notes.ilike("[מערכת]%"))
+
+
+def net_cents():
+    """A payment's amount, a refund's as minus — summed, what was paid less what was given back (a credit note's
+    refund, crud/payment.record_refund)."""
+    from sqlalchemy import case
+    return case((Payment.type == "refund", -Payment.amount_cents), else_=Payment.amount_cents)
 
 
 def clients_paid(db: Session, studio_id, client_ids=None) -> dict:
@@ -128,6 +135,7 @@ def create_payment(db: Session, studio_id: UUID, data) -> Payment:
             studio_id=studio_id,
             client_id=client.id,
             appointment_id=appt.id,
+            payment_id=obj.id,
             delta_points=-data.points_redeemed,
             reason=f"Points redeemed for payment on appointment {appt.id}"
         ))

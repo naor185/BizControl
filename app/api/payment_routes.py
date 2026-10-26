@@ -234,9 +234,9 @@ def issue_credit_note(
         {"cid": credit_id, "id": orig["id"]},
     )
 
-    # Create a matching refund Payment so dashboard revenue = net 0
-    from app.crud.payment import record_refund
-    record_refund(db, payment, orig.get("total_cents") or 0)
+    # the sale is undone — the money back, its points, its coupon, its stock (services/sale_reversal)
+    from app.services.sale_reversal import undo_payment
+    undone = undo_payment(db, payment, orig.get("total_cents") or 0)
     db.commit()
 
     credit_row = db.execute(text("SELECT * FROM invoices WHERE id = :id"), {"id": credit_id}).fetchone()
@@ -246,6 +246,7 @@ def issue_credit_note(
                                 f"{orig.get('doc_number')} · {ils(orig.get('total_cents'))}"
                                 + (f" · {orig.get('client_name')}" if orig.get("client_name") else ""))
     result = dict(credit_row._mapping)
+    result["undone"] = undone
     result["doc_type_label"] = "זיכוי"
     result["total_ils"] = round((result.get("total_cents") or 0) / 100, 2)
     return result
