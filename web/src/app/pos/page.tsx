@@ -3,6 +3,7 @@
 import { usePlan } from "@/lib/usePlan";
 import { Switch } from "@/components/ui/switch";
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { apiFetch, getCurrentUserId } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import AppShell from "@/components/AppShell";
@@ -30,7 +31,7 @@ const PAYMENT_METHODS = [
 const METHOD_LABELS: Record<string, string> = { cash:tx("מזומן"), credit:tx("אשראי"), bit:"Bit", paybox:"PayBox", bank_transfer:tx("העברה בנקאית"), credit_card:tx("אשראי"), other:tx("אחר") };
 
 // ── Receipt Modal ─────────────────────────────────────────────────────────────
-function ReceiptModal({ txn, clientId, onClose }: { txn: TransactionOut; clientId: string | null; onClose: () => void }) {
+function ReceiptModal({ txn, clientId, onClose, onBack }: { txn: TransactionOut; clientId: string | null; onClose: () => void; onBack: () => void }) {
     const [invoiceId, setInvoiceId] = useState<string | null>(null);
     const [creating, setCreating] = useState(false);
     const [receiptCanceled, setReceiptCanceled] = useState(false);
@@ -170,6 +171,10 @@ function ReceiptModal({ txn, clientId, onClose }: { txn: TransactionOut; clientI
                     <button onClick={onClose} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl text-sm transition-colors">
                         {tx("מכירה חדשה")}
                     </button>
+                    {/* back to where the till was opened from — the calendar, לוח בקרה (the owner, 2026-10-27) */}
+                    <button type="button" onClick={onBack} className="w-full border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold py-2.5 rounded-xl text-sm transition-colors">
+                        {tx("חזרה")}
+                    </button>
                 </div>
             </div>
         </div>
@@ -178,6 +183,7 @@ function ReceiptModal({ txn, clientId, onClose }: { txn: TransactionOut; clientI
 
 // ── Main Component ─────────────────────────────────────────────────────────────
 export default function PosPage() {
+    const router = useRouter();
     const plan = usePlan();            // paying with points, the club's and the gift card's links follow the plan
     const [products, setProducts] = useState<Product[]>([]);
     const [cart, setCart] = useState<CartItem[]>([]);
@@ -786,7 +792,8 @@ export default function PosPage() {
         </div>
 
         {/* Modals */}
-        {receipt && <ReceiptModal txn={receipt} clientId={client?.id ?? null} onClose={() => setReceipt(null)} />}
+        {receipt && <ReceiptModal txn={receipt} clientId={client?.id ?? null} onClose={() => setReceipt(null)}
+            onBack={() => { setReceipt(null); if (window.history.length > 1) router.back(); else router.push("/dashboard"); }} />}
         {showAddClient && (
             <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4" onClick={() => setShowAddClient(false)}>
                 <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xs p-5" onClick={e => e.stopPropagation()}>
