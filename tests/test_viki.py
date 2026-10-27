@@ -83,6 +83,23 @@ def test_the_waiting_leads_once_a_week_and_quiet_after_an_answer(client, db_sess
     assert later is not None and later["text"].startswith("ליד אחד מחכה") and later["key"] != first["key"]
 
 
+def test_a_deleted_or_answered_lead_leaves_her_alert_at_once(client, db_session):
+    """The owner, 2026-10-27: deleted the lead — the alert stayed (her suggestions are kept a few minutes)."""
+    h, studio, _ = _business(client, db_session, "viki-del")
+    now = datetime.now(timezone.utc)
+    gone = Lead(studio_id=studio.id, name="רון כהן", status="new", created_at=now - timedelta(days=2))
+    called = Lead(studio_id=studio.id, name="דנה לוי", status="new", created_at=now - timedelta(days=2))
+    db_session.add_all([gone, called])
+    db_session.commit()
+    viki.forget(studio.id)
+    leads = lambda: next((s for s in client.get("/api/viki", headers=h).json()["suggestions"] if s["key"].startswith("leads:")), None)
+    assert leads()["text"].startswith("2 לידים מחכים")                          # now kept for a few minutes
+    assert client.delete(f"/api/leads/{gone.id}", headers=h).status_code == 204
+    assert leads()["text"].startswith("ליד אחד מחכה")                           # at once, not in 5 minutes
+    assert client.patch(f"/api/leads/{called.id}", headers=h, json={"status": "contacted"}).status_code == 200
+    assert leads() is None
+
+
 def test_her_moments_and_who_she_talks_to(client, db_session):
     h, studio, owner_id = _business(client, db_session, "viki-moments")
     since = datetime.now(timezone.utc) - timedelta(minutes=1)

@@ -156,7 +156,7 @@ def week_lines(f: dict) -> dict | None:
     if f["no_shows"] >= 2:
         improve.append(f"{f['no_shows']} לקוחות לא הגיעו לתור — מקדמה או תזכורת נוספת לפני התור יעזרו.")
     elif f["appointments"] >= 5 and not f["no_shows"]:
-        good.append("אף לקוח לא הבריז השבוע.")
+        good.append("אף לקוח לא הבריז בשבוע שעבר.")              # the summary is of last week, not this one
     behind = f["goal"] > 0 and f["goal_days_elapsed"] >= 3 and f["goal_projected"] < f["goal"] * 0.95
     if f["goal"] > 0 and f["goal_days_elapsed"] >= 3:
         pct = round(f["goal_projected"] / f["goal"] * 100)
@@ -247,7 +247,7 @@ def week_lines_en(f: dict) -> dict | None:
     if f["no_shows"] >= 2:
         improve.append(f"{f['no_shows']} clients didn't show up — a deposit or another reminder before the appointment will help.")
     elif f["appointments"] >= 5 and not f["no_shows"]:
-        good.append("No client missed an appointment this week.")
+        good.append("No client missed an appointment last week.")
     behind = f["goal"] > 0 and f["goal_days_elapsed"] >= 3 and f["goal_projected"] < f["goal"] * 0.95
     if f["goal"] > 0 and f["goal_days_elapsed"] >= 3:
         pct = round(f["goal_projected"] / f["goal"] * 100)

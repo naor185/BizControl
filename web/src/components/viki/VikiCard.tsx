@@ -42,6 +42,13 @@ export default function VikiCard() {
         .catch(() => setHidden(true));
 
     useEffect(() => { load(); }, []);
+    // a lead answered, deleted or made a client in the leads list (it says "leads-changed") — her "a lead is waiting"
+    // follows at once, not after a reload (the owner, 2026-10-27: deleted the lead, the alert stayed)
+    useEffect(() => {
+        const again = () => { load(); };
+        window.addEventListener("leads-changed", again);
+        return () => window.removeEventListener("leads-changed", again);
+    }, []);
 
     const answer = async (s: Suggestion, kind: "done" | "not_relevant") => {
         setBusy(s.key);

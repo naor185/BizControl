@@ -19,6 +19,7 @@ from app.models.booking_request import BookingRequest
 from app.models.notification import Notification
 from app.models.studio_settings import StudioSettings
 from app.services.lead_attribution_service import record_conversion
+from app.services import viki
 from app.crud.lead_notifications import notify_new_lead
 
 router = APIRouter(prefix="/leads", tags=["Leads"])
@@ -200,6 +201,7 @@ def update_lead(
         lead.notes = payload.notes
 
     db.commit()
+    viki.forget(user.studio_id)             # her "leads waiting" counts it no more once it isn't "חדש"
     db.refresh(lead)
     return _out(lead, _request_summaries(db, user.studio_id, [lead.id]).get(str(lead.id)))
 
@@ -215,6 +217,9 @@ def delete_lead(
         raise HTTPException(status_code=404, detail="Lead not found")
     db.delete(lead)
     db.commit()
+    # ויקי's suggestions are kept a few minutes — a deleted lead mustn't stay in "a lead is waiting" (the owner,
+    # 2026-10-27: deleted the lead, the alert stayed)
+    viki.forget(user.studio_id)
 
 
 @router.post("/{lead_id}/convert", response_model=dict)
@@ -244,6 +249,7 @@ def convert_to_client(
         except Exception:
             pass
         db.commit()
+        viki.forget(user.studio_id)
         return {"client_id": str(existing.id), "created": False}
 
     client = Client(
@@ -263,5 +269,6 @@ def convert_to_client(
     except Exception:
         pass
     db.commit()
+    viki.forget(user.studio_id)
     db.refresh(client)
     return {"client_id": str(client.id), "created": True}
