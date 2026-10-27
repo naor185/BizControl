@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { ArrowLeft, ArrowRight, Calendar, CalendarClock, ShoppingCart, LayoutDashboard, Users, Building2, Mail, Eye, X, Nfc, Target, type LucideIcon } from "lucide-react";
+import { ArrowLeft, ArrowRight, Calendar, CalendarClock, ShoppingCart, LayoutDashboard, Users, UsersRound, Building2, Mail, Eye, X, Nfc, Target, type LucideIcon } from "lucide-react";
 import { apiFetch, clearToken, getCurrentUserRole, getToken, setToken } from "@/lib/api";
 import { WORKER_PERMS_EVENT, rememberWorkerPerms, workerPerms, type WorkerPerm } from "@/lib/workerPerms";
 import ClockWidget from "./ClockWidget";
@@ -32,16 +32,19 @@ type Me = {
     email_verified?: boolean;
 };
 
-// worker: a worker's item only; perm: a worker sees it when the owner opened it to them (lib/workerPerms, 2026-10-27)
-const MAIN_NAV: { href: string; label: string; icon: LucideIcon; module?: string; worker?: boolean; perm?: WorkerPerm }[] = [
+// worker: a worker's item only; perm: a worker sees it when the owner opened it to them (lib/workerPerms, 2026-10-27);
+// team: the management's, once the business has workers besides the owner (the owner, 2026-10-27)
+const MAIN_NAV: { href: string; label: string; icon: LucideIcon; module?: string; worker?: boolean; perm?: WorkerPerm; team?: boolean }[] = [
     { href: "/dashboard", label: "לוח בקרה",    icon: LayoutDashboard },   // the home screen (with what was "דשבורד")
     { href: "/calendar",  label: "יומן תורים",  icon: Calendar, module: "calendar" },
     { href: "/pos",       label: "קופה",         icon: ShoppingCart, module: "pos", perm: "pos" },
     { href: "/clients",   label: "לקוחות",       icon: Users, module: "crm", perm: "clients" },
+    { href: "/team",      label: "מרכז העובדים", icon: UsersRound, team: true },
     { href: "/leads",     label: "לידים",        icon: Target, worker: true, perm: "clients" },   // the management's are on לוח בקרה
     { href: "/my-shifts", label: "המשמרות שלי", icon: CalendarClock, module: "attendance", worker: true },   // a worker's own (services/schedule)
 ];
 
+const TEAM_MENU_KEY = "bizcontrol_team_menu";
 const TOP_BAR = "2.75rem";   // the height of each bar at the top of the header (h-11)
 
 export default function AppShell({
@@ -76,6 +79,9 @@ export default function AppShell({
         return () => window.removeEventListener(WORKER_PERMS_EVENT, sync);
     }, []);
     const [pendingDepositsCount, setPendingDepositsCount] = useState(0);
+    // "מרכז העובדים" in the menu — for who manages the team, once there are workers besides the owner; remembered on
+    // this device so it doesn't blink in on each screen
+    const [showTeam, setShowTeam] = useState(() => { try { return localStorage.getItem(TEAM_MENU_KEY) === "1"; } catch { return false; } });
     const newLeadsCount = useNewLeadsCount();
     const [enabledModules, setEnabledModules] = useState<Record<string, boolean> | null>(null);
     const [showWaModal, setShowWaModal] = useState(false);
@@ -142,13 +148,17 @@ export default function AppShell({
                 const token = getToken();
                 if (!token) return;
                 registerForPushNotifications(router);
-                const [data, deposits, locs, mods, studioInfo] = await Promise.all([
+                const [data, deposits, locs, mods, studioInfo, seats] = await Promise.all([
                     apiFetch<Me>("/api/auth/me"),
                     apiFetch<any[]>("/api/appointments/pending-deposits").catch(() => []),
                     apiFetch<any[]>("/api/locations").catch(() => []),
                     apiFetch<Record<string, boolean>>("/api/modules/me").catch(() => null),
                     apiFetch<PlanInfo>("/api/auth/studio-info").catch(() => null),
+                    isWorker ? Promise.resolve(null) : apiFetch<{ used: number }>("/api/users/artists/seats").catch(() => null),
                 ]);
+                const team = !isWorker && !!(data as { permissions?: { team?: boolean } }).permissions?.team && (seats?.used ?? 0) > 1;
+                setShowTeam(team);
+                try { localStorage.setItem(TEAM_MENU_KEY, team ? "1" : "0"); } catch { /* fine */ }
                 setMe(data);
                 adopt((data as { locale?: string }).locale);     // the language kept in the account
                 if (isWorker) rememberWorkerPerms((data as { worker_permissions?: Record<string, boolean> | null }).worker_permissions);
@@ -185,7 +195,7 @@ export default function AppShell({
                     <nav className="flex-1 p-2.5 space-y-0.5 overflow-y-auto">
                         {MAIN_NAV.filter(item => (isWorker
                                 ? item.href === "/calendar" || (item.worker && !item.perm) || (!!item.perm && wPerms[item.perm])
-                                : !item.worker)
+                                : !item.worker && (!item.team || showTeam))
                             && (!item.module || !enabledModules || enabledModules[item.module] !== false)).map(item => {
                             const active = pathname === item.href || pathname.startsWith(item.href + "/")
                                 || (item.href === "/clients" && pathname === "/wallet");
@@ -450,7 +460,7 @@ export default function AppShell({
             {planInfo && showPlanBar && <PlanBar info={planInfo} />}
             {/* ויקי pops in from the side when something happens — the owner's and the managers' who see the money */}
             {!isWorker && <VikiPopper />}
-            <BottomNav pendingDeposits={pendingDepositsCount} />
+            <BottomNav pendingDeposits={pendingDepositsCount} showTeam={showTeam} />
             <PullToRefresh />
             <ToastContainer />
             <GlobalToast />

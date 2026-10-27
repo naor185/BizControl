@@ -12,6 +12,7 @@ from app.models.message_job import MessageJob
 from app.models.expense import Expense
 from app.models.work_session import WorkSession
 from app.models.monthly_goal import MonthlyGoal
+from app.models.worker_goal import WorkerGoal
 from app.models.product import Product
 from app.models.product_sale import ProductSale
 from app.models.studio_note import StudioNote
@@ -46,7 +47,7 @@ from app.models.staff_request import StaffRequest
 
 __all__ = [
     "Base", "Studio", "User", "StudioSettings", "RefreshToken",
-    "Client", "Appointment", "Payment", "ClientPointsLedger", "ClientTreatmentPhoto", "MessageJob", "Expense", "WorkSession", "MonthlyGoal", "Product", "ProductSale", "StudioNote", "Lead", "AuditLog", "StudioIntegration", "BookingRequest",
+    "Client", "Appointment", "Payment", "ClientPointsLedger", "ClientTreatmentPhoto", "MessageJob", "Expense", "WorkSession", "MonthlyGoal", "WorkerGoal","Product", "ProductSale", "StudioNote", "Lead", "AuditLog", "StudioIntegration", "BookingRequest",
 
     "PosTransaction", "PosTransactionItem",
     "UserPinSettings", "PinAttemptLog",

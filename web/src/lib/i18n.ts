@@ -72,7 +72,7 @@ export const translations = {
         nav_dashboard:  "לוח בקרה",
         nav_clients:    "לקוחות",
         nav_club:       "מועדון VIP",
-        nav_team:       "ניהול צוות",
+        nav_team:       "עובדים",        // the workers center, on the phone's bar (2026-10-27)
         nav_payroll:    "דוחות שכר",
         nav_payments:   "תשלומים",
         nav_settings:   "הגדרות",

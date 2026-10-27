@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Building2, CalendarClock, CalendarDays, LayoutDashboard, ShoppingCart, Users, X, type LucideIcon } from "lucide-react";
+import { Building2, CalendarClock, CalendarDays, LayoutDashboard, ShoppingCart, Users, UsersRound, X, type LucideIcon } from "lucide-react";
 import { getCurrentUserRole } from "@/lib/api";
 import { WORKER_PERMS_EVENT, workerPerms } from "@/lib/workerPerms";
 import { useLang } from "./LanguageProvider";
@@ -18,11 +18,13 @@ const PRIMARY_NAV: { href: string; labelKey: TranslationKey; icon: LucideIcon }[
     { href: "/my-shifts", labelKey: "nav_my_shifts", icon: CalendarClock },   // a worker's own (services/schedule) — workers only
     { href: "/pos",       labelKey: "nav_pos",       icon: ShoppingCart },
     { href: "/clients",   labelKey: "nav_clients",   icon: Users },
+    { href: "/team",      labelKey: "nav_team",      icon: UsersRound },      // the workers center — with a team (2026-10-27)
     { href: "/dashboard", labelKey: "nav_dashboard", icon: LayoutDashboard },
 ];
 
-/** pendingDeposits: deposits waiting to be approved — לוח בקרה's number, as on the computer's side menu */
-export default function BottomNav({ pendingDeposits = 0 }: { pendingDeposits?: number }) {
+/** pendingDeposits: deposits waiting to be approved — לוח בקרה's number, as on the computer's side menu;
+ *  showTeam: the business has workers besides the owner, and this user manages them (AppShell) */
+export default function BottomNav({ pendingDeposits = 0, showTeam = false }: { pendingDeposits?: number; showTeam?: boolean }) {
     const pathname = usePathname();
     const [userRole] = useState(() => getCurrentUserRole());
     const isArtist = userRole === "artist" || userRole === "staff";
@@ -54,7 +56,7 @@ export default function BottomNav({ pendingDeposits = 0 }: { pendingDeposits?: n
     const navItems = isArtist
         ? PRIMARY_NAV.filter(i => i.href === "/calendar" || i.href === "/my-shifts"
             || (i.href === "/pos" && perms.pos) || (i.href === "/clients" && perms.clients))
-        : PRIMARY_NAV.filter(i => i.href !== "/my-shifts");
+        : PRIMARY_NAV.filter(i => i.href !== "/my-shifts" && (i.href !== "/team" || showTeam));
 
     return (
         <>

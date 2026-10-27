@@ -1130,6 +1130,20 @@ def ensure_schema():
             )
         """)
         cur.execute("CREATE INDEX IF NOT EXISTS ix_pos_transaction_items_txn ON pos_transaction_items (transaction_id)")
+        # a worker's monthly sales goal — the owner sets it (models/worker_goal, services/worker_progress; 2026-10-27)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS worker_goals (
+                id UUID PRIMARY KEY,
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                year INTEGER NOT NULL,
+                month INTEGER NOT NULL,
+                target_cents INTEGER NOT NULL DEFAULT 0,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                CONSTRAINT uq_worker_goals_user_month UNIQUE (user_id, year, month)
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_worker_goals_studio ON worker_goals (studio_id)")
         # a link to pay sent to a client on WhatsApp — from the till or an appointment (models/payment_request)
         cur.execute("""
             CREATE TABLE IF NOT EXISTS payment_requests (

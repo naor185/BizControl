@@ -7,6 +7,7 @@ import AppShell from "@/components/AppShell";
 import RequireAuth from "@/components/RequireAuth";
 import { apiFetch, getCurrentUserId, getCurrentUserRole, imgUrl } from "@/lib/api";
 import { may } from "@/lib/workerPerms";
+import VikiWorkerCard from "@/components/viki/VikiWorkerCard";
 import { toLocalDateStr } from "@/lib/format";
 import PaymentModal from "@/components/PaymentModal";
 import DepositConfirmModal, { type DepositToConfirm } from "@/components/DepositConfirmModal";
@@ -1452,8 +1453,13 @@ function Calendar() {
                     )
                 }
             >
-                {/* Self-booking prompt banner */}
-                {selfBookingEnabled === false && !dismissedBookingBanner && (
+                {/* ויקי for a team member — their month: the goal, their tasks, their appointments (2026-10-27) */}
+                {myRole !== "owner" && myRole !== "superadmin" && (
+                    <div className="mx-4 mt-3 md:mx-0 md:mt-0"><VikiWorkerCard /></div>
+                )}
+
+                {/* Self-booking prompt banner — the management's setting, not a worker's */}
+                {selfBookingEnabled === false && !dismissedBookingBanner && canSetTasks && (
                     <div className="mx-4 mt-3 md:mx-0 md:mt-0 mb-3 flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2.5 text-sm">
                         <span className="text-lg">📅</span>
                         <div className="flex-1 min-w-0">

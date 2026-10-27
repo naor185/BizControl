@@ -71,6 +71,7 @@ from app.api.course_routes import router as course_router
 from app.api.room_rental_routes import router as room_rental_router
 from app.api.health_form_routes import router as health_form_router, public_router as health_public_router
 from app.api.payment_request_routes import router as payment_request_router, public_router as payment_request_public_router
+from app.api.worker_goal_routes import router as worker_goal_router
 from app.api.admin_message_routes import router as admin_message_router
 
 api_router = APIRouter()
@@ -148,5 +149,6 @@ api_router.include_router(admin_migration_router)
 api_router.include_router(health_form_router)
 api_router.include_router(health_public_router)
 api_router.include_router(payment_request_router)
+api_router.include_router(worker_goal_router)       # each worker's sales goal and their month (2026-10-27)
 api_router.include_router(payment_request_public_router)
 api_router.include_router(admin_message_router)

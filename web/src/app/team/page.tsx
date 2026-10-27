@@ -1,6 +1,6 @@
 "use client";
 import { toast } from "@/lib/toast";
-import { BarChart3, Briefcase, Crown, User, CircleHelp, CalendarClock, CalendarRange, Inbox, Users, Wallet } from "lucide-react";
+import { BarChart3, Briefcase, Crown, User, CircleHelp, CalendarClock, CalendarRange, ClipboardList, Inbox, Target, Users, Wallet } from "lucide-react";
 import { useTerms } from "@/lib/useTerms";
 
 import { Suspense, useEffect, useState } from "react";
@@ -19,6 +19,8 @@ import PayrollPanel from "@/components/team/PayrollPanel";
 import SchedulePanel from "@/components/team/SchedulePanel";
 import RequestsPanel from "@/components/team/RequestsPanel";
 import ReportsPanel from "@/components/team/ReportsPanel";
+import TasksPanel from "@/components/team/TasksPanel";
+import GoalsPanel from "@/components/team/GoalsPanel";
 
 import { tx } from "@/lib/i18n";
 // The workers center (the owner, 2026-10-19: "one place for everything about the workers"): היום — who is on shift,
@@ -26,10 +28,13 @@ import { tx } from "@/lib/i18n";
 // סידור עבודה — the week's shifts and the workers' constraints (stage 2); שעות ושכר — the month's pay and the
 // accountant (for who may see the money); בקשות — swaps and time off to approve (stage 3).
 // דוחות — the schedule against the clock: lateness, absences, overtime (stage 4).
-// ?tab=today|schedule|requests|team|pay|reports
-type Tab = "today" | "schedule" | "requests" | "team" | "pay" | "reports";
+// ?tab=today|tasks|goals|schedule|requests|team|pay|reports
+type Tab = "today" | "tasks" | "goals" | "schedule" | "requests" | "team" | "pay" | "reports";
 const TABS: { id: Tab; label: string; icon: typeof Users }[] = [
     { id: "today", label: tx("היום"), icon: CalendarClock },
+    // personal and shared tasks, and each worker's sales goal (the owner, 2026-10-27)
+    { id: "tasks", label: tx("משימות"), icon: ClipboardList },
+    { id: "goals", label: tx("יעדים"), icon: Target },
     { id: "schedule", label: tx("סידור"), icon: CalendarRange },
     { id: "requests", label: tx("בקשות"), icon: Inbox },
     { id: "team", label: tx("צוות"), icon: Users },
@@ -141,7 +146,8 @@ function TeamCenter() {
     const [seats, setSeats] = useState<{ used: number; limit: number | null; left: number | null } | null>(null);
     const router = useRouter();
     const asked = useSearchParams().get("tab");
-    const tab: Tab = asked === "team" || asked === "pay" || asked === "schedule" || asked === "requests" || asked === "reports" ? asked : "today";
+    const tab: Tab = asked === "team" || asked === "pay" || asked === "schedule" || asked === "requests" || asked === "reports"
+        || asked === "tasks" || asked === "goals" ? asked : "today";
     const setTab = (t: Tab) => router.replace(t === "today" ? "/team" : `/team?tab=${t}`, { scroll: false });
     // the money tab: the owner, or a manager allowed money
     const [seesPay, setSeesPay] = useState(() => getCurrentUserRole() === "owner");
@@ -310,16 +316,18 @@ function TeamCenter() {
                         </div>}
                     </div>
 
-                    <div role="tablist" aria-label={tx("מרכז העובדים")} className="flex gap-1 rounded-2xl bg-white p-1 border border-slate-200/70 shadow-sm w-full md:w-fit">
+                    <div role="tablist" aria-label={tx("מרכז העובדים")} className="flex gap-1 rounded-2xl bg-white p-1 border border-slate-200/70 shadow-sm w-full md:w-fit max-w-full overflow-x-auto">
                         {TABS.filter(t => t.id !== "pay" || seesPay).map(t => (
                             <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)}
-                                className={`flex-1 md:flex-none inline-flex items-center justify-center gap-1.5 min-h-11 px-2.5 md:px-4 whitespace-nowrap rounded-xl text-sm font-bold transition ${tab === t.id ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-50"}`}>
+                                className={`flex-1 md:flex-none shrink-0 inline-flex items-center justify-center gap-1.5 min-h-11 px-2.5 md:px-4 whitespace-nowrap rounded-xl text-sm font-bold transition ${tab === t.id ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-50"}`}>
                                 <t.icon className="w-4 h-4 hidden sm:block" aria-hidden /> {t.label}
                             </button>
                         ))}
                     </div>
 
                     {tab === "today" && <TodayPanel />}
+                    {tab === "tasks" && <TasksPanel />}
+                    {tab === "goals" && <GoalsPanel />}
                     {tab === "schedule" && <SchedulePanel />}
                     {tab === "requests" && <RequestsPanel />}
                     {tab === "reports" && <ReportsPanel />}
