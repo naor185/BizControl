@@ -4,6 +4,7 @@ import { usePlan } from "@/lib/usePlan";
 import { Switch } from "@/components/ui/switch";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { isWorker } from "@/lib/workerPerms";
 import { apiFetch, getCurrentUserId } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import AppShell from "@/components/AppShell";
@@ -157,7 +158,8 @@ function ReceiptModal({ txn, clientId, onClose, onBack }: { txn: TransactionOut;
                     )}
                 </div>
                 <div className="px-4 pb-4 space-y-2">
-                    {!invoiceId ? (
+                    {/* the documents are the management's (a worker at the till: the sale's receipt goes out by itself) */}
+                    {isWorker() ? null : !invoiceId ? (
                         <button type="button" onClick={createInvoice} disabled={creating}
                             className="w-full bg-violet-600 hover:bg-violet-700 disabled:opacity-60 text-white font-bold py-2.5 rounded-xl text-sm transition-colors">
                             {creating ? tx("מפיק...") : tx("🧾 הפק קבלה")}

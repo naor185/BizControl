@@ -10,7 +10,7 @@ log = get_logger(__name__)
 
 from app.db.deps import get_db
 from app.core.deps import require_studio_ctx, AuthContext
-from app.core.permissions import no_workers, require_permission, require_roles, Perms
+from app.core.permissions import no_workers, require_permission, require_roles, worker_may, workers_with, Perms
 from app.schemas.appointment import AppointmentCreate, AppointmentUpdate, AppointmentOut
 from app.crud.appointment import (
     create_appointment, list_appointments, get_appointment, get_appointment_out, update_appointment, cancel_appointment, hard_delete_appointment
@@ -30,7 +30,8 @@ ALLOWED_ARTIST_FIELDS = {"status", "notes"}
     dependencies=[Depends(require_roles(Perms.OWNER, Perms.ADMIN, Perms.RECEPTIONIST, Perms.MANAGER, Perms.ARTIST, "staff"))]
 )
 def create(payload: AppointmentCreate, ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
-    if ctx.role in (Perms.ARTIST, "staff"):              # a worker — in their own calendar only (the owner, 2026-10-19)
+    # a worker — in their own calendar only (the owner, 2026-10-19), unless the owner opened them the whole team's
+    if ctx.role in (Perms.ARTIST, "staff") and not worker_may(db, ctx.role, ctx.user_id, "all_calendars"):
         payload = payload.model_copy(update={"artist_id": ctx.user_id})
     _not_on_a_lock(db, ctx.studio_id, payload.artist_id, payload.starts_at, payload.ends_at, getattr(payload, "status", None))
     try:
@@ -94,8 +95,9 @@ def list_(
     ctx: AuthContext = Depends(require_studio_ctx),
     db: Session = Depends(get_db),
 ):
-    # Artists/staff can only see their own appointments — ignore any artist_id param
-    if ctx.role in (Perms.ARTIST, "staff"):
+    # Artists/staff can only see their own appointments — ignore any artist_id param (unless the owner opened them the
+    # whole team's calendar, core/permissions.WORKER_PERMISSIONS)
+    if ctx.role in (Perms.ARTIST, "staff") and not worker_may(db, ctx.role, ctx.user_id, "all_calendars"):
         artist_id = ctx.user_id
 
     db_events = list_appointments(db, ctx.studio_id, start=start, end=end, artist_id=artist_id, client_id=client_id)
@@ -282,16 +284,28 @@ def send_deposit_reminder_now(
     return {"ok": True}
 
 
+def _worker_reach(db: Session, ctx: AuthContext, appt) -> None:
+    """A worker acts on the appointments in their own calendar — unless the owner opened them the whole team's
+    (core/permissions.WORKER_PERMISSIONS, 2026-10-27)."""
+    if ctx.role not in (Perms.ARTIST, "staff") or appt is None:
+        return
+    artist_id = appt.get("artist_id") if isinstance(appt, dict) else appt.artist_id      # the appointment, or its out dict
+    if str(artist_id) != str(ctx.user_id) and not worker_may(db, ctx.role, ctx.user_id, "all_calendars"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="אפשר רק תורים ביומן שלך")
+
+
 @router.get("/{appointment_id}", response_model=AppointmentOut)
 def get_one(appointment_id: UUID, ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
     obj = get_appointment_out(db, ctx.studio_id, appointment_id)
     if not obj:
         raise HTTPException(status_code=404, detail="Appointment not found")
+    _worker_reach(db, ctx, obj)
     return obj
 
 @router.patch("/{appointment_id}", response_model=AppointmentOut)
 def patch(appointment_id: UUID, payload: AppointmentUpdate, ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
-    if ctx.role == "staff":                              # a worker without management: their own appointments, as they see
+    # a worker without management: their own appointments, as they see — or the team's, when the owner opened it
+    if ctx.role == "staff" and not worker_may(db, ctx.role, ctx.user_id, "all_calendars"):
         own = get_appointment(db, ctx.studio_id, appointment_id)
         if not own:
             raise HTTPException(status_code=404, detail="Appointment not found")
@@ -438,7 +452,8 @@ def patch(appointment_id: UUID, payload: AppointmentUpdate, ctx: AuthContext = D
 def cancel(appointment_id: UUID, reason: str | None = Query(default=None), hard_delete: bool = Query(default=False), ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
     # Grab event before canceling to get google_event_id
     appt_obj = get_appointment(db, ctx.studio_id, appointment_id)
-    if ctx.role in (Perms.ARTIST, "staff") and appt_obj is not None and str(appt_obj.artist_id) != str(ctx.user_id):
+    if ctx.role in (Perms.ARTIST, "staff") and appt_obj is not None and str(appt_obj.artist_id) != str(ctx.user_id) \
+            and not worker_may(db, ctx.role, ctx.user_id, "all_calendars"):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="אפשר לבטל רק תורים ביומן שלך")
     words = f"מחיקת תור{_whose(db, appt_obj)}" if hard_delete and appt_obj is not None else None   # read before it's gone
     google_event_id = appt_obj.google_event_id if appt_obj else None   # a deleted appointment can't be read afterwards
@@ -501,12 +516,14 @@ def _whose(db: Session, appt) -> str:
 
 
 @router.post("/{appointment_id}/waive-deposit")
-def waive_deposit(appointment_id: UUID, ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
-    """Confirm appointment without collecting a deposit — locks the slot and sends confirmation."""
+def waive_deposit(appointment_id: UUID, ctx: AuthContext = Depends(workers_with("payments")), db: Session = Depends(get_db)):
+    """Confirm appointment without collecting a deposit — locks the slot and sends confirmation. Money: the
+    management's, and a worker's the owner allowed payments (2026-10-27)."""
     from app.models.appointment import Appointment
     appt = db.get(Appointment, appointment_id)
     if not appt or appt.studio_id != ctx.studio_id:
         raise HTTPException(status_code=404, detail="Appointment not found")
+    _worker_reach(db, ctx, appt)
     if appt.payment_verified_at:
         return {"message": "Already verified"}
     appt.payment_verified_at = func.now()
@@ -532,7 +549,8 @@ def verify_sent_payment(
     method: str = "bit",
     send_receipt: bool = True,
     amount_cents: int | None = Query(default=None, gt=0),
-    ctx: AuthContext = Depends(no_workers()),   # money — the owner's and the managers' (2026-10-15)
+    # money — the owner's and the managers' (2026-10-15), and a worker's the owner allowed payments (2026-10-27)
+    ctx: AuthContext = Depends(workers_with("payments")),
     db: Session = Depends(get_db),
 ):
     """Studio confirms they received the deposit — opens cashier, records payment, creates receipt.
@@ -546,6 +564,7 @@ def verify_sent_payment(
     appt = db.get(Appointment, appointment_id)
     if not appt or appt.studio_id != ctx.studio_id:
         raise HTTPException(status_code=404, detail="Appointment not found")
+    _worker_reach(db, ctx, appt)
 
     if appt.payment_verified_at:
         return {"message": "Payment already verified", "invoice_id": None}

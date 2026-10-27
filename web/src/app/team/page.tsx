@@ -12,6 +12,7 @@ import { isNativeApp } from "@/lib/platform";
 import PasswordInput from "@/components/PasswordInput";
 import StaffSessionsModal from "@/components/StaffSessionsModal";
 import ManagerPermissions from "@/components/ManagerPermissions";
+import WorkerPermissions from "@/components/WorkerPermissions";
 import ClockCode from "@/components/team/ClockCode";
 import TodayPanel from "@/components/team/TodayPanel";
 import PayrollPanel from "@/components/team/PayrollPanel";
@@ -118,6 +119,10 @@ function TeamCenter() {
     const [password, setPassword] = useState("");
     const [role, setRole] = useState<"artist" | "admin" | "staff">("artist");
     const [editingOwner, setEditingOwner] = useState(false);     // the owner's own row — his role doesn't change here
+    // what a worker may do (components/WorkerPermissions): the role saved — a saved worker's switches save at once —
+    // and a new worker's (or one made a worker now) switches, saved with them (the owner, 2026-10-27)
+    const [savedRole, setSavedRole] = useState<string | null>(null);
+    const [pendingPerms, setPendingPerms] = useState<Record<string, boolean>>({});
     const [calendarColor, setCalendarColor] = useState(COLOR_PRESETS[0]);
     const [isActive, setIsActive] = useState(true);
     const [payType, setPayType] = useState<"hourly" | "commission" | "none" | "global">("none");
@@ -171,6 +176,8 @@ function TeamCenter() {
         setPassword("");
         setRole("artist");
         setEditingOwner(false);
+        setSavedRole(null);
+        setPendingPerms({});
         setCalendarColor(COLOR_PRESETS[0]);
         setIsActive(true);
         setPayType("hourly");
@@ -187,6 +194,8 @@ function TeamCenter() {
         setDisplayName(artist.display_name || "");
         setEmail(artist.email || "");
         setPassword("");
+        setSavedRole(artist.role);
+        setPendingPerms({});
         setRole((artist.role === "admin" ? "admin" : artist.role === "staff" ? "staff" : "artist") as "artist" | "admin" | "staff");
         setEditingOwner(artist.role === "owner");
         setCalendarColor(artist.calendar_color || COLOR_PRESETS[0]);
@@ -227,6 +236,7 @@ function TeamCenter() {
                 ...(classesOn ? classPay : {}),
             };
 
+            let savedId = editingUserId;
             if (editingUserId) {
                 if (password.trim()) payload.password = password;
                 await apiFetch(`/api/users/artists/${editingUserId}`, {
@@ -236,9 +246,16 @@ function TeamCenter() {
             } else {
                 payload.email = email;
                 payload.password = password;
-                await apiFetch("/api/users/artists", {
+                const created = await apiFetch<{ id: string }>("/api/users/artists", {
                     method: "POST",
                     body: JSON.stringify(payload)
+                });
+                savedId = created.id;
+            }
+            // a new worker's switches (or one made a worker now) — saved with them
+            if (savedId && (role === "artist" || role === "staff") && Object.values(pendingPerms).some(Boolean)) {
+                await apiFetch(`/api/users/artists/${savedId}/worker-permissions`, {
+                    method: "PUT", body: JSON.stringify({ permissions: pendingPerms }),
                 });
             }
 
@@ -485,6 +502,17 @@ function TeamCenter() {
                                         ))}
                                     </div>
                                 </div>}
+
+                                {/* what this worker may do beyond their own calendar — the owner's (core/permissions) */}
+                                {getCurrentUserRole() === "owner" && !editingOwner && (role === "artist" || role === "staff") && (
+                                    <WorkerPermissions
+                                        key={editingUserId || "new"}
+                                        userId={editingUserId && (savedRole === "artist" || savedRole === "staff") ? editingUserId : null}
+                                        name={displayName.trim()}
+                                        pending={pendingPerms}
+                                        onPending={setPendingPerms}
+                                    />
+                                )}
 
                                 <div>
                                     <label className="block text-sm font-semibold text-slate-700 mb-1">{tx("צבע ביומן")}</label>

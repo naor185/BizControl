@@ -5208,4 +5208,16 @@ export const EN: Record<string, string> = {
     "{0} נקודות הוחזרו ללקוח": "{0} points given back to the client",
     "הקופון שוחרר לשימוש חוזר": "the coupon can be used again",
     "{0} פריטים חזרו למלאי": "{0} items back in stock",
+    // what a worker may do — the owner's switches, per worker (2026-10-27)
+    "יומן של כל הצוות — לראות ולקבוע תורים גם אצל אחרים": "The whole team's calendar — see and book appointments for others too",
+    "גבייה ומקדמות — לרשום תשלום ולאשר מקדמה": "Payments and deposits — record a payment and approve a deposit",
+    "קופה — מכירות בקופה": "The till — sales at the till",
+    "לקוחות ולידים — לראות ולטפל": "Clients and leads — see and handle them",
+    "מה מותר ל{0}": "What {0} may do",
+    "מה מותר לעובד/ת": "What the worker may do",
+    "בלי כלום דלוק — רק היומן שלו/ה, הצהרות בריאות, שעון הנוכחות והמשמרות. רק אתה מחליט.":
+        "With nothing on — only their own calendar, health declarations, the clock and their shifts. Only you decide.",
+    "העובד/ת": "The worker",
+    "{0} יכול/ה עכשיו: {1}": "{0} can now: {1}",
+    "{0} כבר לא יכול/ה: {1}": "{0} no longer can: {1}",
 };

@@ -7,6 +7,7 @@ from app.core.deps import require_studio_ctx, AuthContext
 from app.core.database import get_db
 from app.models.studio_settings import StudioSettings
 from app.core.permissions import require_roles, require_permission, may_do, manager_permissions, MANAGER_PERMISSIONS, Perms
+from app.core.permissions import WORKERS, WORKER_PERMISSIONS, worker_permissions
 from app.schemas.user import UserOut, TeamMemberOut, ArtistCreate, ArtistUpdate
 from app.crud.artist import create_artist, list_artists, update_artist, deactivate_artist
 from app.services.plan_limits import check_staff_seat, staff_seats
@@ -103,6 +104,46 @@ def set_manager_permissions(body: ManagerPermissionsIn, ctx: AuthContext = Depen
         if on[k] != before[k]:
             activity_log.record(db, ctx, "team", f"סגן מנהל — {'הותר' if on[k] else 'נחסם'}: {label}")
     return _permissions_out(db, ctx.studio_id)
+
+
+# ── What a worker may do beyond their own calendar — the owner's switches, per worker (core/permissions.
+# WORKER_PERMISSIONS; the owner, 2026-10-27: "and what about a regular worker?") ─────────────────────────────────────
+
+def _worker_out(user) -> list[dict]:
+    on = worker_permissions(user)
+    return [{"key": k, "label": label, "on": on[k]} for k, label in WORKER_PERMISSIONS.items()]
+
+
+def _worker_of_mine(db: Session, ctx: AuthContext, user_id: UUID):
+    from app.models.user import User
+    user = db.get(User, user_id)
+    if user is None or user.studio_id != ctx.studio_id:               # another business's — as if it weren't there
+        raise HTTPException(status_code=404, detail="איש הצוות לא נמצא")
+    if user.role not in WORKERS:
+        raise HTTPException(status_code=400, detail="המתגים האלה לעובדים — לסגן מנהל יש את ההגדרות שלו")
+    return user
+
+
+@router.get("/{user_id}/worker-permissions", dependencies=[Depends(require_roles(Perms.OWNER))])
+def get_worker_permissions(user_id: UUID, ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    return _worker_out(_worker_of_mine(db, ctx, user_id))
+
+
+@router.put("/{user_id}/worker-permissions", dependencies=[Depends(require_roles(Perms.OWNER))])
+def set_worker_permissions(user_id: UUID, body: ManagerPermissionsIn, ctx: AuthContext = Depends(require_studio_ctx),
+                           db: Session = Depends(get_db)):
+    """The owner only — what this worker may do beyond their own calendar."""
+    import json
+    user = _worker_of_mine(db, ctx, user_id)
+    on = worker_permissions(user)
+    before = dict(on)
+    on.update({k: bool(v) for k, v in body.permissions.items() if k in WORKER_PERMISSIONS})
+    user.worker_permissions = json.dumps(on)
+    db.commit()
+    for k, label in WORKER_PERMISSIONS.items():
+        if on[k] != before[k]:
+            activity_log.record(db, ctx, "team", f"{user.display_name or user.email} — {'הותר' if on[k] else 'נחסם'}: {label.split(' — ')[0]}")
+    return _worker_out(user)
 
 
 @router.patch(

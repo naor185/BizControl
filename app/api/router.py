@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 
 from app.core.permissions import no_workers, workers_read_only, require_permission, writes_need   # the workers' reach on the server (2026-10-13)
+from app.core.permissions import workers_with   # …and what the owner switched on for a worker (2026-10-27)
 from app.api.client_routes import router as client_router
 from app.api.auth_routes import router as auth_router
 from app.api.studio_routes import router as studio_router
@@ -89,13 +90,13 @@ api_router.include_router(dashboard_router, dependencies=[Depends(no_workers())]
 api_router.include_router(expense_router, dependencies=[Depends(require_permission("money"))])
 api_router.include_router(staff_router)
 api_router.include_router(goal_router, dependencies=[Depends(require_permission("money"))])
-api_router.include_router(product_router, dependencies=[Depends(no_workers())])
+api_router.include_router(product_router, dependencies=[Depends(workers_with("pos", read_only=True))])   # the till reads them
 api_router.include_router(export_router, dependencies=[Depends(require_permission("money"))])
 api_router.include_router(webhook_router)
 api_router.include_router(superadmin_router)
-api_router.include_router(lead_router, dependencies=[Depends(no_workers())])
+api_router.include_router(lead_router, dependencies=[Depends(workers_with("clients"))])
 api_router.include_router(billing_router)
-api_router.include_router(booking_request_router, dependencies=[Depends(workers_read_only())])
+api_router.include_router(booking_request_router, dependencies=[Depends(workers_with("clients", read_free=True))])
 api_router.include_router(notification_router)
 api_router.include_router(task_router)
 api_router.include_router(tutorial_router)          # the guided tours' state (2026-10-15)
@@ -110,7 +111,7 @@ api_router.include_router(wallet_design_router, dependencies=[Depends(no_workers
 api_router.include_router(nfc_router)
 api_router.include_router(schedule_router)
 api_router.include_router(request_router)
-api_router.include_router(pos_router, dependencies=[Depends(no_workers())])
+api_router.include_router(pos_router, dependencies=[Depends(workers_with("pos"))])
 api_router.include_router(security_router)
 api_router.include_router(superadmin_features_router)
 api_router.include_router(service_router, dependencies=[Depends(workers_read_only())])
@@ -128,7 +129,7 @@ api_router.include_router(obligation_router, dependencies=[Depends(require_permi
 api_router.include_router(marketplace_customer_router)
 api_router.include_router(business_router)
 api_router.include_router(invoice_router, dependencies=[Depends(require_permission("receipts"))])
-api_router.include_router(gift_card_router, dependencies=[Depends(no_workers())])
+api_router.include_router(gift_card_router, dependencies=[Depends(workers_with("pos", only_paths=("/gift-cards/redeem",)))])   # the till redeems
 api_router.include_router(gift_card_public_router)
 api_router.include_router(whatsapp_mgmt_router, dependencies=[Depends(require_permission("settings"))])
 api_router.include_router(email_center_router, dependencies=[Depends(require_permission("settings"))])

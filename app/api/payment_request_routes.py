@@ -16,7 +16,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.core.deps import AuthContext, require_studio_ctx
-from app.core.permissions import no_workers
+from app.core.permissions import WORKERS, no_workers, worker_may
 from app.core.database import get_db
 from app.services import payment_requests as svc
 
@@ -58,6 +58,15 @@ def _mine(db: Session, ctx: AuthContext, request_id: UUID):
 
 @router.post("", status_code=201)
 def send(body: RequestIn, ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    # a worker: with payments (from an appointment) or the till (2026-10-27); on an appointment in their reach
+    if ctx.role in WORKERS:
+        if not (worker_may(db, ctx.role, ctx.user_id, "payments") or worker_may(db, ctx.role, ctx.user_id, "pos")):
+            raise HTTPException(403, "גבייה — בעל העסק לא אפשר את זה לך")
+        if body.appointment_id and not worker_may(db, ctx.role, ctx.user_id, "all_calendars"):
+            from app.models.appointment import Appointment
+            appt = db.get(Appointment, body.appointment_id)
+            if appt is not None and str(appt.artist_id) != str(ctx.user_id):
+                raise HTTPException(403, "אפשר רק תורים ביומן שלך")
     req = svc.create(db, ctx.studio_id, ctx.user_id, client_id=body.client_id, appointment_id=body.appointment_id,
                      items=[i.model_dump() for i in body.items], discount_cents=body.discount_cents,
                      amount_cents=body.amount_cents, performer_id=body.performer_id)

@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import require_studio_ctx, AuthContext
 from app.core.database import get_db
+from app.core.permissions import no_workers, workers_with
 from app.schemas.client import ClientCreate, ClientUpdate, ClientOut, ClientProfileOut, ClientPhotoOut
 from app.crud.client import create_client, get_client, list_clients, update_client, soft_delete_client
 from app.models.client_points_ledger import ClientPointsLedger
@@ -17,6 +18,12 @@ from app.api.upload_routes import _cloudinary_upload, _save_image_bytes, ALLOWED
 from app.models.client import Client
 
 router = APIRouter(prefix="/clients", tags=["Clients"])
+
+# What a worker reaches here (2026-10-27): the calendar's — finding a client, a new one, the walk-in, the photos — every
+# worker; the client card, editing, the counts — a worker the owner allowed "לקוחות ולידים"; deleting a client, the
+# club's points and the analytics — the management only (core/permissions)
+CLIENTS = Depends(workers_with("clients"))
+MANAGEMENT = Depends(no_workers())
 
 @router.get("/walk-in", response_model=ClientOut)
 def get_or_create_walk_in(
@@ -68,7 +75,7 @@ def list_(
 ):
     return list_clients(db, ctx.studio_id, q=q, skip=skip, limit=limit, active_only=active_only)
 
-@router.get("/counts")
+@router.get("/counts", dependencies=[CLIENTS])
 def get_counts(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
     """True counts — not limited by pagination."""
     from sqlalchemy import func
@@ -80,13 +87,13 @@ def get_counts(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Dep
     ) or 0
     return {"total": total, "club_members": club}
 
-@router.get("/marketing-optouts")
+@router.get("/marketing-optouts", dependencies=[MANAGEMENT])
 def marketing_optouts(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
     """Everyone who does not get marketing messages, and why (app/services/marketing.marketing_optouts)."""
     from app.services.marketing import marketing_optouts as _optouts
     return _optouts(db, ctx.studio_id)
 
-@router.get("/club/stats")
+@router.get("/club/stats", dependencies=[MANAGEMENT])
 def club_stats(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
     from sqlalchemy import func
     from datetime import datetime, timezone
@@ -126,7 +133,7 @@ def club_stats(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Dep
     }
 
 
-@router.get("/club/leaderboard")
+@router.get("/club/leaderboard", dependencies=[MANAGEMENT])
 def club_leaderboard(
     limit: int = 10,
     ctx: AuthContext = Depends(require_studio_ctx),
@@ -172,7 +179,7 @@ def club_leaderboard(
     }
 
 
-@router.get("/analytics")
+@router.get("/analytics", dependencies=[MANAGEMENT])
 def client_analytics(
     ctx: AuthContext = Depends(require_studio_ctx),
     db: Session = Depends(get_db),
@@ -280,7 +287,7 @@ def get_one(
         raise HTTPException(status_code=404, detail="Client not found")
     return obj
 
-@router.patch("/{client_id}", response_model=ClientOut)
+@router.patch("/{client_id}", response_model=ClientOut, dependencies=[CLIENTS])
 def patch(
     client_id: UUID,
     payload: ClientUpdate,
@@ -296,7 +303,7 @@ def patch(
         raise HTTPException(status_code=404, detail="Client not found")
     return obj
 
-@router.delete("/{client_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{client_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[MANAGEMENT])
 def delete(
     client_id: UUID,
     ctx: AuthContext = Depends(require_studio_ctx),
@@ -309,7 +316,7 @@ def delete(
     record(db, ctx, "clients", f"מחיקת הלקוח {db.get(Client, client_id).full_name}")
     return None
 
-@router.post("/{client_id}/reset-points", status_code=200)
+@router.post("/{client_id}/reset-points", status_code=200, dependencies=[MANAGEMENT])
 def reset_points(
     client_id: UUID,
     ctx: AuthContext = Depends(require_studio_ctx),
@@ -327,7 +334,7 @@ def reset_points(
     return {"ok": True, "points": 0}
 
 
-@router.get("/{client_id}/profile", response_model=ClientProfileOut)
+@router.get("/{client_id}/profile", response_model=ClientProfileOut, dependencies=[CLIENTS])
 def profile(
     client_id: UUID,
     ledger_limit: int = 100,
@@ -462,7 +469,7 @@ def upload_photo(
     return photo
 
 
-@router.delete("/{client_id}/photos/{photo_id}", status_code=200)
+@router.delete("/{client_id}/photos/{photo_id}", status_code=200, dependencies=[CLIENTS])
 def delete_photo(
     client_id: UUID,
     photo_id: UUID,
@@ -492,7 +499,7 @@ def delete_photo(
     return {"ok": True}
 
 
-@router.post("/{client_id}/app-invite")
+@router.post("/{client_id}/app-invite", dependencies=[CLIENTS])
 def send_app_invite(client_id: UUID, ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
     """The invitation to the BizFind app, now — from the client's card (services/app_invite.py)."""
     from app.services import app_invite
@@ -505,7 +512,7 @@ def send_app_invite(client_id: UUID, ctx: AuthContext = Depends(require_studio_c
     return {"ok": True}
 
 
-@router.post("/{client_id}/send-points-balance")
+@router.post("/{client_id}/send-points-balance", dependencies=[MANAGEMENT])
 def send_points_balance(
     client_id: UUID,
     ctx: AuthContext = Depends(require_studio_ctx),

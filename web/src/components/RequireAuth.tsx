@@ -6,10 +6,11 @@ import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { getToken, getCurrentUserRole, isAccessTokenExpiringSoon, tryRefresh, clearToken } from "@/lib/api";
 import { hydrateTokensFromSecureStorage } from "@/lib/secureTokenStorage";
+import { isWorker, refreshWorkerPerms, workerPages } from "@/lib/workerPerms";
 
-// Pages accessible to artist/staff role only
-// the staff who give the service also sign and read the health declarations (app/health-declarations)
-const ARTIST_ALLOWED = ["/calendar", "/health-declarations", "/clock/", "/my-shifts"];   // /clock/: the barcode (or NFC sticker) at the door
+// The pages a worker (artist / staff) reaches: their own — the calendar, the health declarations they sign, the clock,
+// their shifts — and what the owner opened to them: the till, clients and leads (lib/workerPerms, 2026-10-27)
+const workerMayOpen = (pathname: string | null) => workerPages().some(p => pathname?.startsWith(p));
 
 // Every screen has its own RequireAuth, mounted again on each move between screens — so the check ran again each time
 // and "בודק התחברות..." flashed for a moment (the owner, 2026-10-18). Once it passed in this visit, a screen opens at
@@ -18,8 +19,7 @@ const ARTIST_ALLOWED = ["/calendar", "/health-declarations", "/clock/", "/my-shi
 let checkedThisVisit = false;
 const allowedNow = (pathname: string | null) => {
     if (!checkedThisVisit || !getToken()) return false;
-    const role = getCurrentUserRole();
-    return !((role === "artist" || role === "staff") && !ARTIST_ALLOWED.some(p => pathname?.startsWith(p)));
+    return !(isWorker(getCurrentUserRole()) && !workerMayOpen(pathname));
 };
 
 export default function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -96,9 +96,13 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
             }
 
             const role = getCurrentUserRole();
-            if ((role === "artist" || role === "staff") && !ARTIST_ALLOWED.some(p => pathname?.startsWith(p))) {
-                router.replace("/calendar");
-                return;
+            if (isWorker(role)) {
+                await refreshWorkerPerms();          // what the owner opened to them — asked again on each visit
+                if (cancelled) return;
+                if (!workerMayOpen(pathname)) {
+                    router.replace("/calendar");
+                    return;
+                }
             }
 
             checkedThisVisit = true;

@@ -102,6 +102,15 @@ EN: dict[str, str] = {
     "שעון הנוכחות בברקוד לא פעיל בעסק": "The barcode attendance clock isn't on in this business",
     "אפשר לשנות רק תורים ביומן שלך": "You can only change appointments in your own calendar",
     "אפשר לבטל רק תורים ביומן שלך": "You can only cancel appointments in your own calendar",
+    # a worker's switches, per worker (core/permissions.WORKER_PERMISSIONS, 2026-10-27)
+    "אפשר רק תורים ביומן שלך": "Only appointments in your own calendar",
+    "גבייה — בעל העסק לא אפשר את זה לך": "Payments — the business owner hasn't allowed this for you",
+    "איש הצוות לא נמצא": "Team member not found",
+    "המתגים האלה לעובדים — לסגן מנהל יש את ההגדרות שלו": "These switches are for workers — a deputy manager has their own settings",
+    "יומן של כל הצוות — לראות ולקבוע תורים גם אצל אחרים": "The whole team's calendar — see and book appointments for others too",
+    "גבייה ומקדמות — לרשום תשלום ולאשר מקדמה": "Payments and deposits — record a payment and approve a deposit",
+    "קופה — מכירות בקופה": "The till — sales at the till",
+    "לקוחות ולידים — לראות ולטפל": "Clients and leads — see and handle them",
     # ── stage 3: the team — the schedule, requests, pay to the accountant, the activity log ──
     "חודש לא תקין": "Invalid month",
     "סידור העבודה — לבעל העסק ולמי שמנהל את הצוות": "The schedule is for the owner and whoever manages the team",
@@ -486,6 +495,7 @@ PATTERNS: dict[str, str] = {
     "PIN שגוי. נותרו {} ניסיונות": "Wrong PIN. {0} tries left",
     "קוד שגוי — נותרו {} ניסיונות": "Wrong code — {0} tries left",
     "{} — בעל העסק לא אפשר את זה לסגן המנהל": "{0} — the business owner hasn't allowed this for the deputy manager",
+    "{} — בעל העסק לא אפשר את זה לך": "{0} — the business owner hasn't allowed this for you",
     "{}: לא נמצא/ה בצוות": "{0}: not found on the team",
     "{}. אפשר לשלוח מהוואטסאפ שלך.": "{0}. You can send from your own WhatsApp.",
     "{}: בין {} ל-{}": "{0}: between {1} and {2}",

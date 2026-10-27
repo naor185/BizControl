@@ -64,6 +64,8 @@ class User(Base):
 
     phone: Mapped[str | None] = mapped_column(String(32), nullable=True)
     totp_secret: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # what this worker may do beyond their own calendar — the owner's switches (core/permissions.WORKER_PERMISSIONS)
+    worker_permissions: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Email verification — default true so existing users and all non-self-signup
     # creation paths are pre-verified; only BizFind self-registration sets it false

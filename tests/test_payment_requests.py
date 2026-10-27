@@ -84,6 +84,11 @@ def test_no_phone_no_link_and_a_worker_doesnt_approve(client, db_session):
     t = client.post("/api/auth/login-by-email", json={"email": "w@link-rules.com", "password": "secret123"}).json()["access_token"]
     worker = {"Authorization": f"Bearer {t}"}
     cid = _client(client, owner, phone="0521112266")
+    # a worker sends a link only with the till or payments the owner switched on (core/permissions, 2026-10-27)
+    assert client.post("/api/payment-requests", headers=worker, json={
+        "client_id": cid, "items": [{"description": "קרם", "unit_price_cents": 5000}]}).status_code == 403
+    wid = r.json()["id"]
+    assert client.put(f"/api/users/artists/{wid}/worker-permissions", headers=owner, json={"permissions": {"pos": True}}).status_code == 200
     rid = client.post("/api/payment-requests", headers=worker, json={
         "client_id": cid, "items": [{"description": "קרם", "unit_price_cents": 5000}]}).json()["id"]
     assert client.post(f"/api/payment-requests/{rid}/approve", headers=worker, json={"method": "cash"}).status_code == 403

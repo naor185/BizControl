@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import AppShell from "@/components/AppShell";
 import RequireAuth from "@/components/RequireAuth";
 import { apiFetch, getCurrentUserId, getCurrentUserRole, imgUrl } from "@/lib/api";
+import { may } from "@/lib/workerPerms";
 import { toLocalDateStr } from "@/lib/format";
 import PaymentModal from "@/components/PaymentModal";
 import DepositConfirmModal, { type DepositToConfirm } from "@/components/DepositConfirmModal";
@@ -693,7 +694,9 @@ function Calendar() {
     // a business with one person on its team — they're the one; "איש צוות" left empty failed the save (2026-10-15)
     // a worker sets appointments in their own calendar — always theirs (the server makes sure too); otherwise the one
     // performer when there's only one
-    const soleArtist = myRole === "artist" || myRole === "staff" ? (getCurrentUserId() || "") : artists.length === 1 ? artists[0].id : "";
+    // (a worker the owner opened the whole team's calendar to picks the staff member like the management — lib/workerPerms)
+    const soleArtist = (myRole === "artist" || myRole === "staff") && !may("all_calendars") ? (getCurrentUserId() || "")
+        : artists.length === 1 ? artists[0].id : "";
 
     const openAppointmentModal = (selectInfo: any) => {
         const localStart = new Date(selectInfo.startStr);
@@ -1779,7 +1782,8 @@ function Calendar() {
                     const depositApproved = !!app.payment_verified_at;
                     const depositReported = !depositApproved && !!app.payment_sent_at;
                     const depositILS = `₪${(depositCents / 100).toLocaleString(intl())}`;
-                    const mayApprove = myRole !== "artist" && myRole !== "staff";   // money — the owner's and the managers'
+                    // money — the owner's and the managers', and a worker's the owner allowed payments (lib/workerPerms)
+                    const mayApprove = may("payments");
                     return (
                         <BottomSheet open={true} onClose={() => setViewSheetAppt(null)} title={app.client_name || tx("ללא לקוח")}>
                             <div className="space-y-1 mb-4 text-sm text-slate-600">
@@ -2152,8 +2156,9 @@ function Calendar() {
                                     />
                                 </div>
 
-                                {/* Staff member — hidden for artist role (pre-filled by backend) */}
-                                {myRole !== "artist" && myRole !== "staff" && (
+                                {/* Staff member — hidden for a worker (their own calendar, pre-filled by backend), unless the
+                                    owner opened them the whole team's calendar */}
+                                {(myRole !== "artist" && myRole !== "staff" || may("all_calendars")) && (
                                     <div>
                                         <label className="block text-sm font-semibold text-slate-700 mb-1">{tx("איש צוות")}</label>
                                         <select value={artistId} onChange={e => setArtistId(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500">
@@ -2198,7 +2203,8 @@ function Calendar() {
                                             {tx("מחק תור")}
                                         </button>
                                     )}
-                                    {selectedEventId && new Date(startAt) < new Date() && status === "scheduled" && (
+                                    {/* charging is money: the management's, and a worker's the owner allowed payments */}
+                                    {selectedEventId && new Date(startAt) < new Date() && status === "scheduled" && may("payments") && (
                                         <button
                                             onClick={handlePaymentClick}
                                             className="px-4 py-2 text-sm font-bold text-emerald-600 hover:bg-emerald-50 rounded-xl transition-colors flex items-center gap-1"

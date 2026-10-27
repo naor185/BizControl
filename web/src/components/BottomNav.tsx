@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Building2, CalendarClock, CalendarDays, LayoutDashboard, ShoppingCart, Users, X, type LucideIcon } from "lucide-react";
 import { getCurrentUserRole } from "@/lib/api";
+import { WORKER_PERMS_EVENT, workerPerms } from "@/lib/workerPerms";
 import { useLang } from "./LanguageProvider";
 import { TranslationKey } from "@/lib/i18n";
 import { useBackButtonClose } from "@/lib/backButtonStack";
@@ -43,8 +44,16 @@ export default function BottomNav({ pendingDeposits = 0 }: { pendingDeposits?: n
 
     useBackButtonClose(sheetOpen, close);
 
+    // a worker: their calendar and shifts, and the till / clients when the owner opened them (lib/workerPerms)
+    const [perms, setPerms] = useState(workerPerms);
+    useEffect(() => {
+        const sync = () => setPerms(workerPerms());
+        window.addEventListener(WORKER_PERMS_EVENT, sync);
+        return () => window.removeEventListener(WORKER_PERMS_EVENT, sync);
+    }, []);
     const navItems = isArtist
-        ? PRIMARY_NAV.filter(i => i.href === "/calendar" || i.href === "/my-shifts")
+        ? PRIMARY_NAV.filter(i => i.href === "/calendar" || i.href === "/my-shifts"
+            || (i.href === "/pos" && perms.pos) || (i.href === "/clients" && perms.clients))
         : PRIMARY_NAV.filter(i => i.href !== "/my-shifts");
 
     return (

@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { ArrowLeft, ArrowRight, Calendar, CalendarClock, ShoppingCart, LayoutDashboard, Users, Building2, Mail, Eye, X, Nfc, type LucideIcon } from "lucide-react";
+import { ArrowLeft, ArrowRight, Calendar, CalendarClock, ShoppingCart, LayoutDashboard, Users, Building2, Mail, Eye, X, Nfc, Target, type LucideIcon } from "lucide-react";
 import { apiFetch, clearToken, getCurrentUserRole, getToken, setToken } from "@/lib/api";
+import { WORKER_PERMS_EVENT, rememberWorkerPerms, workerPerms, type WorkerPerm } from "@/lib/workerPerms";
 import ClockWidget from "./ClockWidget";
 import BottomNav from "./BottomNav";
 import NotificationBell from "./NotificationBell";
@@ -31,11 +32,13 @@ type Me = {
     email_verified?: boolean;
 };
 
-const MAIN_NAV: { href: string; label: string; icon: LucideIcon; module?: string; worker?: boolean }[] = [
+// worker: a worker's item only; perm: a worker sees it when the owner opened it to them (lib/workerPerms, 2026-10-27)
+const MAIN_NAV: { href: string; label: string; icon: LucideIcon; module?: string; worker?: boolean; perm?: WorkerPerm }[] = [
     { href: "/dashboard", label: "לוח בקרה",    icon: LayoutDashboard },   // the home screen (with what was "דשבורד")
     { href: "/calendar",  label: "יומן תורים",  icon: Calendar, module: "calendar" },
-    { href: "/pos",       label: "קופה",         icon: ShoppingCart, module: "pos" },
-    { href: "/clients",   label: "לקוחות",       icon: Users, module: "crm" },
+    { href: "/pos",       label: "קופה",         icon: ShoppingCart, module: "pos", perm: "pos" },
+    { href: "/clients",   label: "לקוחות",       icon: Users, module: "crm", perm: "clients" },
+    { href: "/leads",     label: "לידים",        icon: Target, worker: true, perm: "clients" },   // the management's are on לוח בקרה
     { href: "/my-shifts", label: "המשמרות שלי", icon: CalendarClock, module: "attendance", worker: true },   // a worker's own (services/schedule)
 ];
 
@@ -65,6 +68,13 @@ export default function AppShell({
     // a worker (artist/staff) reaches the calendar only (RequireAuth, and the server) — the menu shows them just that;
     // "ניהול עסק" is the owner's and the managers' (the owner, 2026-10-15)
     const [isWorker] = useState(() => ["artist", "staff"].includes(getCurrentUserRole() ?? ""));
+    // …and what the owner opened to this worker — the till, clients and leads (lib/workerPerms, 2026-10-27)
+    const [wPerms, setWPerms] = useState(workerPerms);
+    useEffect(() => {
+        const sync = () => setWPerms(workerPerms());
+        window.addEventListener(WORKER_PERMS_EVENT, sync);
+        return () => window.removeEventListener(WORKER_PERMS_EVENT, sync);
+    }, []);
     const [pendingDepositsCount, setPendingDepositsCount] = useState(0);
     const newLeadsCount = useNewLeadsCount();
     const [enabledModules, setEnabledModules] = useState<Record<string, boolean> | null>(null);
@@ -141,6 +151,7 @@ export default function AppShell({
                 ]);
                 setMe(data);
                 adopt((data as { locale?: string }).locale);     // the language kept in the account
+                if (isWorker) rememberWorkerPerms((data as { worker_permissions?: Record<string, boolean> | null }).worker_permissions);
                 setPendingDepositsCount(deposits.length);
                 if (locs.length > 1) setLocations(locs);
                 setEnabledModules(mods);
@@ -172,7 +183,9 @@ export default function AppShell({
 
                     {/* Nav */}
                     <nav className="flex-1 p-2.5 space-y-0.5 overflow-y-auto">
-                        {MAIN_NAV.filter(item => (isWorker ? item.href === "/calendar" || item.worker : !item.worker)
+                        {MAIN_NAV.filter(item => (isWorker
+                                ? item.href === "/calendar" || (item.worker && !item.perm) || (!!item.perm && wPerms[item.perm])
+                                : !item.worker)
                             && (!item.module || !enabledModules || enabledModules[item.module] !== false)).map(item => {
                             const active = pathname === item.href || pathname.startsWith(item.href + "/")
                                 || (item.href === "/clients" && pathname === "/wallet");

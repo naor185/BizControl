@@ -67,6 +67,60 @@ MANAGER_PERMISSIONS: dict[str, tuple[str, bool]] = {
 }
 
 
+# What a worker (artist / staff) may do beyond their own calendar, the health declarations, the clock and their shifts —
+# the owner switches each on or off for each worker (the owner, 2026-10-27: "and what about a regular worker?"). All off
+# by default. Kept on the user, users.worker_permissions (a JSON of the ones set).
+WORKER_PERMISSIONS: dict[str, str] = {
+    "all_calendars": "יומן של כל הצוות — לראות ולקבוע תורים גם אצל אחרים",
+    "payments": "גבייה ומקדמות — לרשום תשלום ולאשר מקדמה",
+    "pos": "קופה — מכירות בקופה",
+    "clients": "לקוחות ולידים — לראות ולטפל",
+}
+
+
+def worker_permissions(user) -> dict[str, bool]:
+    import json
+    try:
+        saved = json.loads(getattr(user, "worker_permissions", None) or "{}")
+    except (ValueError, TypeError):
+        saved = {}
+    return {k: bool(saved.get(k, False)) for k in WORKER_PERMISSIONS}
+
+
+def worker_may(db, role: str | None, user_id, perm: str) -> bool:
+    """A worker — only what the owner switched on for them; anyone else isn't limited here (their own rules apply)."""
+    if role not in WORKERS:
+        return True
+    return worker_permissions(db.get(User, user_id))[perm]
+
+
+def workers_with(perm: str, *, read_free: bool = False, read_only: bool = False, only_paths: tuple[str, ...] = ()):
+    """FastAPI dependency for an area that is the management's — and a worker's the owner allowed `perm`
+    (WORKER_PERMISSIONS). read_free: every worker may read it, a change needs `perm` (the calendar reads the services);
+    read_only: a worker with `perm` may read, not change (the till reads the products); only_paths: a worker with `perm`
+    may use only these (the till redeems a gift card, it doesn't manage them)."""
+    from app.core.deps import AuthContext, require_studio_ctx
+    from app.db.deps import get_db
+
+    def dep(request: Request, ctx: AuthContext = Depends(require_studio_ctx), db=Depends(get_db)) -> AuthContext:
+        if ctx.role not in WORKERS:
+            return ctx
+        reading = request.method in ("GET", "HEAD", "OPTIONS")
+        if read_free and reading:
+            return ctx
+        allowed = worker_may(db, ctx.role, ctx.user_id, perm)
+        if allowed and read_only and not reading:
+            allowed = False
+        if allowed and only_paths and not any(request.url.path.endswith(p) for p in only_paths):
+            allowed = False
+        if not allowed:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                                detail=f"{WORKER_PERMISSIONS[perm].split(' — ')[0]} — בעל העסק לא אפשר את זה לך")
+        return ctx
+
+    return dep
+
+
 def manager_permissions(settings) -> dict[str, bool]:
     import json
     try:

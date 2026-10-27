@@ -9,7 +9,7 @@ import os
 
 from app.db.deps import get_db
 from app.core.deps import require_studio_ctx, AuthContext
-from app.core.permissions import no_workers, require_permission
+from app.core.permissions import WORKERS, no_workers, require_permission, worker_may, workers_with
 from app.models.payment import Payment
 from app.models.appointment import Appointment
 from app.models.client import Client
@@ -46,7 +46,13 @@ def _attach_points(db, inv: dict) -> None:
             inv["points_earned"] = earned
 
 @router.post("", response_model=PaymentOut, status_code=status.HTTP_201_CREATED)
-def create(payload: PaymentCreate, ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+def create(payload: PaymentCreate, ctx: AuthContext = Depends(workers_with("payments")), db: Session = Depends(get_db)):
+    # money: the management's, and a worker's the owner allowed payments — on the appointments in their reach (their
+    # own calendar, or the team's when it's open to them) (2026-10-27)
+    if ctx.role in WORKERS and not worker_may(db, ctx.role, ctx.user_id, "all_calendars"):
+        appt = db.get(Appointment, payload.appointment_id)
+        if appt is not None and str(appt.artist_id) != str(ctx.user_id):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="אפשר רק תורים ביומן שלך")
     try:
         return create_payment(db, ctx.studio_id, payload)
     except ValueError as e:

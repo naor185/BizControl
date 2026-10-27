@@ -9,6 +9,7 @@ import AppShell from "@/components/AppShell";
 import HealthDeclarations from "@/components/health/HealthDeclarations";
 import { Smartphone } from "lucide-react";
 import { apiFetch } from "@/lib/api";
+import { isWorker } from "@/lib/workerPerms";
 import { formatCurrency } from "@/lib/format";
 
 type Invoice = {
@@ -193,7 +194,10 @@ export default function ClientProfilePage() {
             const [profData, apptsData, paymentsData] = await Promise.all([
                 apiFetch<ClientProfile>(`/api/clients/${id}/profile`, { method: "GET" }),
                 apiFetch<Appointment[]>(`/api/appointments?client_id=${id}`, { method: "GET" }),
-                apiFetch<Payment[]>(`/api/payments?client_id=${id}`, { method: "GET" }),
+                // the payments list is the management's — a worker the owner opened clients to sees the card without it
+                isWorker()
+                    ? apiFetch<Payment[]>(`/api/payments?client_id=${id}`, { method: "GET" }).catch(() => [] as Payment[])
+                    : apiFetch<Payment[]>(`/api/payments?client_id=${id}`, { method: "GET" }),
             ]);
             setProfile(profData);
             setAppointments(apptsData);

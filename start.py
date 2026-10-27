@@ -3065,6 +3065,9 @@ def ensure_schema():
         # choice) and each user's own
         cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS default_locale VARCHAR(5) NOT NULL DEFAULT 'he'")
         cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS locale VARCHAR(5)")
+        # what a worker may do beyond their own calendar — the owner's switches per worker (core/permissions,
+        # the owner, 2026-10-27)
+        cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS worker_permissions TEXT")
         cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS reminder_2_hours_enabled BOOLEAN NOT NULL DEFAULT FALSE")
         cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS reminder_2h_wa_template TEXT")
         if _once("birthday_percent_0_is_10"):
