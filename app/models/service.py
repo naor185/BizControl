@@ -36,6 +36,9 @@ class Service(Base):
     requires_deposit: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     deposit_amount_cents: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     send_aftercare: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # This service's own care instructions (a piercing in a tattoo studio — the owner, 2026-10-27); empty = the
+    # business's text (settings.aftercare_message, or the field's default).
+    aftercare_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

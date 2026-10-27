@@ -500,7 +500,9 @@ def enqueue_post_payment_message(db: Session, appt: Appointment, amount_cents: i
     # ── Aftercare block — substitute {client_name} first ─────
     aftercare_block = ""
     from app.services.business_types import message_default
-    _aftercare = (settings.aftercare_message or "").strip() or message_default(db, appt.studio_id, "aftercare").strip()
+    _service_care = service_aftercare(appt)         # a piercing's own instructions, not the studio's tattoo text
+    _aftercare = _service_care or (settings.aftercare_message or "").strip() \
+        or message_default(db, appt.studio_id, "aftercare").strip()
     if _aftercare and aftercare_wanted:
         aftercare_text = format_template(_aftercare, {"client_name": client.full_name or ""})
         aftercare_block = f"\n\n{aftercare_text}"
@@ -567,7 +569,8 @@ def enqueue_post_payment_message(db: Session, appt: Appointment, amount_cents: i
                 f'{settings.review_link_google.strip()}</a></p>'
             )
         from html import escape as _esc_ac
-        aftercare_html = f'<h3 style="color:#333;">💊 הוראות טיפול</h3><p style="color:#555;">{_esc_ac(settings.aftercare_message)}</p>' if settings.aftercare_message and aftercare_wanted else ""
+        _email_care = _service_care or settings.aftercare_message
+        aftercare_html = f'<h3 style="color:#333;">💊 הוראות טיפול</h3><p style="color:#555;">{_esc_ac(_email_care).replace(chr(10), "<br>")}</p>' if _email_care and aftercare_wanted else ""
         points_html = f'<div style="background:#f0fdf4;border-radius:8px;padding:12px 16px;margin:16px 0;"><strong style="color:#166534;">🎁 צברת {points_earned} נקודות!</strong><br><span style="color:#555;">סה"כ: {points_total} נקודות.</span></div>' if points_earned > 0 else ""
         email_template = f"""<div dir="rtl" style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#111;">
   <div style="background:#111;padding:24px 30px;border-radius:12px 12px 0 0;">
@@ -803,10 +806,16 @@ def maybe_enqueue_points_celebration(db: Session, studio_id, client, amount_rede
     return True
 
 
+def service_aftercare(appt: Appointment | None) -> str:
+    """The appointment's service's own care instructions — "" when it has none (the business's text goes)."""
+    svc = appt.service if (appt is not None and appt.service_id) else None
+    return ((svc.aftercare_message if svc is not None else None) or "").strip()
+
+
 def build_aftercare_message(settings: StudioSettings, client: Client, points_added: int, points_total: int,
-                            db: Session | None = None) -> str:
+                            db: Session | None = None, appt: Appointment | None = None) -> str:
     parts: list[str] = []
-    text = (settings.aftercare_message or "").strip()
+    text = service_aftercare(appt) or (settings.aftercare_message or "").strip()
     if not text and db is not None:
         from app.services.business_types import message_default
         text = message_default(db, settings.studio_id, "aftercare").strip()   # the field's own default
@@ -884,7 +893,8 @@ def enqueue_aftercare_if_needed(db: Session, appt: Appointment) -> None:
     delay = int(settings.aftercare_delay_minutes or 0)
     scheduled_at = (appt.done_at or now) + timedelta(minutes=delay)
 
-    body = build_aftercare_message(settings, client, points_added=points, points_total=client.loyalty_points, db=db)
+    body = build_aftercare_message(settings, client, points_added=points, points_total=client.loyalty_points, db=db,
+                                   appt=appt)
 
     # חייב טלפון כדי לשלוח
     if not client.phone:

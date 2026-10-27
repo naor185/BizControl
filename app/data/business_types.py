@@ -44,6 +44,50 @@ GENERIC_TERMS = {
 # Tattoo aftercare instructions — the text every business used to get as its default, whatever its field.
 TATTOO_AFTERCARE = 'היי {client_name}! 🎉\n\nלאחר סיום הקעקוע נשארים עם הניילון/מדבקה למשך כשעתיים.\nלאחר מכן ניתן להסיר את הניילון או המדבקה ולשטוף בעדינות עם מים פושרים וסבון.\n\nיום לאחר הקעקוע מתחילים למרוח את החמאה/המשחה פעמיים ביום - בוקר וערב למשך שלושה שבועות.\nיש למרוח שכבה דקה ומאוזנת: לא יותר מדי ולא מעט מדי.\n\nבמקרים של יובש גבוה ניתן למרוח עד 3 פעמים ביום.\n\nבזמן ההחלמה:\n❌ לא לגרד\n❌ לא לקלף\n🚫 להימנע מבריכה, ים, ג׳קוזי וסאונה למשך שבועיים\n\nלאחר כחודש וחצי מומלץ להגיע לביקורת כדי לוודא החלמה מלאה של הקעקוע. 🙏'
 
+# Piercing aftercare (the owner, 2026-10-27 — a piercing service in a tattoo studio): sterile saline, hands off the
+# jewelry, nothing harsh, the downsize visit, and when to call — the usual guidance of professional piercers.
+PIERCING_AFTERCARE = "\n".join((
+    "היי {client_name}! 🎉",
+    "תודה שבחרת בנו לפירסינג. כדי שיחלים יפה, הנה ההוראות:",
+    "",
+    "🧼 ניקוי — פעמיים ביום, בוקר וערב:",
+    "• לשטוף ידיים היטב לפני כל נגיעה באזור.",
+    "• לרסס מי מלח סטריליים (סליין 0.9% מבית המרקחת) על הפירסינג משני הצדדים.",
+    "• לייבש בעדינות בנייר נקי חד-פעמי או בגזה — לא במגבת.",
+    "",
+    "❌ מה לא לעשות:",
+    "• לא לסובב, להזיז או לשחק בעגיל.",
+    "• לא להוציא או להחליף את העגיל עד שהפירסינג מחלים לגמרי.",
+    "• לא למרוח אלכוהול, מי חמצן, משחות או שמנים.",
+    "• לא לישון על הפירסינג (באוזן — כרית נסיעה עוזרת מאוד).",
+    "• להימנע מבריכה, ים, ג׳קוזי, אמבטיה וסאונה בחודש הראשון.",
+    "",
+    "💡 עוד כמה דברים:",
+    "• להחליף ציפית לעיתים קרובות ולנקות את הטלפון והאוזניות.",
+    "• להרחיק שיער, מוצרי שיער ואיפור מהפירסינג.",
+    "• בטבור — בגדים רפויים, בלי חגורה או מכנסיים שלוחצים.",
+    "",
+    "👀 מה נורמלי בהתחלה:",
+    "נפיחות קלה, אדמומיות, רגישות, מעט דם ונוזל שקוף-צהבהב שמתייבש לקרום. את הקרום מרככים במי המלח — לא מקלפים.",
+    "",
+    "⏳ זמני החלמה משוערים:",
+    "תנוך 6–8 שבועות · סחוס באוזן 6–12 חודשים · נחיר 4–6 חודשים · ספטום 2–3 חודשים · טבור 6–12 חודשים.",
+    "",
+    "🔁 אחרי 4–8 שבועות, כשהנפיחות יורדת, חשוב להגיע אלינו להחלפה לעגיל קצר יותר.",
+    "",
+    "⚠️ אם האזור חם, אדום ונפוח יותר מיום ליום, יש כאב חזק, מוגלה ירוקה או עם ריח, או חום גבוה — לפנות אלינו ולרופא. "
+    "לא להוציא את העגיל לבד.",
+    "",
+    "יש שאלה? אנחנו כאן 🙏",
+))
+
+# Ready care instructions the owner can load into a service's own text (the services screen) — whatever the
+# business's field: a beauty salon may pierce ears too.
+AFTERCARE_TEMPLATES = (
+    {"key": "piercing", "label": "פירסינג", "text": PIERCING_AFTERCARE},
+    {"key": "tattoo", "label": "קעקוע", "text": TATTOO_AFTERCARE},
+)
+
 # For a field without its own texts: thanks and an offer to help — no care instructions, because
 # instructions written for another field are wrong (and can be harmful) for this one.
 GENERIC_MESSAGES = {

@@ -306,6 +306,7 @@ def ensure_schema():
         cur.execute("ALTER TABLE services ADD COLUMN IF NOT EXISTS requires_deposit BOOLEAN NOT NULL DEFAULT false")
         cur.execute("ALTER TABLE services ADD COLUMN IF NOT EXISTS deposit_amount_cents INTEGER NOT NULL DEFAULT 0")
         cur.execute("ALTER TABLE services ADD COLUMN IF NOT EXISTS send_aftercare BOOLEAN NOT NULL DEFAULT false")
+        cur.execute("ALTER TABLE services ADD COLUMN IF NOT EXISTS aftercare_message TEXT")
         cur.execute("""
             CREATE TABLE IF NOT EXISTS service_staff (
                 service_id UUID NOT NULL REFERENCES services(id) ON DELETE CASCADE,

@@ -29,8 +29,11 @@ interface Service {
     deposit_amount_cents: number;
     deposit_amount_ils: number;
     send_aftercare: boolean;
+    aftercare_message?: string | null;   // this service's own care instructions; empty = the business's
     staff_ids: string[];
 }
+
+interface CareTemplate { key: string; label: string; text: string; }
 
 interface StaffMember { id: string; display_name: string; role: string; }
 
@@ -64,11 +67,23 @@ function ServiceModal({
         requires_deposit: service?.requires_deposit ?? false,
         deposit_amount_cents: service?.deposit_amount_cents ?? 0,
         send_aftercare: service?.send_aftercare ?? false,
+        aftercare_message: service?.aftercare_message || "",
         staff_ids: service?.staff_ids || [],
     });
     const [saving, setSaving] = useState(false);
+    // ready care instructions (piercing, tattoo) for this service's own text — the owner, 2026-10-27
+    const [templates, setTemplates] = useState<CareTemplate[]>([]);
+    useEffect(() => {
+        apiFetch<CareTemplate[]>("/api/services/aftercare-templates").then(setTemplates).catch(() => { /* no buttons */ });
+    }, []);
 
     const set = (k: string, v: unknown) => setForm(f => ({ ...f, [k]: v }));
+
+    const loadTemplate = (t: CareTemplate) => {
+        const now = form.aftercare_message.trim();
+        if (now && now !== t.text.trim() && !confirm(tx("להחליף את הטקסט שכתוב בתבנית?"))) return;
+        set("aftercare_message", t.text);
+    };
 
     const save = async () => {
         if (!form.name.trim()) { toast.error(tx("שם שירות חובה")); return; }
@@ -168,6 +183,31 @@ function ServiceModal({
                             </label>
                         ))}
                     </div>
+
+                    {form.send_aftercare && (
+                        <div className="col-span-2 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                            <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                                <label htmlFor="service-aftercare" className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                                    <HeartPulse className="w-4 h-4 text-slate-500" aria-hidden /> {tx("הוראות טיפול לשירות הזה")}
+                                </label>
+                                {templates.length > 0 && (
+                                    <div className="flex flex-wrap items-center gap-1.5">
+                                        <span className="text-xs text-slate-500">{tx("תבנית מוכנה:")}</span>
+                                        {templates.map(t => (
+                                            <button key={t.key} type="button" onClick={() => loadTemplate(t)}
+                                                className="min-h-8 px-3 rounded-full border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:border-sky-300 hover:text-sky-800">
+                                                {tx(t.label)}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                            <textarea id="service-aftercare" value={form.aftercare_message} onChange={e => set("aftercare_message", e.target.value)}
+                                className={`${INPUT} min-h-[160px] resize-y`} dir="auto"
+                                placeholder={tx("ריק — נשלחות ההוראות הכלליות של העסק (תבניות הודעות ← הוראות אחרי הטיפול)")} />
+                            <p className="mt-1.5 text-xs text-slate-500">{tx("נשלח ללקוח אחרי שהתור הסתיים, במקום ההוראות הכלליות. {client_name} — שם הלקוח.")}</p>
+                        </div>
+                    )}
 
                     {/* Deposit — was previously only configurable in a separate,
                         disconnected "treatment types" settings section that had

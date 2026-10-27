@@ -682,7 +682,9 @@ def mark_appointment_done(
         from app.services.service_switches import aftercare_on
         aftercare_allowed = appt.service.send_aftercare if (appt.service_id and appt.service) else True
         if settings and appt.client_id and aftercare_allowed and aftercare_on(settings):
+            from app.crud.automation import service_aftercare
             _has_content = bool(
+                service_aftercare(appt) or
                 getattr(settings, "aftercare_message", None) or
                 getattr(settings, "review_link_google", None) or
                 getattr(settings, "review_link_instagram", None) or

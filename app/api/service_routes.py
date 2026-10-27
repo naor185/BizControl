@@ -31,6 +31,7 @@ class ServiceCreate(BaseModel):
     requires_deposit: bool = False
     deposit_amount_cents: int = Field(0, ge=0)
     send_aftercare: bool = False
+    aftercare_message: Optional[str] = Field(None, max_length=4000)
     staff_ids: list[str] = []
 
 
@@ -48,6 +49,7 @@ class ServiceUpdate(BaseModel):
     requires_deposit: Optional[bool] = None
     deposit_amount_cents: Optional[int] = Field(None, ge=0)
     send_aftercare: Optional[bool] = None
+    aftercare_message: Optional[str] = Field(None, max_length=4000)
     staff_ids: Optional[list[str]] = None
 
 
@@ -69,6 +71,7 @@ class ServiceResponse(BaseModel):
     deposit_amount_cents: int
     deposit_amount_ils: float
     send_aftercare: bool
+    aftercare_message: Optional[str]
     staff_ids: list[str]
 
     model_config = {"from_attributes": True}
@@ -93,8 +96,14 @@ def _to_response(s: Service) -> dict:
         "deposit_amount_cents": s.deposit_amount_cents,
         "deposit_amount_ils": s.deposit_amount_cents / 100,
         "send_aftercare": s.send_aftercare,
+        "aftercare_message": s.aftercare_message,
         "staff_ids": [str(ss.user_id) for ss in s.staff],
     }
+
+
+def _own_text(text: Optional[str]) -> Optional[str]:
+    """A service's own care instructions — blank means none (the business's text goes)."""
+    return (text or "").strip() or None
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
@@ -110,6 +119,16 @@ def list_services(
         q = q.where(Service.is_active == True)  # noqa
     q = q.order_by(Service.sort_order, Service.name)
     return [_to_response(s) for s in db.scalars(q).all()]
+
+
+@router.get("/aftercare-templates")
+def aftercare_templates(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    """Ready care instructions (piercing, tattoo) to load into a service's own text — in the business's language."""
+    from app.core.i18n import studio_locale
+    from app.data.business_types import AFTERCARE_TEMPLATES
+    from app.services.client_language import speak
+    lang = studio_locale(db, ctx.studio_id)
+    return [{"key": t["key"], "label": t["label"], "text": speak(t["text"], lang)} for t in AFTERCARE_TEMPLATES]
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -133,6 +152,7 @@ def create_service(
         requires_deposit=payload.requires_deposit,
         deposit_amount_cents=payload.deposit_amount_cents,
         send_aftercare=payload.send_aftercare,
+        aftercare_message=_own_text(payload.aftercare_message),
     )
     db.add(svc)
     db.flush()
@@ -156,7 +176,7 @@ def update_service(
     if not svc:
         raise HTTPException(status_code=404, detail="Service not found")
     for field, val in payload.model_dump(exclude_unset=True, exclude={"staff_ids"}).items():
-        setattr(svc, field, val)
+        setattr(svc, field, _own_text(val) if field == "aftercare_message" else val)
     if payload.staff_ids is not None:
         db.query(ServiceStaff).filter_by(service_id=service_id).delete()
         for uid in payload.staff_ids:
