@@ -3,11 +3,14 @@ import type { Metadata } from "next";
 const API = (process.env.NEXT_PUBLIC_API_URL || "https://api.biz-control.com").replace(/\/$/, "");
 
 export async function generateMetadata(
-    { params }: { params: { appointmentId: string } }
+    { params }: { params: Promise<{ appointmentId: string }> }
 ): Promise<Metadata> {
     try {
+        // a Promise since Next 15 — read as a plain object it was always empty, and the link's preview never had the
+        // business's title and logo (2026-10-27)
+        const { appointmentId } = await params;
         const data = await fetch(
-            `${API}/api/public/payment/${params.appointmentId}`,
+            `${API}/api/public/payment/${appointmentId}`,
             { next: { revalidate: 60 } }
         ).then(r => r.ok ? r.json() : null);
 

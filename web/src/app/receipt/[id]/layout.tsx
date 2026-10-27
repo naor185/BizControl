@@ -3,11 +3,12 @@ import type { Metadata } from "next";
 const API = (process.env.NEXT_PUBLIC_API_URL || "https://api.biz-control.com").replace(/\/$/, "");
 
 export async function generateMetadata(
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ): Promise<Metadata> {
     try {
+        const { id } = await params;          // a Promise since Next 15 (read plainly it was empty — 2026-10-27)
         const data = await fetch(
-            `${API}/api/public/receipts/${params.id}`,
+            `${API}/api/public/receipts/${id}`,
             { next: { revalidate: 60 } }
         ).then(r => r.ok ? r.json() : null);
 
