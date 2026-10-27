@@ -4884,6 +4884,7 @@ export const EN: Record<string, string> = {
     "אפליקציית אנדרואיד": "Android app",
     "דפדפן": "Browser",
     "שגיאת רשת — נסה שוב": "Network error — please try again",
+    "אין חיבור לשרת — נסה שוב בעוד רגע": "No connection to the server — try again in a moment",
     "סיכום שכר {0} {1}.pdf": "Pay summary {0} {1}.pdf",
     "🌟 הצטרף למועדון הלקוחות שלנו:\n{0}": "🌟 Join our client club:\n{0}",
     "🎁 גיפט קארד לך או למישהו שאתה אוהב:\n{0}": "🎁 A gift card for you or someone you love:\n{0}",

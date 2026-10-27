@@ -147,7 +147,15 @@ export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promi
         if (token) headers.set("Authorization", `Bearer ${token}`);
     }
 
-    const res = await fetch(url, { ...options, headers });
+    // No answer at all (no connection, or the server switching to a new version) — the browser only says "Failed
+    // to fetch", in English (the owner saw it on a payment, 2026-10-27)
+    let res: Response;
+    try {
+        res = await fetch(url, { ...options, headers });
+    } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") throw e;
+        throw new Error(tx("אין חיבור לשרת — נסה שוב בעוד רגע"));
+    }
     const text = await res.text();
     const data = text ? safeJson(text) : null;
 
