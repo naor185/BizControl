@@ -96,11 +96,20 @@ def suggestions(db: Session, studio_id, now: datetime | None = None, lang: str =
             add(35, f"goal_pace:{ym}", "good", w(f"אתה בקצב טוב: בקצב הזה החודש ייסגר בערך ב-{_ils(projected)} — {pct}% מהיעד ({_ils(target)}).",
                                                 f"You're on a good pace: at this pace the month will close at about {_ils(projected)} — {pct}% of the goal ({_ils(target)})."))
 
-    # ── leads waiting for an answer ──
-    waiting = _count(db, select(Lead.id).where(Lead.studio_id == studio_id, Lead.status == "new",
-                                               Lead.created_at < now - timedelta(hours=24)))
+    # ── leads waiting for an answer — once a week, not every day (the owner, 2026-10-27); after "עשיתי" / "לא
+    # רלוונטי" (by anyone in the business) the leads it was about stay quiet — it comes back only for a lead that
+    # started waiting since. A lead whose status changes from "חדש" stops counting anyway. ──
+    from app.models.viki_dismissal import VikiDismissal
+    week = today - timedelta(days=(today.weekday() + 1) % 7)                  # its Sunday
+    answered_at = db.scalar(select(func.max(VikiDismissal.created_at)).where(
+        VikiDismissal.studio_id == studio_id, VikiDismissal.key.like("leads:%")))
+    waiting_q = select(Lead.id).where(Lead.studio_id == studio_id, Lead.status == "new",
+                                      Lead.created_at < now - timedelta(hours=24))
+    if answered_at is not None:                    # the leads already waiting then were answered for
+        waiting_q = waiting_q.where(Lead.created_at >= answered_at - timedelta(hours=24))
+    waiting = _count(db, waiting_q)
     if waiting:
-        add(85, f"leads:{today.isoformat()}", "warn",
+        add(85, f"leads:{week.isoformat()}", "warn",
             w(("ליד אחד מחכה" if waiting == 1 else f"{waiting} לידים מחכים") + " לתשובה כבר יותר מיום. ליד שעונים לו מהר — נסגר הרבה יותר.",
               ("One lead has" if waiting == 1 else f"{waiting} leads have") + " been waiting for an answer for over a day. A lead answered quickly closes far more often."),
             w("ללידים", "To the leads"), "/dashboard#leads")

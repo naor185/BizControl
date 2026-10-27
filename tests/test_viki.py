@@ -57,6 +57,32 @@ def test_her_suggestions_come_from_the_numbers_and_an_answer_hides_one(client, d
     assert keys == ["leads", "fill_next", "goal_none"]
 
 
+def test_the_waiting_leads_once_a_week_and_quiet_after_an_answer(client, db_session):
+    """The owner, 2026-10-27: not every day — once a week; answered, the same leads don't come back."""
+    h, studio, _ = _business(client, db_session, "viki-leads")
+    now = datetime.now(timezone.utc)
+    db_session.add(Lead(studio_id=studio.id, name="רון כהן", status="new", created_at=now - timedelta(days=2)))
+    db_session.commit()
+
+    def leads(at):
+        return next((s for s in viki.suggestions(db_session, studio.id, now=at) if s["key"].startswith("leads:")), None)
+
+    first = leads(now)
+    assert first is not None and first["text"].startswith("ליד אחד מחכה")
+    today = now.astimezone(viki.IL).date()
+    assert first["key"] == f"leads:{(today - timedelta(days=(today.weekday() + 1) % 7)).isoformat()}"   # the week's, not the day's
+
+    assert client.post("/api/viki/answer", headers=h, json={"key": first["key"], "kind": "not_relevant"}).status_code == 204
+    viki.forget(studio.id)
+    assert "leads" not in _keys(client, h)[0]                                    # gone now
+    assert leads(now + timedelta(days=8)) is None                                 # and next week — the same lead stays quiet
+
+    db_session.add(Lead(studio_id=studio.id, name="דנה לוי", status="new", created_at=now + timedelta(minutes=1)))
+    db_session.commit()
+    later = leads(now + timedelta(days=8))                                        # a lead that started waiting since
+    assert later is not None and later["text"].startswith("ליד אחד מחכה") and later["key"] != first["key"]
+
+
 def test_her_moments_and_who_she_talks_to(client, db_session):
     h, studio, owner_id = _business(client, db_session, "viki-moments")
     since = datetime.now(timezone.utc) - timedelta(minutes=1)
