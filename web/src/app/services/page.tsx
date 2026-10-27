@@ -47,7 +47,7 @@ function durLabel(m: number) { return m < 60 ? tx("{0} דק'", { 0: m }) : m % 6
 const LABEL = "block text-xs font-semibold text-slate-600 mb-1.5";
 const INPUT = "w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100";
 
-type Flag = "is_active" | "is_bookable_online" | "requires_consultation" | "send_aftercare";
+type Flag = "is_active" | "is_bookable_online" | "requires_consultation";
 
 function ServiceModal({
     service, staff, onClose, onSaved,
@@ -82,7 +82,7 @@ function ServiceModal({
     const loadTemplate = (t: CareTemplate) => {
         const now = form.aftercare_message.trim();
         if (now && now !== t.text.trim() && !confirm(tx("להחליף את הטקסט שכתוב בתבנית?"))) return;
-        set("aftercare_message", t.text);
+        setForm(f => ({ ...f, send_aftercare: true, aftercare_message: t.text }));   // a template = send it
     };
 
     const save = async () => {
@@ -110,7 +110,6 @@ function ServiceModal({
         { key: "is_active", label: tx("פעיל") },
         { key: "is_bookable_online", label: tx("ניתן לקביעה אונליין") },
         { key: "requires_consultation", label: tx("דורש ייעוץ קודם") },
-        { key: "send_aftercare", label: tx("שלח הוראות טיפול אחרי סיום") },
     ];
 
     return (
@@ -184,30 +183,34 @@ function ServiceModal({
                         ))}
                     </div>
 
-                    {form.send_aftercare && (
-                        <div className="col-span-2 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                            <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                                <label htmlFor="service-aftercare" className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-                                    <HeartPulse className="w-4 h-4 text-slate-500" aria-hidden /> {tx("הוראות טיפול לשירות הזה")}
-                                </label>
-                                {templates.length > 0 && (
-                                    <div className="flex flex-wrap items-center gap-1.5">
-                                        <span className="text-xs text-slate-500">{tx("תבנית מוכנה:")}</span>
-                                        {templates.map(t => (
-                                            <button key={t.key} type="button" onClick={() => loadTemplate(t)}
-                                                className="min-h-8 px-3 rounded-full border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:border-sky-300 hover:text-sky-800">
-                                                {tx(t.label)}
-                                            </button>
-                                        ))}
-                                    </div>
-                                )}
+                    {/* Care instructions — a card of its own, the ready templates always in sight (the owner, 2026-10-27:
+                        behind the switch nobody found the piercing template) */}
+                    <div className="col-span-2 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                        <label className="flex items-center gap-2 text-sm font-semibold text-slate-800 cursor-pointer">
+                            <input type="checkbox" checked={form.send_aftercare} onChange={e => set("send_aftercare", e.target.checked)} className="w-4 h-4 accent-sky-600" />
+                            <HeartPulse className="w-4 h-4 text-slate-500" aria-hidden /> {tx("שלח הוראות טיפול אחרי סיום")}
+                        </label>
+                        {templates.length > 0 && (
+                            <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                                <span className="text-xs text-slate-500">{tx("הוספת תבנית מוכנה:")}</span>
+                                {templates.map(t => (
+                                    <button key={t.key} type="button" onClick={() => loadTemplate(t)}
+                                        className="inline-flex items-center gap-1 min-h-8 px-3 rounded-full border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:border-sky-300 hover:text-sky-800">
+                                        <Plus className="w-3.5 h-3.5" aria-hidden /> {tx("הוראות טיפול — {0}", { 0: tx(t.label) })}
+                                    </button>
+                                ))}
                             </div>
-                            <textarea id="service-aftercare" value={form.aftercare_message} onChange={e => set("aftercare_message", e.target.value)}
-                                className={`${INPUT} min-h-[160px] resize-y`} dir="auto"
-                                placeholder={tx("ריק — נשלחות ההוראות הכלליות של העסק (תבניות הודעות ← הוראות אחרי הטיפול)")} />
-                            <p className="mt-1.5 text-xs text-slate-500">{tx("נשלח ללקוח אחרי שהתור הסתיים, במקום ההוראות הכלליות. {client_name} — שם הלקוח.")}</p>
-                        </div>
-                    )}
+                        )}
+                        {form.send_aftercare && (
+                            <div className="mt-3">
+                                <label htmlFor="service-aftercare" className={LABEL}>{tx("הוראות טיפול לשירות הזה")}</label>
+                                <textarea id="service-aftercare" value={form.aftercare_message} onChange={e => set("aftercare_message", e.target.value)}
+                                    className={`${INPUT} min-h-[160px] resize-y`} dir="auto"
+                                    placeholder={tx("ריק — נשלחות ההוראות הכלליות של העסק (תבניות הודעות ← הוראות אחרי הטיפול)")} />
+                                <p className="mt-1.5 text-xs text-slate-500">{tx("נשלח ללקוח אחרי שהתור הסתיים, במקום ההוראות הכלליות. {client_name} — שם הלקוח.")}</p>
+                            </div>
+                        )}
+                    </div>
 
                     {/* Deposit — was previously only configurable in a separate,
                         disconnected "treatment types" settings section that had
