@@ -490,3 +490,107 @@ def ahead(db: Session, studio_id, now: datetime | None = None, lang: str = "he")
                 line += " תור אחד עוד מחכה למקדמה." if waiting == 1 else f" {waiting} תורים עוד מחכים למקדמה."
         lines.append(line)
     return {"title": "The weeks ahead" if en else "השבועות הבאים", "lines": lines}
+
+
+def _appts(n: int, en: bool) -> str:
+    if en:
+        return f"{n} appointment{'' if n == 1 else 's'}"
+    return "תור אחד" if n == 1 else f"{n} תורים"
+
+
+def _days(n: int, en: bool) -> str:
+    if en:
+        return f"{n} working day{'' if n == 1 else 's'}"
+    return "יום עבודה אחד" if n == 1 else f"{n} ימי עבודה"
+
+
+def this_week(db: Session, studio_id, now: datetime | None = None, lang: str = "he") -> dict | None:
+    """The week we're in (the owner, 2026-10-27: "focus on what was done and what will be done this week — and a bit
+    towards next week"): what came in so far and from how many appointments, against the same point last week; what's
+    still in the calendar this week and the hours still free; this week's step towards the month's goal, gradually
+    (what's left, per working day, and what that means for the days left this week); and, Sunday to Wednesday, next
+    week (from Thursday "השבועות הבאים" says it). Worked out from the data every time it's shown. None while the week
+    has nothing in it. Lines: {kind: done | ahead | goal | next, text}."""
+    from app.api.dashboard_routes import calendar_fill
+    from app.models.appointment import Appointment
+    from app.repositories.goal_repository import GoalRepository
+    now = now or datetime.now(timezone.utc)
+    en = lang == "en"
+    today = now.astimezone(IL).date()
+    day_no = (today.weekday() + 1) % 7                       # 0 = Sunday … 6 = Saturday
+    sunday = today - timedelta(days=day_no)
+    next_sunday = sunday + timedelta(days=7)
+    tomorrow = today + timedelta(days=1)
+
+    so_far = _revenue(db, studio_id, sunday, tomorrow)
+    last_point = _revenue(db, studio_id, sunday - timedelta(days=7), tomorrow - timedelta(days=7))
+    done = db.scalar(select(func.count(Appointment.id)).where(
+        Appointment.studio_id == studio_id, Appointment.status.notin_(("canceled", "no_show")),
+        Appointment.starts_at >= _utc(sunday), Appointment.starts_at < now)) or 0
+    left_n, left_sec = db.execute(select(
+        func.count(Appointment.id),
+        func.coalesce(func.sum(func.extract("epoch", Appointment.ends_at - Appointment.starts_at)), 0)).where(
+        Appointment.studio_id == studio_id, Appointment.status == "scheduled",
+        Appointment.starts_at >= now, Appointment.starts_at < _utc(next_sunday))).one()
+    rest = calendar_fill(db, studio_id, tomorrow, next_sunday) if tomorrow < next_sunday else None
+    if not (so_far or done or left_n):
+        return None
+    lines: list[dict] = []
+
+    # what was done
+    if en:
+        text = f"So far this week: {_ils(so_far)} came in" + (f" from {_appts(done, en)}" if done else "")
+        text += f", against {_ils(last_point)} by the same day last week." if last_point else "."
+    else:
+        text = f"עד עכשיו השבוע: {_ils(so_far)} הכנסות" + ((" מתור אחד" if done == 1 else f" מ-{done} תורים") if done else "")
+        text += f", לעומת {_ils(last_point)} עד אותו יום בשבוע שעבר." if last_point else "."
+    lines.append({"kind": "done", "text": text})
+
+    # what's still ahead this week
+    free = max(0, rest["total_minutes"] - rest["booked_minutes"]) if rest else 0
+    if left_n:
+        hours = _h(float(left_sec) / 60)
+        if en:
+            text = f"Still this week: {_appts(left_n, en)} — {hours} hours" + (f", and {_h(free)} hours still free in the days left." if free else ".")
+        else:
+            text = f"עוד השבוע: {_appts(left_n, en)} — {hours} שעות" + (f", ועוד {_h(free)} שעות פנויות בימים שנשארו." if free else ".")
+        lines.append({"kind": "ahead", "text": text})
+    elif free:
+        lines.append({"kind": "ahead", "text": f"No more appointments this week — {_h(free)} working hours free in the days left." if en
+                      else f"אין עוד תורים השבוע — {_h(free)} שעות עבודה פנויות בימים שנשארו."})
+
+    # this week's step towards the month's goal — what's left, spread over the working days left
+    prog = GoalRepository(db).get_progress(studio_id, today.year, today.month)
+    target, current = float(prog["target_amount"]), float(prog["current_revenue"])
+    if target > 0 and current >= target:
+        lines.append({"kind": "goal", "text": f"You passed this month's goal: {_ils(current)} of {_ils(target)}." if en
+                      else f"עברת את יעד החודש: {_ils(current)} מתוך {_ils(target)}."})
+    elif target > 0 and prog["days_remaining"] > 0:
+        left = target - current
+        per_day = left / prog["days_remaining"]
+        worked_today = any(r["day"] == today.day and float(r["amount"]) > 0 for r in prog["daily_revenue"])
+        # the working days left this week in this month — today too until money came in today (as the goal counts)
+        rest_of_week = [sunday + timedelta(days=i) for i in range(day_no, 7)]
+        week_days = sum(1 for d in rest_of_week if d.month == today.month and (d.weekday() + 1) % 7 in prog["work_days"]
+                        and (d > today or not worked_today))
+        all_this_week = week_days >= prog["days_remaining"]       # the month ends this week — one step, not two
+        if en:
+            text = (f"Towards this month's goal ({_ils(target)}): {_ils(left)} to go in {_days(prog['days_remaining'], en)}"
+                    + (" (all of them this week)" if all_this_week else "") + f" — about {_ils(per_day)} a day")
+            text += f", so {_ils(per_day * week_days)} in the days left this week." if week_days and not all_this_week else "."
+        else:
+            text = (f"לקראת יעד החודש ({_ils(target)}): נשארו {_ils(left)} ב-{_days(prog['days_remaining'], en)}"
+                    + (" (כולם השבוע)" if all_this_week else "") + f" — בערך {_ils(per_day)} ליום")
+            text += f", כלומר {_ils(per_day * week_days)} בימים שנשארו השבוע." if week_days and not all_this_week else "."
+        lines.append({"kind": "goal", "text": text})
+
+    # a bit towards next week — Sunday to Wednesday (from Thursday "השבועות הבאים" says it)
+    if day_no < 4:
+        nxt = calendar_fill(db, studio_id, next_sunday, next_sunday + timedelta(days=7))
+        span = f"{next_sunday:%d/%m}–{next_sunday + timedelta(days=6):%d/%m}"
+        words = fill_words(nxt["count"], nxt["booked_minutes"], nxt["total_minutes"], en=en)
+        lines.append({"kind": "next", "text": f"Next week ({span}): {words} ({nxt['percent']}% full)." if en
+                      else f"ולקראת השבוע הבא ({_ltr(span)}): {words} (היומן מלא ב-{nxt['percent']}%)."})
+
+    span = f"{sunday:%d/%m}–{sunday + timedelta(days=6):%d/%m}"
+    return {"title": f"This week ({span})" if en else f"השבוע הזה ({_ltr(span)})", "lines": lines}

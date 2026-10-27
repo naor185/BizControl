@@ -20,6 +20,15 @@ def _business(client, db, slug):
     return h, studio, me["id"]
 
 
+def _two_days_left(now) -> bool:
+    """At least two working days (Sunday–Friday, a new business's) left this week from tomorrow."""
+    today = now.astimezone(viki.IL).date()
+    sunday = today - timedelta(days=(today.weekday() + 1) % 7)
+    tomorrow = today + timedelta(days=1)
+    return sum(1 for i in range((sunday + timedelta(days=7) - tomorrow).days)
+               if ((tomorrow + timedelta(days=i)).weekday() + 1) % 7 in (0, 1, 2, 3, 4, 5)) >= 2
+
+
 def _keys(client, h):
     r = client.get("/api/viki", headers=h)
     assert r.status_code == 200, r.text
@@ -40,7 +49,9 @@ def test_her_suggestions_come_from_the_numbers_and_an_answer_hides_one(client, d
     viki.forget(studio.id)
 
     keys, body = _keys(client, h)
-    assert keys == ["leads", "lapsed", "fill_next"] and body["more"] == 1        # the most important first; the goal waits
+    # the rest of this week is empty too — said while at least two working days are left in it (2026-10-27)
+    expected = ["leads", "lapsed"] + (["fill_this"] if _two_days_left(now) else []) + ["fill_next", "goal_none"]
+    assert keys == expected[:3] and body["more"] == len(expected) - 3            # the most important first; the goal waits
     all_of_them = {s["key"].split(":")[0]: s for s in viki.suggestions(db_session, studio.id)}
     assert "goal_none" in all_of_them                                             # no goal set this month
     lapsed = next(s for s in body["suggestions"] if s["key"].startswith("lapsed:"))
@@ -54,7 +65,7 @@ def test_her_suggestions_come_from_the_numbers_and_an_answer_hides_one(client, d
     # "עשיתי" — gone for this user; the next one comes up
     assert client.post("/api/viki/answer", headers=h, json={"key": lapsed["key"], "kind": "done"}).status_code == 204
     keys, _ = _keys(client, h)
-    assert keys == ["leads", "fill_next", "goal_none"]
+    assert keys == [k for k in expected if k != "lapsed"][:3]
 
 
 def test_the_waiting_leads_once_a_week_and_quiet_after_an_answer(client, db_session):
@@ -98,6 +109,73 @@ def test_a_deleted_or_answered_lead_leaves_her_alert_at_once(client, db_session)
     assert leads()["text"].startswith("ליד אחד מחכה")                           # at once, not in 5 minutes
     assert client.patch(f"/api/leads/{called.id}", headers=h, json={"status": "contacted"}).status_code == 200
     assert leads() is None
+
+
+def _paid(client, h, studio, owner_id, db, amount_cents, starts_at, phone):
+    c = Client(studio_id=studio.id, full_name="לקוחה", phone=phone)
+    db.add(c)
+    db.flush()
+    a = Appointment(studio_id=studio.id, client_id=c.id, artist_id=owner_id, title="קעקוע", status="scheduled",
+                    starts_at=starts_at, ends_at=starts_at + timedelta(minutes=30))
+    db.add(a)
+    db.commit()
+    if amount_cents:
+        r = client.post("/api/payments", headers=h, json={"appointment_id": str(a.id), "client_id": str(c.id),
+                                                          "amount_cents": amount_cents, "type": "deposit", "method": "cash",
+                                                          "send_receipt": False})
+        assert r.status_code == 201, r.text
+    return a
+
+
+def test_the_week_we_are_in_what_was_done_what_is_ahead_and_the_step_to_the_goal(client, db_session):
+    """The owner, 2026-10-27: focus on what was done and what will be done this week, a bit of next week, and the
+    goal reached gradually."""
+    from decimal import Decimal
+    from app.repositories.goal_repository import GoalRepository
+    from app.services import viki_summary
+    h, studio, owner_id = _business(client, db_session, "viki-week")
+    now = datetime.now(timezone.utc)
+    today = now.astimezone(viki.IL).date()
+    sunday = viki.IL.localize(datetime.combine(today - timedelta(days=(today.weekday() + 1) % 7), datetime.min.time()))
+    assert viki_summary.this_week(db_session, studio.id) is None                 # nothing in the week yet
+
+    _paid(client, h, studio, owner_id, db_session, 50000, max(now - timedelta(hours=1), sunday + timedelta(minutes=1)), "0500000101")
+    later = _paid(client, h, studio, owner_id, db_session, 0, now + timedelta(minutes=5), "0500000102")
+    later.ends_at = later.starts_at + timedelta(hours=2)
+    db_session.commit()
+    GoalRepository(db_session).set_goal(studio.id, today.year, today.month, Decimal("100000"))
+
+    week = viki_summary.this_week(db_session, studio.id)
+    assert week["title"].startswith("השבוע הזה")
+    lines = {x["kind"]: x["text"] for x in week["lines"]}
+    assert lines["done"].startswith("עד עכשיו השבוע: ₪500 הכנסות מתור אחד")
+    assert lines["ahead"].startswith("עוד השבוע: תור אחד — 2 שעות")
+    if GoalRepository(db_session).get_progress(studio.id, today.year, today.month)["days_remaining"]:
+        assert lines["goal"].startswith("לקראת יעד החודש (₪100,000): נשארו ₪99,500")
+    assert ("next" in lines) == ((today.weekday() + 1) % 7 < 4)                  # Sunday–Wednesday; then "השבועות הבאים"
+    en = viki_summary.this_week(db_session, studio.id, lang="en")
+    assert en["title"].startswith("This week") and en["lines"][0]["text"].startswith("So far this week: ₪500 came in")
+
+
+def test_half_the_goal_and_three_quarters_a_good_word_and_the_way_there(client, db_session):
+    from decimal import Decimal
+    from app.repositories.goal_repository import GoalRepository
+    h, studio, owner_id = _business(client, db_session, "viki-half")
+    now = datetime.now(timezone.utc)
+    today = now.astimezone(viki.IL).date()
+    GoalRepository(db_session).set_goal(studio.id, today.year, today.month, Decimal("1000"))
+    _paid(client, h, studio, owner_id, db_session, 60000, now - timedelta(minutes=5), "0500000103")
+
+    def milestone():
+        found = [s for s in viki.suggestions(db_session, studio.id) if s["key"].startswith("goal_5") or s["key"].startswith("goal_7")]
+        return found[0] if found else None
+
+    half = milestone()
+    assert half["key"].startswith("goal_50:") and half["tone"] == "good"
+    assert half["text"].startswith("כל הכבוד — עברת חצי מהיעד! ₪600 מתוך ₪1,000 (60%).")
+    assert "goal_pace" not in [s["key"].split(":")[0] for s in viki.suggestions(db_session, studio.id)]   # said once
+    _paid(client, h, studio, owner_id, db_session, 20000, now - timedelta(minutes=4), "0500000104")
+    assert milestone()["text"].startswith("כל הכבוד — כבר שלושה רבעים מהיעד! ₪800 מתוך ₪1,000 (80%).")
 
 
 def test_her_moments_and_who_she_talks_to(client, db_session):

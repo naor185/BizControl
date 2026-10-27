@@ -20,6 +20,16 @@ type Suggestion = { key: string; tone: "warn" | "tip" | "good"; text: string; ac
 type Summary = { kind: "weekly" | "monthly"; title: string; good: string[]; improve: string[]; focus: string };
 // from Thursday: next week and the one after, as the calendar stands now — services/viki_summary.ahead
 type Ahead = { title: string; lines: string[] };
+// the week we're in: what was done, what's still ahead, this week's step towards the goal, a bit of next week —
+// services/viki_summary.this_week (the owner, 2026-10-27)
+type WeekLine = { kind: "done" | "ahead" | "goal" | "next"; text: string };
+type Week = { title: string; lines: WeekLine[] };
+const WEEK_ICON = {
+    done: { icon: CircleCheck, fg: "text-emerald-600" },
+    ahead: { icon: CalendarDays, fg: "text-sky-600" },
+    goal: { icon: Target, fg: "text-sky-800" },
+    next: { icon: CalendarDays, fg: "text-slate-400" },
+};
 
 const TONE = {
     warn: { icon: TriangleAlert, ring: "border-amber-200 bg-amber-50/60", fg: "text-amber-600" },
@@ -32,13 +42,14 @@ export default function VikiCard() {
     const [more, setMore] = useState(0);
     const [summary, setSummary] = useState<Summary | null>(null);
     const [ahead, setAhead] = useState<Ahead | null>(null);
+    const [week, setWeek] = useState<Week | null>(null);
     const [hidden, setHidden] = useState(false);
     const [pops, setPops] = useState(popupsOn);
     const [busy, setBusy] = useState<string | null>(null);
     const pathname = usePathname();
 
-    const load = () => apiFetch<{ suggestions: Suggestion[]; more: number; summary: Summary | null; ahead?: Ahead | null }>("/api/viki")
-        .then(r => { setItems(r.suggestions); setMore(r.more); setSummary(r.summary); setAhead(r.ahead ?? null); })
+    const load = () => apiFetch<{ suggestions: Suggestion[]; more: number; summary: Summary | null; ahead?: Ahead | null; week?: Week | null }>("/api/viki")
+        .then(r => { setItems(r.suggestions); setMore(r.more); setSummary(r.summary); setAhead(r.ahead ?? null); setWeek(r.week ?? null); })
         .catch(() => setHidden(true));
 
     useEffect(() => { load(); }, []);
@@ -74,6 +85,24 @@ export default function VikiCard() {
                         onChange={(v: boolean) => { setPops(v); setPopupsOn(v); }} />
                 </label>
             </div>
+            {/* the week we're in comes first — what was done and what will be done (the owner, 2026-10-27) */}
+            {week && week.lines.length > 0 && (
+                <div className="px-5 pt-4">
+                    <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-4">
+                        <div className="text-sm font-black text-slate-800">{week.title}</div>
+                        <ul className="mt-2 space-y-1.5">
+                            {week.lines.map(line => {
+                                const k = WEEK_ICON[line.kind] ?? WEEK_ICON.ahead;
+                                return (
+                                    <li key={line.text} className={`flex items-start gap-2 text-sm ${line.kind === "goal" ? "font-bold text-sky-800" : "text-slate-700"}`}>
+                                        <k.icon className={`w-4 h-4 shrink-0 mt-0.5 ${k.fg}`} aria-hidden />{line.text}
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                    </div>
+                </div>
+            )}
             {summary && (
                 <div className="px-5 pt-4">
                     <div className="rounded-xl border border-slate-200 p-4">

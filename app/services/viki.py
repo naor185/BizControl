@@ -79,6 +79,35 @@ def suggestions(db: Session, studio_id, now: datetime | None = None, lang: str =
         add(50, f"goal_hit:{ym}", "good", w(f"כל הכבוד! עברת את יעד החודש — {_ils(current)} מתוך {_ils(target)}. עכשיו העיקר לשמור על הקצב עד סוף החודש.",
                                            f"Well done! You passed this month's goal — {_ils(current)} of {_ils(target)}. Now the key is to keep the pace until the month ends."),
             w("לראות את החודש", "See the month"), "/analytics/business")
+    elif current >= target * 0.5:
+        # ── half the goal, three quarters — a good word, and the way to the goal step by step, in one message with
+        # the pace (the owner, 2026-10-27: "past half the goal — good feedback, and how to get to the goal the right
+        # way, gradually") ──
+        share = current / target
+        mark = 75 if share >= 0.75 else 50
+        left, days_left = target - current, prog["days_remaining"]
+        behind = False
+        pace = ""
+        if prog["days_elapsed"] >= 3:
+            projected = float(prog["current_daily_avg"]) * prog["days_in_month"]
+            pct = round(projected / target * 100)
+            behind = projected < target * 0.95
+            pace = w(f" בקצב הנוכחי החודש ייסגר בערך ב-{_ils(projected)} ({pct}%)" + (", אז שווה להאיץ קצת." if behind else " — אתה בכיוון."),
+                     f" At the current pace the month will close at about {_ils(projected)} ({pct}%)" + (", so it's worth speeding up a little." if behind else " — you're on track."))
+        if days_left > 0:
+            per_day = left / days_left
+            avg = _avg_appointment_ils(db, studio_id, now)
+            appts = math.ceil(left / avg) if avg > 0 else 0
+            step = w(f" מכאן בהדרגה: נשארו {_ils(left)} ב-{days_left} ימי עבודה — בערך {_ils(per_day)} ליום"
+                     + (f", כ-{appts} תורים עד סוף החודש." if appts else "."),
+                     f" From here, step by step: {_ils(left)} to go in {days_left} working days — about {_ils(per_day)} a day"
+                     + (f", some {appts} appointments by the month's end." if appts else "."))
+        else:
+            step = w(f" חסרו {_ils(left)} — את הקצב הזה שווה לקחת לחודש הבא.", f" {_ils(left)} short — a pace worth taking into next month.")
+        add(88 if behind else 58, f"goal_{mark}:{ym}", "good",
+            w(f"כל הכבוד — {'כבר שלושה רבעים מהיעד' if mark == 75 else 'עברת חצי מהיעד'}! {_ils(current)} מתוך {_ils(target)} ({round(share * 100)}%).{pace}{step}",
+              f"Well done — {'three quarters of the goal already' if mark == 75 else 'you passed half the goal'}! {_ils(current)} of {_ils(target)} ({round(share * 100)}%).{pace}{step}"),
+            *((w("לפתוח את היומן", "Open the calendar"), "/calendar") if behind else (w("לראות את החודש", "See the month"), "/analytics/business")))
     elif prog["days_elapsed"] >= 3:
         projected = float(prog["current_daily_avg"]) * prog["days_in_month"]
         pct = round(projected / target * 100)
@@ -122,12 +151,27 @@ def suggestions(db: Session, studio_id, now: datetime | None = None, lang: str =
               f"{lapsed} clients haven't come in for over two months and have no appointment. A short personal message brings some of them back."),
             *((w("לשלוח להם הודעה", "Send them a message"), "/broadcasts?audience=lapsed") if can_broadcast else (w("לראות", "See them"), "/clients/analytics")))
 
-    # ── next week's calendar ──
+    # ── the rest of this week (the owner, 2026-10-27: "alerts for the current week too") — while at least two
+    # working days are left in it, from tomorrow ──
+    from app.services.viki_summary import fill_words
     week_start = today - timedelta(days=(today.weekday() + 1) % 7)
-    next_week = calendar_fill(db, studio_id, week_start + timedelta(days=7), week_start + timedelta(days=14))
     work_days = getattr(settings, "work_days", None)
+    open_days = work_days if work_days is not None else [0, 1, 2, 3, 4, 5]
+    tomorrow = today + timedelta(days=1)
+    days_left = sum(1 for i in range((week_start + timedelta(days=7) - tomorrow).days)
+                    if ((tomorrow + timedelta(days=i)).weekday() + 1) % 7 in open_days)
+    if days_left >= 2:
+        rest = calendar_fill(db, studio_id, tomorrow, week_start + timedelta(days=7))
+        if rest["percent"] < 40:
+            nums = (rest["count"], rest["booked_minutes"], rest["total_minutes"])
+            add(72, f"fill_this:{week_start.isoformat()}", "warn",
+                w(f"שאר השבוע מלא רק ב-{rest['percent']}%: {fill_words(*nums)}. עוד אפשר למלא אותו — הודעה קצרה ללקוחות קבועים או הטבה לשעות הפנויות.",
+                  f"The rest of this week is only {rest['percent']}% full: {fill_words(*nums, en=True)}. There's still time to fill it — a short message to regulars or an offer for the free hours."),
+                *((w("לשלוח הודעה ללקוחות", "Message your clients"), "/broadcasts?audience=all") if can_broadcast else (w("לפתוח את היומן", "Open the calendar"), "/calendar")))
+
+    # ── next week's calendar ──
+    next_week = calendar_fill(db, studio_id, week_start + timedelta(days=7), week_start + timedelta(days=14))
     if next_week["percent"] < 40 and (work_days is None or len(work_days) > 0):
-        from app.services.viki_summary import fill_words
         nums = (next_week["count"], next_week["booked_minutes"], next_week["total_minutes"])
         add(70, f"fill_next:{(week_start + timedelta(days=7)).isoformat()}", "warn",
             w(f"השבוע הבא מלא רק ב-{next_week['percent']}%: {fill_words(*nums)}. זה זמן טוב להזכיר ללקוחות שאפשר לקבוע — הודעה קצרה ללקוחות קבועים עושה פלאים.",
@@ -181,7 +225,7 @@ def suggestions(db: Session, studio_id, now: datetime | None = None, lang: str =
         kind = s["key"].split(":")[0]
         if kind in quiet:
             prio -= 40                                   # the owner said, again and again, it isn't for them
-        before = last.get({"lapsed": "lapsed", "fill_next": "all"}.get(kind, ""))
+        before = last.get({"lapsed": "lapsed", "fill_next": "all", "fill_this": "all"}.get(kind, ""))
         if before:
             b, r = before
             on = b.scheduled_at.astimezone(IL).strftime("%d/%m")

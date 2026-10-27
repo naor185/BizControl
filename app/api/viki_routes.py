@@ -36,10 +36,11 @@ def _lang(request: Request) -> str:
 
 @router.get("")
 def get_suggestions(request: Request, ctx: AuthContext = Depends(require_permission("money")), db: Session = Depends(get_db)):
-    from app.services.viki_summary import ahead, latest
+    from app.services.viki_summary import ahead, latest, this_week
     lang = _lang(request)
     left = viki.for_user(db, ctx.studio_id, ctx.user_id, lang)
     return {"suggestions": left[:viki.SHOWN], "more": max(0, len(left) - viki.SHOWN),
+            "week": this_week(db, ctx.studio_id, lang=lang),
             "summary": latest(db, ctx.studio_id, lang=lang), "ahead": ahead(db, ctx.studio_id, lang=lang)}
 
 
