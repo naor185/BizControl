@@ -185,8 +185,8 @@ def pos_checkout(
     discount = max(0, body.discount_cents)
     total = max(0, subtotal - discount)
 
-    # Who sold the items — one of this business's active team; chosen at the till only for items sold (an earring, a
-    # cream): the work of an appointment is its artist's (the owner, 2026-10-24)
+    # Whose sale it is — one of this business's active team; the till asks before every charge when the team is more
+    # than one (the owner, 2026-10-29). The work of an appointment is its artist's.
     from app.models.user import User
     performer_id = None
     if body.performer_id:
@@ -482,6 +482,8 @@ def pos_history(
             "discount_cents": t.discount_cents,
             "method": t.method,
             "items_count": len(items),
+            # what was sold, so the payments list says "קופה — קעקוע", not only "1 פריטים" (the owner, 2026-10-29)
+            "items_text": " + ".join(i.description for i in items if i.description),
             "created_at": t.created_at.isoformat(),
         })
     return result

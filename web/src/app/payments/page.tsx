@@ -38,6 +38,7 @@ type PosTransaction = {
     discount_cents: number;
     method: string;
     items_count: number;
+    items_text?: string;              // what was sold ("קעקוע + עגיל")
     created_at: string;
 };
 
@@ -156,9 +157,8 @@ export default function Page() {
                 method: t.method,
                 type: "pos_sale",
                 created_at: t.created_at,
-                notes: (t.discount_cents > 0
-                    ? tx("קופה — {0} פריטים, הנחה ₪{1}", { 0: t.items_count, 1: (t.discount_cents / 100).toFixed(0) })
-                    : tx("קופה — {0} פריטים", { 0: t.items_count }))
+                notes: (t.items_text ? tx("קופה — {0}", { 0: t.items_text }) : tx("קופה — {0} פריטים", { 0: t.items_count }))
+                    + (t.discount_cents > 0 ? tx(", הנחה ₪{0}", { 0: (t.discount_cents / 100).toFixed(0) }) : "")
                     + (t.performer_name ? tx(" · מכר/ה: {0}", { 0: t.performer_name }) : ""),
                 clientId: null,
                 clientName: t.client_name,

@@ -37,5 +37,6 @@ def test_the_till_records_who_did_it(client, db_session):
     assert str(txn.performer_id) == dana and txn.studio_id == s.id
     history = client.get("/api/pos/history?days=30", headers=owner).json()
     assert "דנה" in {t.get("performer_name") for t in history}
+    assert {t["items_text"] for t in history} == {"קעקוע"}                 # the list says what was sold (2026-10-29)
     team = {a["name"]: a["revenue"] for a in client.get("/api/dashboard/analytics", headers=owner).json().get("artists", [])}
     assert team.get("דנה") == 500                                          # her sale counts in her sales

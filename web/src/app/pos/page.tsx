@@ -190,10 +190,12 @@ export default function PosPage() {
     const [products, setProducts] = useState<Product[]>([]);
     const [cart, setCart] = useState<CartItem[]>([]);
     const [method, setMethod] = useState("cash");
-    // who sold the items — asked only when the cart has items (an earring, a cream); the one at the till unless changed.
-    // Work done through an appointment is the appointment's artist's (the owner, 2026-10-24)
+    // Whose sale it is — asked before every charge when the team is more than one (the owner, 2026-10-29: "ask me who
+    // to attribute it to, don't approve it straight away"); it counts in that person's sales. Work done through an
+    // appointment is the appointment's artist's.
     const [team, setTeam] = useState<{ id: string; display_name: string | null; email: string }[]>([]);
     const [performerId, setPerformerId] = useState<string>("");
+    const [askWho, setAskWho] = useState<null | "charge" | "link">(null);
     const [client, setClient] = useState<ClientResult | null>(null);
     const [clientSearch, setClientSearch] = useState("");
     const [clientResults, setClientResults] = useState<ClientResult[]>([]);
@@ -356,14 +358,13 @@ export default function PosPage() {
     const giftCardDiscountCents = giftCardInfo ? Math.min(giftCardDiscount * 100, Math.max(0, subtotal - discountCents - pointsDiscountCents)) : 0;
     const total = Math.max(0, subtotal - discountCents - pointsDiscountCents - giftCardDiscountCents);
     const cartCount = cart.reduce((s, i) => s + i.quantity, 0);
-    const hasItems = cart.some(i => !!i.product_id);        // items from the catalog — an earring, a cream
 
     // The card terminal isn't connected — send the client a link to pay instead (services/payment_requests): Bit /
     // PayBox / a bank transfer and "שילמתי"; the business approves it on לוח בקרה and the sale is recorded then, with
     // its receipt and who sold the items. Not with club points, a gift card or a coupon — those are taken here.
     const [sendingLink, setSendingLink] = useState(false);
     const linkBlocked = pointsDiscount > 0 || !!giftCardInfo || couponDiscount > 0;
-    const sendPayLink = async () => {
+    const sendPayLink = async (performer: string | null) => {
         if (!client?.phone || cart.length === 0) return;
         setSendingLink(true);
         try {
@@ -373,7 +374,7 @@ export default function PosPage() {
                     client_id: client.id,
                     items: cart.map(i => ({ product_id: i.product_id, description: i.description, quantity: i.quantity, unit_price_cents: i.unit_price_cents })),
                     discount_cents: discountCents,
-                    performer_id: hasItems ? (performerId || null) : null,
+                    performer_id: performer,
                 }),
             });
             toast.success(tx("הקישור לתשלום נשלח ל-{0} בוואטסאפ — כשישלם, יופיע לאישור בלוח הבקרה", { 0: client.full_name }));
@@ -386,7 +387,21 @@ export default function PosPage() {
         }
     };
 
-    const handleCheckout = async () => {
+    // A team of one — it's theirs, nothing to ask
+    const startSale = (then: "charge" | "link") => {
+        if (cart.length === 0) { toast.error(tx("העגלה ריקה")); return; }
+        if (team.length > 1) { setAskWho(then); return; }
+        const only = team[0]?.id || getCurrentUserId() || null;
+        if (then === "link") sendPayLink(only); else handleCheckout(only);
+    };
+    const pickWho = (id: string) => {
+        const then = askWho;
+        setAskWho(null);
+        setPerformerId(id);                 // offered first next time
+        if (then === "link") sendPayLink(id); else handleCheckout(id);
+    };
+
+    const handleCheckout = async (performer: string | null) => {
         if (cart.length === 0) { toast.error(tx("העגלה ריקה")); return; }
         setLoading(true);
         try {
@@ -401,7 +416,7 @@ export default function PosPage() {
                     coupon_code: couponDiscount > 0 ? couponCode.trim().toUpperCase() : null,
                     send_receipt: client?.phone ? sendReceipt : false,
                     idempotency_key: checkoutKeyRef.current,
-                    performer_id: hasItems ? (performerId || null) : null,
+                    performer_id: performer,
                 }),
             });
             checkoutKeyRef.current = crypto.randomUUID();
@@ -710,17 +725,6 @@ export default function PosPage() {
                     </div>
                 </div>
 
-                {/* Who sold the items (counts in the team's sales) — only when the cart has items */}
-                {hasItems && team.length > 1 && (
-                    <label className="flex items-center justify-between gap-2 rounded-xl px-3 py-2 border border-slate-200 bg-white">
-                        <span className="text-xs font-semibold text-slate-700">{tx("מי מכר")}</span>
-                        <select value={performerId} onChange={e => setPerformerId(e.target.value)}
-                            className="text-sm font-bold text-slate-800 bg-transparent outline-none max-w-[60%]">
-                            {team.map(m => <option key={m.id} value={m.id}>{m.display_name || m.email}</option>)}
-                        </select>
-                    </label>
-                )}
-
                 {/* Payment methods — big buttons */}
                 <div className="grid grid-cols-5 gap-1.5">
                     {PAYMENT_METHODS.map(pm => (
@@ -742,12 +746,12 @@ export default function PosPage() {
                 )}
 
                 {/* Checkout */}
-                <button type="button" data-tour="pos-checkout" onClick={handleCheckout} disabled={loading || cart.length === 0}
+                <button type="button" data-tour="pos-checkout" onClick={() => startSale("charge")} disabled={loading || cart.length === 0}
                     className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold py-3 rounded-2xl text-sm transition-all shadow-md active:scale-95">
                     {loading ? tx("מעבד...") : tx("💳 גבה ₪{0}", { 0: (total/100).toFixed(2) })}
                 </button>
                 {client?.phone && cart.length > 0 && (
-                    <button type="button" onClick={sendPayLink} disabled={sendingLink || linkBlocked}
+                    <button type="button" onClick={() => startSale("link")} disabled={sendingLink || linkBlocked}
                         title={linkBlocked ? tx("קישור לתשלום — בלי נקודות, גיפט קארד או קופון") : undefined}
                         className="w-full bg-white border-2 border-sky-500 text-sky-700 hover:bg-sky-50 disabled:opacity-50 font-bold py-2.5 rounded-2xl text-sm transition-all">
                         {sendingLink ? tx("שולח...") : tx("📲 שליחת קישור לתשלום בוואטסאפ")}
@@ -794,6 +798,28 @@ export default function PosPage() {
         </div>
 
         {/* Modals */}
+        {askWho && (
+            <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4" onClick={() => setAskWho(null)}>
+                <div role="dialog" aria-modal="true" aria-labelledby="pos-who-title" className="bg-white rounded-2xl shadow-2xl w-full max-w-xs p-5" onClick={e => e.stopPropagation()}>
+                    <div id="pos-who-title" className="text-base font-bold text-slate-900">{tx("למי לשייך את העסקה?")}</div>
+                    <p className="mt-1 text-xs text-slate-500">
+                        {tx("₪{0} — נספר במכירות של מי שתבחר", { 0: (total / 100).toFixed(2) })}
+                    </p>
+                    <div className="mt-4 grid gap-2">
+                        {team.map(m => (
+                            <button key={m.id} type="button" onClick={() => pickWho(m.id)} disabled={loading || sendingLink}
+                                className={`min-h-12 rounded-xl border-2 px-4 text-start text-sm font-bold transition-colors disabled:opacity-50 ${m.id === performerId ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-slate-200 text-slate-800 hover:border-emerald-400 hover:bg-emerald-50"}`}>
+                                {m.display_name || m.email}
+                            </button>
+                        ))}
+                    </div>
+                    <button type="button" onClick={() => setAskWho(null)}
+                        className="mt-3 w-full min-h-10 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50">
+                        {tx("ביטול")}
+                    </button>
+                </div>
+            </div>
+        )}
         {receipt && <ReceiptModal txn={receipt} clientId={client?.id ?? null} onClose={() => setReceipt(null)}
             onBack={() => { setReceipt(null); if (window.history.length > 1) router.back(); else router.push("/dashboard"); }} />}
         {showAddClient && (
