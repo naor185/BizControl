@@ -5220,6 +5220,7 @@ export const EN: Record<string, string> = {
     "{0} נקודות הוחזרו ללקוח": "{0} points given back to the client",
     "הקופון שוחרר לשימוש חוזר": "the coupon can be used again",
     "{0} פריטים חזרו למלאי": "{0} items back in stock",
+    "התור חזר להיות פתוח": "the appointment is open again",
     // what a worker may do — the owner's switches, per worker (2026-10-27)
     "יומן של כל הצוות — לראות ולקבוע תורים גם אצל אחרים": "The whole team's calendar — see and book appointments for others too",
     "גבייה ומקדמות — לרשום תשלום ולאשר מקדמה": "Payments and deposits — record a payment and approve a deposit",

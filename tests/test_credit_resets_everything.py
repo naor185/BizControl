@@ -42,9 +42,11 @@ def test_a_credited_payment_gives_back_the_points_the_coupon_and_the_commission(
 
     credit = client.post(f"/api/payments/{pay_id}/credit", headers=h)
     assert credit.status_code == 200, credit.text
-    assert credit.json()["undone"] == {"points_taken": 42, "points_given": 50, "coupon": True, "restocked": 0}
+    assert credit.json()["undone"] == {"points_taken": 42, "points_given": 50, "coupon": True, "restocked": 0,
+                                       "reopened": True}
     db_session.expire_all()
     assert db_session.get(Client, c.id).loyalty_points == 100                         # as before the payment
+    assert db_session.get(type(a), a.id).status == "scheduled"                        # the payment had closed it
     history = [x.reason for x in db_session.scalars(select(ClientPointsLedger).where(ClientPointsLedger.client_id == c.id)).all()]
     assert any(x.startswith("זיכוי — בוטלו") for x in history) and any(x.startswith("זיכוי — הוחזרו") for x in history)
 
@@ -109,3 +111,39 @@ def test_a_deposit_credited_takes_back_points_recorded_before_the_link(client, d
     assert r.json()["undone"]["points_taken"] == 10                                   # 5% of ₪200
     db_session.expire_all()
     assert db_session.get(Client, c.id).loyalty_points == 10
+
+
+def test_a_credited_payment_opens_its_appointment_and_an_unpaid_one_can_be_canceled(client, db_session):
+    """The owner, 2026-10-29: a ₪1 test payment closed a ₪180 helix appointment; credited, it stayed "done", owing,
+    and "an appointment completed and paid can't be canceled". Now the credit opens it again, and a "done" appointment
+    that paid nothing (an old one, credited before this) cancels; one really paid still doesn't."""
+    from app.models.appointment import Appointment
+    h, s = _business(client, db_session, "reset-reopen")
+    c = _member(db_session, s, points=0, phone="0500000078")
+
+    a = _appointment(db_session, s, c)
+    pay = _pay(client, h, a, c, amount=100).json()["id"]
+    db_session.expire_all()
+    assert db_session.get(Appointment, a.id).status == "done"                         # the payment closed it
+    assert client.post(f"/api/payments/{pay}/credit", headers=h).json()["undone"]["reopened"] is True
+    db_session.expire_all()
+    assert db_session.get(Appointment, a.id).status == "scheduled"
+
+    two = _appointment(db_session, s, c)                                              # two balance payments, one credited
+    first = _pay(client, h, two, c, amount=50000).json()["id"]
+    _pay(client, h, two, c, amount=30000)
+    assert client.post(f"/api/payments/{first}/credit", headers=h).json()["undone"]["reopened"] is False
+    db_session.expire_all()
+    assert db_session.get(Appointment, two.id).status == "done"
+    assert client.delete(f"/api/appointments/{two.id}", headers=h).status_code == 409  # still paid ₪300
+
+    old = _appointment(db_session, s, c)                                              # credited before the fix
+    db_session.add_all([Payment(studio_id=s.id, appointment_id=old.id, client_id=c.id, amount_cents=100, type="payment",
+                                status="paid", method="cash"),
+                        Payment(studio_id=s.id, appointment_id=old.id, client_id=c.id, amount_cents=100, type="refund",
+                                status="paid", method="cash", notes="[זיכוי אוטומטי] עבור תשלום 00000000")])
+    db_session.get(Appointment, old.id).status = "done"
+    db_session.commit()
+    assert client.delete(f"/api/appointments/{old.id}", headers=h).status_code == 204
+    db_session.expire_all()
+    assert db_session.get(Appointment, old.id).status == "canceled"

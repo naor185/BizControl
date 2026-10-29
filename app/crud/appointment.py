@@ -1,6 +1,6 @@
 from __future__ import annotations # v1.1
 from uuid import UUID
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, or_
 from sqlalchemy.orm import Session
 
 from app.models.appointment import Appointment
@@ -247,8 +247,8 @@ def cancel_appointment(db: Session, studio_id: UUID, appointment_id: UUID, reaso
     if not obj:
         return False
 
-    if obj.status == "done":
-        raise ValueError("לא ניתן לבטל תור שכבר הושלם ושולם")
+    if obj.status == "done" and _money_paid(db, obj) > 0:
+        raise ValueError("לא ניתן לבטל תור שהושלם ושולם — קודם מזכים את התשלום")
 
     # Update Client Counters based on reason before marking canceled/no_show
     if reason in ("client_cancelled", "no_show"):
@@ -265,6 +265,18 @@ def cancel_appointment(db: Session, studio_id: UUID, appointment_id: UUID, reaso
     if reason in ("client_cancelled", "no_show"):
         enqueue_cancel_message(db, obj)
     return True
+
+def _money_paid(db: Session, appt) -> int:
+    """What was really paid for the appointment — its payments and deposits less refunds, the system's own rows (club
+    points, a coupon) left out. A "done" appointment whose payment was credited back has paid nothing, and may be
+    canceled (the owner, 2026-10-29)."""
+    from sqlalchemy import func
+    from app.crud.payment import net_cents
+    from app.models.payment import Payment
+    return int(db.scalar(select(func.coalesce(func.sum(net_cents()), 0)).where(
+        Payment.appointment_id == appt.id, Payment.status == "paid",
+        or_(Payment.notes.is_(None), ~Payment.notes.startswith("[מערכת]")))) or 0)
+
 
 def hard_delete_appointment(db: Session, studio_id: UUID, appointment_id: UUID) -> bool:
     obj = get_appointment(db, studio_id, appointment_id)

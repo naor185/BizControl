@@ -435,7 +435,7 @@ EN: dict[str, str] = {
     "Instance ID ו-API Token נדרשים": "Instance ID and API Token are required",
     "יצירת Instance נכשלה — בדוק את ה-Partner Token": "Creating the instance failed — check the Partner Token",
     "אין Instance מוגדר — הכנס פרטי Green API תחילה": "No instance is set up — enter the Green API details first",
-    "לא ניתן לבטל תור שכבר הושלם ושולם": "An appointment that was completed and paid can't be canceled",
+    "לא ניתן לבטל תור שהושלם ושולם — קודם מזכים את התשלום": "An appointment that was completed and paid can't be canceled — credit the payment first",
     "לא ניתן למחוק תור שכבר הושלם ושולם": "An appointment that was completed and paid can't be deleted",
     "לקוח עם טלפון או אימייל זהה כבר קיים במערכת": "A client with the same phone or email already exists",
     "מועד שליחת הודעת יום הולדת לא תקין": "Invalid birthday message timing",

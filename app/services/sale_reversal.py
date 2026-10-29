@@ -86,7 +86,32 @@ def undo_payment(db: Session, payment, total_cents: int, method: str | None = No
             product.stock_quantity += sale.quantity
             restocked += sale.quantity
         db.delete(sale)
-    return {"points_taken": taken, "points_given": given, "coupon": bool(released), "restocked": restocked}
+    return {"points_taken": taken, "points_given": given, "coupon": bool(released), "restocked": restocked,
+            "reopened": _reopen_if_unpaid(db, payment)}
+
+
+def _reopen_if_unpaid(db: Session, payment) -> bool:
+    """A balance payment closes its appointment (crud/payment); credited back with no other balance payment standing,
+    the appointment is open again — it can be paid, closed or canceled (the owner, 2026-10-29: a ₪1 test payment,
+    credited, left a "done" helix appointment owing ₪180 that couldn't be canceled)."""
+    from app.models.appointment import Appointment
+    from app.models.payment import Payment
+    if payment.type != "payment" or not payment.appointment_id:
+        return False
+    appt = db.get(Appointment, payment.appointment_id)
+    if appt is None or appt.status != "done":
+        return False
+    db.flush()                                            # the refund just recorded counts
+    rows = db.scalars(select(Payment).where(Payment.appointment_id == appt.id, Payment.status == "paid")).all()
+    refunds = [r for r in rows if r.type == "refund"]
+    for r in rows:
+        if r.type != "payment" or (r.notes or "").startswith("[מערכת]"):
+            continue
+        back = sum(f.amount_cents for f in refunds if str(r.id)[:8] in (f.notes or ""))   # record_refund's note
+        if r.amount_cents - back > 0:
+            return False                                  # another balance payment still stands
+    appt.status, appt.done_at = "scheduled", None
+    return True
 
 
 def undo_till_sale(db: Session, txn) -> dict:
