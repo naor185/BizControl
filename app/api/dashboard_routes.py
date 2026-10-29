@@ -186,14 +186,27 @@ def get_today_revenue(ctx: AuthContext = Depends(require_studio_ctx), db: Sessio
             else:
                 parts["earlier_appointments_cents"] += amount
 
-    pos_cents = db.scalar(
-        select(func.sum(PosTransaction.total_cents)).where(
-            PosTransaction.studio_id == ctx.studio_id,
-            PosTransaction.status == "paid",
-            PosTransaction.created_at >= today_start,
-            PosTransaction.created_at < tomorrow_start,
-        )
-    ) or 0
+    # Today's till sales, each one — the daily table shows them under the appointments (the owner, 2026-10-29: "why
+    # isn't the 550 in Bit here?" — it was only a sum in the line above the table)
+    from app.models.pos_transaction import PosTransactionItem
+    pos_rows = db.scalars(select(PosTransaction).where(
+        PosTransaction.studio_id == ctx.studio_id,
+        PosTransaction.status == "paid",
+        PosTransaction.created_at >= today_start,
+        PosTransaction.created_at < tomorrow_start,
+    ).order_by(PosTransaction.created_at)).all()
+    pos_cents = sum(t.total_cents or 0 for t in pos_rows)
+    pos_sales_today = []
+    for t in pos_rows:
+        client = db.get(Client, t.client_id) if t.client_id else None
+        performer = db.get(User, t.performer_id) if t.performer_id else None
+        items = db.scalars(select(PosTransactionItem.description).where(PosTransactionItem.transaction_id == t.id)).all()
+        pos_sales_today.append({
+            "id": str(t.id), "created_at": t.created_at.isoformat(), "total_cents": t.total_cents, "method": t.method,
+            "client_id": str(client.id) if client else None, "client_name": client.full_name if client else None,
+            "client_phone": client.phone if client else None, "items_text": " + ".join(d for d in items if d),
+            "performer_name": (performer.display_name or performer.email) if performer else None,
+        })
 
     total = (parts["appointments_today_cents"] + parts["deposits_today_cents"] + parts["earlier_appointments_cents"]
              + parts["other_payments_cents"] + pos_cents - parts["refunds_cents"])
@@ -201,6 +214,7 @@ def get_today_revenue(ctx: AuthContext = Depends(require_studio_ctx), db: Sessio
         "total_today_cents": total,
         **parts,
         "pos_revenue_cents": pos_cents,
+        "pos_sales_today": pos_sales_today,
         "deposits_today": deposits_today,
         "date": today.isoformat(),
     }

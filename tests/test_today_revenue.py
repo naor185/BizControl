@@ -56,3 +56,6 @@ def test_the_days_parts_add_up_to_what_came_in(client, db_session):
     assert r["total_today_cents"] == 650_000 + 20_000 + 100_000 + 5_000 - 10_000
     assert r["deposits_today"] == [{"client_name": "ימית", "amount_cents": 20_000,
                                     "appointment_date": (today + timedelta(days=5)).isoformat()}]
+    # each till sale, for the daily table's rows (the owner, 2026-10-29: "why isn't the 550 here?")
+    [sale] = r["pos_sales_today"]
+    assert (sale["total_cents"], sale["method"], sale["client_name"]) == (5_000, "cash", "ימית")

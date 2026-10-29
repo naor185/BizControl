@@ -75,6 +75,10 @@ const fmt = (n: number) =>
     n.toLocaleString(intl(), { style: "currency", currency: "ILS", maximumFractionDigits: 0 });
 
 
+// a till sale's method, in the daily table
+const TILL_METHODS: Record<string, string> = { cash: tx("מזומן"), credit: tx("אשראי"), credit_card: tx("אשראי"), bit: "Bit",
+    paybox: "PayBox", bank_transfer: tx("העברה"), other: tx("אחר") };
+
 export default function Page() {
     const [leadsOpen, setLeadsOpen] = useState(readLeadsOpen);
     const newLeads = useNewLeadsCount();
@@ -105,6 +109,9 @@ export default function Page() {
         pos_revenue_cents: number;
         refunds_cents: number;
         deposits_today: { client_name: string; amount_cents: number; appointment_date: string }[];
+        // each of today's till sales — rows under the appointments
+        pos_sales_today?: { id: string; created_at: string; total_cents: number; method: string; client_id: string | null;
+            client_name: string | null; client_phone: string | null; items_text: string; performer_name: string | null }[];
         date: string;
     } | null>(null);
 
@@ -504,7 +511,7 @@ export default function Page() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50">
-                                    {dailyPayments.length === 0 ? (
+                                    {dailyPayments.length === 0 && !todayRevenue?.pos_sales_today?.length ? (
                                         <tr><td colSpan={6} className="px-6 py-12 text-center text-slate-400">{tx("לא נמצאו תורים להיום")}</td></tr>
                                     ) : dailyPayments.map(p => (
                                         <tr key={p.appointment_id} className="hover:bg-slate-50/80 transition-colors">
@@ -544,6 +551,34 @@ export default function Page() {
                                                         </button>
                                                     )}
                                                 </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {/* today's till sales — the "קופה" in the line above, each one (the owner, 2026-10-29) */}
+                                    {(todayRevenue?.pos_sales_today || []).map(t => (
+                                        <tr key={`pos-${t.id}`} className="bg-emerald-50/30">
+                                            <td className="px-6 py-4">
+                                                <div className="font-semibold text-slate-800">{t.client_name || tx("לקוח מזדמן")}</div>
+                                                <div className="text-xs text-slate-500">
+                                                    {tx("קופה")}{t.items_text ? ` — ${t.items_text}` : ""}
+                                                    {t.performer_name ? tx(" · מכר/ה: {0}", { 0: t.performer_name }) : ""}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 text-slate-600">
+                                                {new Date(t.created_at).toLocaleTimeString(intl(), { hour: "2-digit", minute: "2-digit" })}
+                                            </td>
+                                            <td className="px-6 py-4 font-semibold text-slate-700" dir="ltr">{fmt(t.total_cents / 100)}</td>
+                                            <td className="px-6 py-4 text-slate-500" dir="ltr">{fmt(t.total_cents / 100)}</td>
+                                            <td className="px-6 py-4">
+                                                <span className="font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+                                                    {tx("שולם · {0}", { 0: TILL_METHODS[t.method] || t.method })}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <a href={t.client_id ? `/clients/${t.client_id}` : "/payments"}
+                                                    className="block px-3 py-1.5 bg-slate-100 text-slate-800 text-xs font-semibold rounded-lg text-center hover:bg-slate-200 transition">
+                                                    {t.client_id ? tx("כרטיס לקוח") : tx("לתשלומים")}
+                                                </a>
                                             </td>
                                         </tr>
                                     ))}
