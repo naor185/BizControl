@@ -1046,6 +1046,12 @@ function Calendar() {
         showToast(tx("✅ התשלום אושר בהצלחה!"));
     };
 
+    // Cancel / delete: a scheduled appointment, or one marked done that paid nothing — a payment that closed it and was
+    // credited back (the owner, 2026-10-29: "it wasn't really done, and there's nowhere to cancel it"). One really paid
+    // is credited first; the server says so (crud/appointment.cancel_appointment).
+    const cancellable = (a: { status?: string; paid_cents?: number }) =>
+        a.status === "scheduled" || (a.status === "done" && !((a.paid_cents ?? 0) > 0));
+
     const handleDeleteClick = () => {
         setDeleteReason("");
         setIsDeleteModalOpen(true);
@@ -1913,7 +1919,7 @@ function Calendar() {
                                 >
                                     {tx("✏️ עריכה מלאה")}
                                 </button>
-                                {app.status === "scheduled" && (
+                                {cancellable(app) && (
                                     <button
                                         type="button"
                                         onClick={() => { setSelectedEventId(app.id); setViewSheetAppt(null); handleDeleteClick(); }}
@@ -2203,7 +2209,7 @@ function Calendar() {
 
                             <div className="bg-slate-50 px-4 py-3 sm:p-5 flex justify-between items-center rounded-b-3xl border-t border-slate-100 flex-shrink-0">
                                 <div>
-                                    {selectedEventId && status === "scheduled" && (
+                                    {selectedEventId && cancellable({ status, paid_cents: appointments.find(a => a.id === selectedEventId)?.paid_cents }) && (
                                         <button onClick={handleDeleteClick} className="px-4 py-2 text-sm font-bold text-red-600 hover:bg-red-50 rounded-xl transition-colors flex items-center gap-1">
                                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                             {tx("מחק תור")}
