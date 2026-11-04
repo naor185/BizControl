@@ -484,11 +484,29 @@ EN.update({
     "ההודעה": "The message", "ההצהרה": "The declaration", "הלקוח": "The client", "העסק": "The business",
     "הקובץ": "The file", "התור": "The appointment",
     "משימות": "Tasks", "עריכת הצהרת הבריאות": "Editing the health declaration", "קופונים": "Coupons",
+    # Lucky Club (services/lucky_draw)
+    "קהל לא מוכר": "Unknown audience",
+    "ההגרלה לא נמצאה": "The draw wasn't found",
+    "אפשר לשנות רק הגרלה שעוד לא ננעלה": "Only a draw that isn't locked yet can be changed",
+    "שם ההגרלה חובה": "The draw needs a name",
+    "מקום לא תקין לפרס": "Invalid place for a prize",
+    "אפשר למחוק רק טיוטה — הגרלה נעולה מבטלים": "Only a draft can be deleted — a locked draw is canceled",
+    "ההגרלה כבר נעולה": "The draw is already locked",
+    "קודם נועלים את ההגרלה": "Lock the draw first",
+    "ההגרלה בוטלה": "The draw was canceled",
+    "אין מספיק משתתפים": "Not enough participants",
+    "הגרלה שבוצעה כבר לא מבטלים": "A draw that took place can't be canceled",
+    "ההגרלה כבר בוטלה": "The draw was already canceled",
+    "טיוטה מוחקים, לא מבטלים": "A draft is deleted, not canceled",
+    "הזוכה לא נמצא": "The winner wasn't found",
 })
 
 # Messages with a name or a number inside: the Hebrew with {} where a value goes, the English with {0}, {1}… in the
 # Hebrew's order. The specific before the general ("מוצר {} לא נמצא" before "{} לא נמצא").
 PATTERNS: dict[str, str] = {
+    "מספר הזוכים: בין 1 ל-{}": "Number of winners: between 1 and {0}",
+    "חסר פרס למקום {}": "A prize is missing for place {0}",
+    "אין מספיק משתתפים: {} משתתפים ל-{} זוכים": "Not enough participants: {0} participants for {1} winners",
     "'{}' אינו תחום עסק קיים — הוסף אותו קודם בניהול תחומי העסק": "'{0}' isn't an existing business field — add it first under business fields",
     "'{}' כבר מזוהה עם התחום {}": "'{0}' is already linked to the field {1}",
     "Meta API שגיאה {}: {}": "Meta API error {0}: {1}",

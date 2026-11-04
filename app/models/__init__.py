@@ -44,6 +44,7 @@ from app.models.viki_dismissal import VikiDismissal
 from app.models.viki_summary import VikiSummary
 from app.models.schedule import ScheduledShift, ScheduleWeek, ShiftConstraint
 from app.models.staff_request import StaffRequest
+from app.models.lucky_draw import LuckyDraw, LuckyDrawPrize, LuckyDrawParticipant, LuckyDrawWinner
 
 __all__ = [
     "Base", "Studio", "User", "StudioSettings", "RefreshToken",
@@ -58,4 +59,5 @@ __all__ = [
     "HealthForm", "HealthFormFile", "HealthDeclaration",
     "Task", "TaskCompletion", "TutorialProgress", "VikiDismissal", "VikiSummary",
     "ScheduledShift", "ScheduleWeek", "ShiftConstraint", "StaffRequest",
+    "LuckyDraw", "LuckyDrawPrize", "LuckyDrawParticipant", "LuckyDrawWinner",
 ]

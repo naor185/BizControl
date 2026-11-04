@@ -743,6 +743,9 @@ def ensure_schema():
             # module even though it's the exact same functional area — folding
             # it in here closes that overlap.
             ("invoice_ai_scan",      "ocr",       "ai",            "סריקת חשבוניות AI",                1),
+            # raffles among the club's clients (2026-11-04) — in no plan yet: the superadmin turns it on per business
+            # while it's tried out, then it joins the plans that have the club
+            ("lucky_club",           "customer_club", "advanced",  "Lucky Club – הגרלות ופרסים",        1),
         ]
         for mid, parent_id, cat, name, sort in SUB_MODULES:
             cur.execute("""
@@ -1145,6 +1148,83 @@ def ensure_schema():
             )
         """)
         cur.execute("CREATE INDEX IF NOT EXISTS ix_worker_goals_studio ON worker_goals (studio_id)")
+        # Lucky Club — raffles among the business's own clients (models/lucky_draw, services/lucky_draw; 2026-11-04)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS lucky_draws (
+                id UUID PRIMARY KEY,
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                name VARCHAR(120) NOT NULL,
+                description TEXT,
+                image_url VARCHAR(500),
+                terms TEXT,
+                scheduled_at TIMESTAMPTZ,
+                audience VARCHAR(10) NOT NULL DEFAULT 'club'
+                    CONSTRAINT ck_lucky_draws_audience CHECK (audience IN ('club','regular','all','manual')),
+                manual_client_ids JSONB NOT NULL DEFAULT '[]',
+                winners_count INTEGER NOT NULL DEFAULT 1 CONSTRAINT ck_lucky_draws_winners CHECK (winners_count BETWEEN 1 AND 10),
+                status VARCHAR(10) NOT NULL DEFAULT 'draft'
+                    CONSTRAINT ck_lucky_draws_status CHECK (status IN ('draft','locked','done','canceled')),
+                participants_count INTEGER NOT NULL DEFAULT 0,
+                locked_at TIMESTAMPTZ,
+                locked_by UUID REFERENCES users(id) ON DELETE SET NULL,
+                drawn_at TIMESTAMPTZ,
+                drawn_by UUID REFERENCES users(id) ON DELETE SET NULL,
+                canceled_at TIMESTAMPTZ,
+                canceled_by UUID REFERENCES users(id) ON DELETE SET NULL,
+                created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_lucky_draws_studio_id ON lucky_draws (studio_id)")
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS lucky_draw_prizes (
+                id UUID PRIMARY KEY,
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                draw_id UUID NOT NULL REFERENCES lucky_draws(id) ON DELETE CASCADE,
+                place INTEGER NOT NULL,
+                title VARCHAR(160) NOT NULL,
+                description TEXT,
+                CONSTRAINT uq_lucky_draw_prizes_place UNIQUE (draw_id, place)
+            )
+        """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS lucky_draw_participants (
+                id UUID PRIMARY KEY,
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                draw_id UUID NOT NULL REFERENCES lucky_draws(id) ON DELETE CASCADE,
+                client_id UUID REFERENCES clients(id) ON DELETE SET NULL,
+                full_name VARCHAR(255) NOT NULL,
+                phone VARCHAR(40),
+                was_club_member BOOLEAN NOT NULL DEFAULT false,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                CONSTRAINT uq_lucky_draw_participants_client UNIQUE (draw_id, client_id)
+            )
+        """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS lucky_draw_winners (
+                id UUID PRIMARY KEY,
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                draw_id UUID NOT NULL REFERENCES lucky_draws(id) ON DELETE CASCADE,
+                place INTEGER NOT NULL,
+                participant_id UUID NOT NULL REFERENCES lucky_draw_participants(id) ON DELETE CASCADE,
+                client_id UUID REFERENCES clients(id) ON DELETE SET NULL,
+                prize_id UUID REFERENCES lucky_draw_prizes(id) ON DELETE SET NULL,
+                prize_title VARCHAR(160) NOT NULL,
+                status VARCHAR(10) NOT NULL DEFAULT 'pending'
+                    CONSTRAINT ck_lucky_draw_winners_status CHECK (status IN ('pending','redeemed')),
+                redeemed_at TIMESTAMPTZ,
+                redeemed_by UUID REFERENCES users(id) ON DELETE SET NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                CONSTRAINT uq_lucky_draw_winners_place UNIQUE (draw_id, place),
+                CONSTRAINT uq_lucky_draw_winners_participant UNIQUE (draw_id, participant_id)
+            )
+        """)
+        for _t in ("lucky_draw_prizes", "lucky_draw_participants", "lucky_draw_winners"):
+            cur.execute(f"CREATE INDEX IF NOT EXISTS ix_{_t}_draw_id ON {_t} (draw_id)")
+            cur.execute(f"CREATE INDEX IF NOT EXISTS ix_{_t}_studio_id ON {_t} (studio_id)")
+        for _t in ("lucky_draw_participants", "lucky_draw_winners"):
+            cur.execute(f"CREATE INDEX IF NOT EXISTS ix_{_t}_client_id ON {_t} (client_id)")
         # a link to pay sent to a client on WhatsApp — from the till or an appointment (models/payment_request)
         cur.execute("""
             CREATE TABLE IF NOT EXISTS payment_requests (

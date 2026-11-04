@@ -72,6 +72,7 @@ from app.api.room_rental_routes import router as room_rental_router
 from app.api.health_form_routes import router as health_form_router, public_router as health_public_router
 from app.api.payment_request_routes import router as payment_request_router, public_router as payment_request_public_router
 from app.api.worker_goal_routes import router as worker_goal_router
+from app.api.lucky_draw_routes import router as lucky_draw_router
 from app.api.admin_message_routes import router as admin_message_router
 
 api_router = APIRouter()
@@ -108,6 +109,7 @@ api_router.include_router(account_router)
 api_router.include_router(review_report_router)
 api_router.include_router(crm_router)
 api_router.include_router(customer_club_router, dependencies=[Depends(no_workers())])
+api_router.include_router(lucky_draw_router, dependencies=[Depends(no_workers())])   # Lucky Club raffles (2026-11-04)
 api_router.include_router(wallet_design_router, dependencies=[Depends(no_workers())])
 api_router.include_router(nfc_router)
 api_router.include_router(schedule_router)
