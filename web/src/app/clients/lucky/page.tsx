@@ -1,11 +1,12 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, Plus, Trophy, Users } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Trash2, Trophy, Users } from "lucide-react";
 import RequireAuth from "@/components/RequireAuth";
 import AppShell from "@/components/AppShell";
 import PlanLock from "@/components/PlanLock";
 import { apiFetch } from "@/lib/api";
+import { toast } from "@/lib/toast";
 import { intl, tx } from "@/lib/i18n";
 import { audienceLabel, Draw, STATUS } from "@/lib/luckyClub";
 
@@ -62,6 +63,18 @@ function Draws() {
         apiFetch<Draw[]>("/api/lucky-club/draws").then(setDraws).catch(e => setErr(e?.message || tx("הטעינה נכשלה")));
     }, []);
 
+    // the managers clear the history (the owner, 2026-11-04) — the activity log keeps the line
+    const remove = async (d: Draw) => {
+        if (!confirm(tx("למחוק את ההגרלה „{0}” מההיסטוריה? אי אפשר לשחזר אותה.", { 0: d.name }))) return;
+        try {
+            await apiFetch(`/api/lucky-club/draws/${d.id}`, { method: "DELETE" });
+            setDraws(prev => (prev || []).filter(x => x.id !== d.id));
+            toast.success(tx("ההגרלה נמחקה"));
+        } catch (e) {
+            toast.error((e as Error)?.message || tx("המחיקה נכשלה"));
+        }
+    };
+
     const active = (draws || []).filter(d => d.status === "draft" || d.status === "locked");
     const history = (draws || []).filter(d => d.status === "done" || d.status === "canceled");
 
@@ -101,7 +114,15 @@ function Draws() {
             {history.length > 0 && (
                 <section className="space-y-3">
                     <h2 className="text-sm font-bold uppercase tracking-wide text-slate-500">{tx("היסטוריה")}</h2>
-                    {history.map(d => <DrawRow key={d.id} d={d} />)}
+                    {history.map(d => (
+                        <div key={d.id} className="flex items-stretch gap-2">
+                            <div className="min-w-0 flex-1"><DrawRow d={d} /></div>
+                            <button type="button" onClick={() => remove(d)} aria-label={tx("מחיקת ההגרלה „{0}”", { 0: d.name })} title={tx("מחיקת ההגרלה")}
+                                className="flex w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-400 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600">
+                                <Trash2 className="h-4 w-4" aria-hidden />
+                            </button>
+                        </div>
+                    ))}
                 </section>
             )}
         </div>

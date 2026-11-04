@@ -104,12 +104,12 @@ def update_draw(draw_id: UUID, body: DrawIn, ctx: AuthContext = Depends(require_
 @router.delete("/draws/{draw_id}", status_code=204)
 def delete_draw(draw_id: UUID, ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
     try:
-        name = ld.delete_draft(db, ctx.studio_id, draw_id)
+        name, status = ld.remove(db, ctx.studio_id, draw_id)
     except ld.DrawError as e:
         db.rollback()
         _fail(e)
     db.commit()
-    _log(db, ctx, f"מחיקת טיוטת הגרלה „{name}”")
+    _log(db, ctx, f"מחיקת טיוטת הגרלה „{name}”" if status == "draft" else f"מחיקת הגרלה „{name}” מההיסטוריה")
 
 
 @router.post("/draws/{draw_id}/lock")

@@ -368,6 +368,7 @@ function WinnerCard({ w, onChange }: { w: Winner; onChange: (w: Winner) => void 
 }
 
 function DrawView({ draw, onChange }: { draw: Draw; onChange: (d: Draw) => void }) {
+    const router = useRouter();
     const [busy, setBusy] = useState(false);
     const [filter, setFilter] = useState("");
     const people = useMemo(() => {
@@ -385,6 +386,20 @@ function DrawView({ draw, onChange }: { draw: Draw; onChange: (d: Draw) => void 
         } catch (e) {
             toast.error((e as Error)?.message || tx("הפעולה נכשלה"));
         } finally {
+            setBusy(false);
+        }
+    };
+
+    // a draw done or canceled leaves the history (the owner, 2026-11-04) — a locked one is canceled first
+    const remove = async () => {
+        if (!confirm(tx("למחוק את ההגרלה „{0}” מההיסטוריה? אי אפשר לשחזר אותה.", { 0: draw.name }))) return;
+        setBusy(true);
+        try {
+            await apiFetch(`/api/lucky-club/draws/${draw.id}`, { method: "DELETE" });
+            toast.success(tx("ההגרלה נמחקה"));
+            router.push("/clients/lucky");
+        } catch (e) {
+            toast.error((e as Error)?.message || tx("המחיקה נכשלה"));
             setBusy(false);
         }
     };
@@ -495,6 +510,13 @@ function DrawView({ draw, onChange }: { draw: Draw; onChange: (d: Draw) => void 
                     </ul>
                     {people.length > 500 && <p className="mt-2 text-xs text-slate-500">{tx("ועוד {0} — חפשו לפי שם", { 0: people.length - 500 })}</p>}
                 </details>
+            )}
+
+            {draw.status !== "locked" && (
+                <button type="button" onClick={remove} disabled={busy}
+                    className="inline-flex min-h-11 items-center gap-1.5 rounded-xl px-3 text-sm font-semibold text-rose-600 hover:bg-rose-50 disabled:opacity-60">
+                    <Trash2 className="h-4 w-4" aria-hidden /> {tx("מחיקת ההגרלה")}
+                </button>
             )}
         </div>
     );

@@ -131,14 +131,17 @@ def save(db: Session, studio_id, user_id, data: dict, draw_id=None) -> LuckyDraw
     return draw
 
 
-def delete_draft(db: Session, studio_id, draw_id) -> str:
+def remove(db: Session, studio_id, draw_id) -> tuple[str, str]:
+    """A draft, a canceled draw or one already drawn — the managers clear the history (the owner, 2026-11-04). Not a
+    locked one: it may be on the screen right now — it is canceled first. The business's activity log keeps the line of
+    the draw and of its deleting; a prize already given stays with the client. Returns its name and status."""
     draw = _get(db, studio_id, draw_id, lock=True)
-    if draw.status != "draft":
-        raise DrawError("אפשר למחוק רק טיוטה — הגרלה נעולה מבטלים", 409)
-    name = draw.name
+    if draw.status == "locked":
+        raise DrawError("הגרלה נעולה לא מוחקים — קודם מבטלים אותה", 409)
+    name, status = draw.name, draw.status
     db.delete(draw)
     db.flush()
-    return name
+    return name, status
 
 
 # ── lock, run, cancel ──────────────────────────────────────────────────────────

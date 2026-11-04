@@ -128,7 +128,6 @@ def test_the_history_stays_and_the_results_never_change(client, db_session):    
     assert len(db_session.scalars(select(LuckyDrawWinner).where(LuckyDrawWinner.draw_id == d["id"])).all()) == 2
 
     assert client.patch(f"/api/lucky-club/draws/{d['id']}", headers=h, json={"winners_count": 1}).status_code == 409
-    assert client.delete(f"/api/lucky-club/draws/{d['id']}", headers=h).status_code == 409
     assert client.post(f"/api/lucky-club/draws/{d['id']}/cancel", headers=h).status_code == 409
 
     # a prize given — its date and who marked it; the winner stays who it is
@@ -144,6 +143,11 @@ def test_the_history_stays_and_the_results_never_change(client, db_session):    
     assert row["status"] == "done" and row["participants_count"] == 5 and row["drawn_by_name"]
     assert [w["full_name"] for w in row["winners"]] == [w["full_name"] for w in first["winners"]]
 
+    # the manager clears it from the history (the owner, 2026-11-04) — gone from the list, the activity log keeps it
+    assert client.delete(f"/api/lucky-club/draws/{d['id']}", headers=h).status_code == 204
+    assert all(x["id"] != d["id"] for x in client.get("/api/lucky-club/draws", headers=h).json())
+    assert client.get(f"/api/lucky-club/draws/{d['id']}", headers=h).status_code == 404
+
 
 def test_a_draft_changes_until_it_is_locked_and_a_locked_one_can_be_canceled(client, db_session):
     h, s = _business(client, db_session, "lucky-draft")
@@ -154,9 +158,11 @@ def test_a_draft_changes_until_it_is_locked_and_a_locked_one_can_be_canceled(cli
     assert r.status_code == 200 and r.json()["participants_count"] == 5 and r.json()["terms"] == "תקנון קצר"
     assert client.post(f"/api/lucky-club/draws/{d['id']}/run", headers=h).status_code == 409   # lock first
     client.post(f"/api/lucky-club/draws/{d['id']}/lock", headers=h)
+    assert client.delete(f"/api/lucky-club/draws/{d['id']}", headers=h).status_code == 409    # locked: cancel first
     canceled = client.post(f"/api/lucky-club/draws/{d['id']}/cancel", headers=h).json()
     assert canceled["status"] == "canceled"
     assert client.post(f"/api/lucky-club/draws/{d['id']}/run", headers=h).status_code == 409
+    assert client.delete(f"/api/lucky-club/draws/{d['id']}", headers=h).status_code == 204   # a canceled one goes
     draft = _draw(client, h)
     assert client.delete(f"/api/lucky-club/draws/{draft['id']}", headers=h).status_code == 204
 

@@ -490,7 +490,7 @@ EN.update({
     "אפשר לשנות רק הגרלה שעוד לא ננעלה": "Only a draw that isn't locked yet can be changed",
     "שם ההגרלה חובה": "The draw needs a name",
     "מקום לא תקין לפרס": "Invalid place for a prize",
-    "אפשר למחוק רק טיוטה — הגרלה נעולה מבטלים": "Only a draft can be deleted — a locked draw is canceled",
+    "הגרלה נעולה לא מוחקים — קודם מבטלים אותה": "A locked draw can't be deleted — cancel it first",
     "ההגרלה כבר נעולה": "The draw is already locked",
     "קודם נועלים את ההגרלה": "Lock the draw first",
     "ההגרלה בוטלה": "The draw was canceled",
