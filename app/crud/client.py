@@ -275,6 +275,10 @@ def create_client(db: Session, studio_id: UUID, data: ClientCreate, background_t
         if existing.is_active:
             # Merge: if adding as club member and client exists as regular → upgrade
             if data.is_club_member:
+                # a birth date typed in is kept when the card has none — never replacing one (the owner, 2026-11-04)
+                if data.birth_date and not existing.birth_date:
+                    existing.birth_date = data.birth_date
+                    db.commit()
                 if not existing.is_club_member:
                     existing.is_club_member = True
                     _trigger_club_welcome(db, studio_id, existing)

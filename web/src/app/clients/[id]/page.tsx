@@ -1,5 +1,5 @@
 "use client";
-import PickerBox from "@/components/ui/picker-box";
+import BirthDateBox from "@/components/ui/birth-date-box";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/lib/toast";
 
@@ -125,6 +125,7 @@ export default function ClientProfilePage() {
     const [editName, setEditName] = useState("");
     const [editPhone, setEditPhone] = useState("");
     const [editEmail, setEditEmail] = useState("");
+    const [editBirthDate, setEditBirthDate] = useState("");
     const [editNotes, setEditNotes] = useState("");
     const [isSavingInfo, setIsSavingInfo] = useState(false);
     const [joiningClub, setJoiningClub] = useState(false);
@@ -265,6 +266,7 @@ export default function ClientProfilePage() {
         setEditName(profile.client.full_name);
         setEditPhone(profile.client.phone || "");
         setEditEmail(profile.client.email || "");
+        setEditBirthDate(profile.client.birth_date || "");
         setEditNotes(profile.client.notes || "");
         setEditingInfo(true);
     };
@@ -278,6 +280,7 @@ export default function ClientProfilePage() {
                     full_name: editName.trim(),
                     phone: editPhone.trim() || null,
                     email: editEmail.trim() || null,
+                    birth_date: editBirthDate || null,
                     notes: editNotes.trim() || null,
                 }),
             });
@@ -465,6 +468,10 @@ export default function ClientProfilePage() {
                                             <input value={editEmail} onChange={e => setEditEmail(e.target.value)} className="border rounded-lg px-3 py-2 text-sm" dir="ltr" type="email" />
                                         </div>
                                         <div className="flex flex-col gap-1">
+                                            <label className="text-xs text-gray-500">{tx("תאריך לידה")}</label>
+                                            <BirthDateBox label={tx("תאריך לידה")} value={editBirthDate} onChange={setEditBirthDate} className="border rounded-lg px-2 py-2 text-sm bg-white" />
+                                        </div>
+                                        <div className="flex flex-col gap-1">
                                             <label className="text-xs text-gray-500">{tx("הערות פנימיות")}</label>
                                             <textarea value={editNotes} onChange={e => setEditNotes(e.target.value)} rows={3} className="border rounded-lg px-3 py-2 text-sm resize-none" />
                                         </div>
@@ -486,6 +493,14 @@ export default function ClientProfilePage() {
                                         <div className="flex flex-col">
                                             <span className="text-gray-500 text-xs">{tx("אימייל")}</span>
                                             <span className="font-medium" dir="ltr">{profile.client.email || tx("לא הוזן")}</span>
+                                        </div>
+                                        <div className="flex flex-col">
+                                            <span className="text-gray-500 text-xs">{tx("תאריך לידה")}</span>
+                                            <span className="font-medium tabular-nums">
+                                                {profile.client.birth_date
+                                                    ? new Date(`${profile.client.birth_date}T12:00:00`).toLocaleDateString(intl(), { day: "2-digit", month: "2-digit", year: "numeric" })
+                                                    : tx("לא הוזן")}
+                                            </span>
                                         </div>
                                         <div className="flex flex-col">
                                             <span className="text-gray-500 text-xs">{tx("הערות פנימיות")}</span>
@@ -592,7 +607,7 @@ export default function ClientProfilePage() {
                                         />
                                         <div>
                                             <label className="block text-xs text-violet-700 mb-1">{tx("תאריך לידה * (נדרש לצורך הטבת יום הולדת)")}</label>
-                                            <PickerBox type="date" label={tx("תאריך לידה")} value={joinBirthDate} onChange={v => setJoinBirthDate(v)} className="w-full border border-violet-200 bg-white rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-violet-400 text-start" />
+                                            <BirthDateBox label={tx("תאריך לידה")} value={joinBirthDate} onChange={v => setJoinBirthDate(v)} className="border border-violet-200 bg-white rounded-xl px-2 py-2 text-sm outline-none focus:ring-2 focus:ring-violet-400 text-start" />
                                         </div>
                                     </div>
                                     <div className="flex gap-2">

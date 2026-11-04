@@ -267,6 +267,11 @@ def join_studio(studio_id: str, payload: ClientJoinRequest, db: Session = Depend
 
     if existing:
         _maybe_create_lead(db, studio_id, existing.full_name, existing.phone, payload)
+        # the birth date filled in here was dropped for a client already on file — kept now, for the birthday
+        # benefit, when the card has none (the owner, 2026-11-04); a date already on the card is never replaced
+        if payload.birth_date and not existing.birth_date:
+            existing.birth_date = payload.birth_date
+            db.commit()
         if existing.is_club_member:
             return {"message": "Already a club member", "already_member": True, "client_id": existing.id, "loyalty_points": existing.loyalty_points}
         existing.is_club_member = True
