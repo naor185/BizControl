@@ -3330,6 +3330,22 @@ def ensure_schema():
                     cur.execute("UPDATE studio_settings SET deposit_request_wa_template = %s WHERE studio_id = %s",
                                 (_tpl.replace(_old, _new), _sid))
 
+        if _once("nctattoo_lucky_club_on_v1"):
+            # Lucky Club for the owner's own business first, while it's tried out — the owner asked (2026-11-04, "add it
+            # now to NAOR's account"). The superadmin's switch: a locked override, as admin/studios/[id] writes it. Read-only
+            # check before: Nctattoo (slug naor) is on enterprise, the club is on, no lucky_club override yet.
+            cur.execute("""
+                UPDATE studio_modules sm SET is_enabled = true, is_locked = true
+                FROM studios s WHERE s.id = sm.studio_id AND s.slug = 'naor' AND sm.module_id = 'lucky_club'
+            """)
+            cur.execute("""
+                INSERT INTO studio_modules (id, studio_id, module_id, is_enabled, is_locked)
+                SELECT gen_random_uuid(), s.id, 'lucky_club', true, true FROM studios s
+                WHERE s.slug = 'naor'
+                  AND EXISTS (SELECT 1 FROM modules m WHERE m.id = 'lucky_club')
+                  AND NOT EXISTS (SELECT 1 FROM studio_modules sm WHERE sm.studio_id = s.id AND sm.module_id = 'lucky_club')
+            """)
+
         conn.commit()
         cur.close()
         conn.close()
