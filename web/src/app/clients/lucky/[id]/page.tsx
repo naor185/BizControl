@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { Check, ChevronRight, ImagePlus, Lock, Phone, Search, Trash2, Trophy, Users, X } from "lucide-react";
+import { Check, ChevronRight, ImagePlus, Lock, MonitorPlay, Phone, Search, Trash2, Trophy, Users, X } from "lucide-react";
 import RequireAuth from "@/components/RequireAuth";
 import AppShell from "@/components/AppShell";
 import PlanLock from "@/components/PlanLock";
@@ -434,7 +434,13 @@ function DrawView({ draw, onChange }: { draw: Draw; onChange: (d: Draw) => void 
                             <WinnerCard key={w.id} w={w} onChange={nw => onChange({ ...draw, winners: draw.winners.map(x => x.id === nw.id ? nw : x) })} />
                         ))}
                     </ul>
-                    <p className="text-xs text-slate-500">{tx("הזוכים נבחרו באקראי בשרת ולא ניתנים לשינוי. אפשר רק לסמן אם הפרס מומש.")}</p>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-xs text-slate-500">{tx("הזוכים נבחרו באקראי בשרת ולא ניתנים לשינוי. אפשר רק לסמן אם הפרס מומש.")}</p>
+                        <Link href={`/clients/lucky/${draw.id}/show`}
+                            className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                            <MonitorPlay className="h-4 w-4" aria-hidden /> {tx("הצגה חוזרת במסך")}
+                        </Link>
+                    </div>
                 </section>
             ) : (
                 <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5">
@@ -461,9 +467,14 @@ function DrawView({ draw, onChange }: { draw: Draw; onChange: (d: Draw) => void 
                         </button>
                         <button type="button" disabled={busy}
                             onClick={() => act("run", tx("להגריל עכשיו? יוגרלו {0} זוכים מתוך {1} משתתפים, והזוכים לא ישתנו.", { 0: draw.winners_count, 1: draw.participants_count }), tx("ההגרלה בוצעה"))}
-                            className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-amber-500 px-4 text-sm font-bold text-white hover:bg-amber-600 disabled:opacity-60">
-                            <Trophy className="h-4 w-4" aria-hidden /> {tx("להגריל עכשיו")}
+                            className="min-h-11 rounded-xl border border-amber-300 bg-white px-3 text-sm font-semibold text-amber-800 hover:bg-amber-100 disabled:opacity-60">
+                            {tx("להגריל בלי מסך")}
                         </button>
+                        {/* the wheel on the studio's screen or a TV — it runs the draw there (stage 3) */}
+                        <Link href={`/clients/lucky/${draw.id}/show`}
+                            className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-amber-500 px-4 text-sm font-bold text-white hover:bg-amber-600">
+                            <MonitorPlay className="h-4 w-4" aria-hidden /> {tx("פתיחת מסך ההגרלה")}
+                        </Link>
                     </div>
                 </div>
             )}
