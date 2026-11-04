@@ -4,6 +4,8 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from 
 // Lucky Club's wheel (the owner's spec, 2026-11-04): the names on coloured slices, bulbs around the rim that chase while
 // it spins, a pointer at the top that kicks on every peg. It only shows — spinTo(i) turns it, slowing down, until slice
 // i stops under the pointer; which slice is the server's winner (app/services/lucky_draw).
+// Every participant is a slice (the owner: "not all the club's clients are on the wheel") — with a hundred, the names
+// on the slices get small, so the name under the pointer shows large above it, from the first spin on.
 
 export type WheelHandle = { spinTo: (index: number) => Promise<void> };
 
@@ -27,6 +29,9 @@ const Wheel = forwardRef<WheelHandle, Props>(function Wheel({ labels, onTick, re
     const theta = useRef(0);                 // the wheel's turn
     const spinning = useRef(false);
     const kick = useRef(0);                  // the pointer's kick on a peg, fading
+    const spun = useRef(false);              // the name under the pointer shows from the first spin on
+    const pointed = useRef<HTMLDivElement>(null);
+    const fitted = useRef<{ key: string; texts: string[] }>({ key: "", texts: [] });    // the names cut to fit, per size
     const labelsRef = useRef(labels);
     const onTickRef = useRef(onTick);
     useEffect(() => { labelsRef.current = labels; onTickRef.current = onTick; }, [labels, onTick]);
@@ -77,7 +82,13 @@ const Wheel = forwardRef<WheelHandle, Props>(function Wheel({ labels, onTick, re
 
         // the slices and the names
         const font = getComputedStyle(cv).fontFamily || "sans-serif";
-        const fontSize = Math.max(10, Math.min(size * 0.042, ((Math.PI * 2 * r) / n) * 0.42));
+        const fontSize = Math.min(size * 0.042, ((Math.PI * 2 * r) / n) * 0.5);
+        const named = fontSize >= 5;              // thinner than this a slice is only its colour — the name shows above
+        const key = `${names.join("\u0001")}|${size}|${fontSize}`;
+        if (named && fitted.current.key !== key) {
+            c.font = `700 ${fontSize}px ${font}`;
+            fitted.current = { key, texts: names.map(x => fit(c, x, r * 0.62)) };
+        }
         for (let i = 0; i < n; i++) {
             const start = theta.current + i * a - Math.PI / 2;
             let color = SLICES[i % SLICES.length];
@@ -89,8 +100,9 @@ const Wheel = forwardRef<WheelHandle, Props>(function Wheel({ labels, onTick, re
             c.fillStyle = color;
             c.fill();
             c.strokeStyle = "rgba(255,255,255,0.35)";
-            c.lineWidth = 1;
+            c.lineWidth = n > 60 ? 0.5 : 1;
             c.stroke();
+            if (!named) continue;
 
             // the name along its slice, from the rim inwards — turned over on the left half, so it never reads upside down
             const mid = start + a / 2;
@@ -103,8 +115,17 @@ const Wheel = forwardRef<WheelHandle, Props>(function Wheel({ labels, onTick, re
             c.textBaseline = "middle";
             c.direction = "rtl";
             c.textAlign = left ? "end" : "start";
-            c.fillText(fit(c, names[i], r * 0.62), left ? -(r - size * 0.03) : r - size * 0.03, 0);
+            c.fillText(fitted.current.texts[i] ?? names[i], left ? -(r - size * 0.03) : r - size * 0.03, 0);
             c.restore();
+        }
+
+        // the name under the pointer, large above the wheel — slice i spans theta + i·a from the top
+        const label = pointed.current;
+        if (label) {
+            const turn = ((-theta.current % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+            const under = names[Math.min(n - 1, Math.floor(turn / a))] ?? "";
+            if (label.textContent !== under) label.textContent = under;
+            label.style.visibility = spun.current ? "visible" : "hidden";
         }
 
         // the hub
@@ -167,6 +188,7 @@ const Wheel = forwardRef<WheelHandle, Props>(function Wheel({ labels, onTick, re
             const start = performance.now();
             let lastPeg = Math.floor(from / a);
             spinning.current = true;
+            spun.current = true;
             const step = (now: number) => {
                 const t = Math.min(1, (now - start) / duration);
                 theta.current = from + (target - from) * easeOut(t);
@@ -184,8 +206,12 @@ const Wheel = forwardRef<WheelHandle, Props>(function Wheel({ labels, onTick, re
     }), [reducedMotion]);
 
     return (
-        <div ref={box} className="relative aspect-square w-full">
-            <canvas ref={canvas} className="absolute inset-0 h-full w-full" aria-hidden />
+        <div className="flex w-full flex-col items-center gap-2">
+            <div ref={pointed} aria-hidden dir="auto" style={{ visibility: "hidden" }}
+                className="h-12 max-w-full truncate rounded-full leading-[2.875rem] border border-amber-300/50 bg-black/35 px-6 text-xl font-black text-amber-100 backdrop-blur sm:text-2xl" />
+            <div ref={box} className="relative aspect-square w-full">
+                <canvas ref={canvas} className="absolute inset-0 h-full w-full" aria-hidden />
+            </div>
         </div>
     );
 });

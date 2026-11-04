@@ -15,11 +15,10 @@ import { audio, fanfare, Music, tick } from "@/lib/luckySound";
 import { Draw, placeLabel, Winner } from "@/lib/luckyClub";
 
 // Lucky Club's draw screen (the owner's spec, 2026-11-04) — for the studio's screen or a TV: full screen, the wheel with
-// the names, bulbs, sound, confetti, and the winners revealed one after another (the last place first, the first prize
-// last). The winners are picked on the server the moment the host starts (POST …/run, once); the wheel only shows
-// them. A draw already done can be shown again — marked as a replay of the saved result.
-
-const WHEEL_MAX = 24;        // more names than this don't fit on a wheel — it shows a sample with the winner among them
+// the names, bulbs, sound, confetti, and the winners revealed one after another — the first place first, then the
+// second (the owner, 2026-11-04). The winners are picked on the server the moment the host starts (POST …/run, once);
+// the wheel only shows them. Every participant is on the wheel, and a winner leaves it before the next spin. A draw
+// already done can be shown again — marked as a replay of the saved result.
 
 type Phase = "ready" | "spinning" | "reveal" | "finished";
 
@@ -47,7 +46,7 @@ const STAGE_CSS = `
 function Stage({ initial }: { initial: Draw }) {
     const [draw, setDraw] = useState(initial);
     const [phase, setPhase] = useState<Phase>("ready");
-    const [order, setOrder] = useState<Winner[]>([]);            // the reveal order: the last place first
+    const [order, setOrder] = useState<Winner[]>([]);            // the reveal order: the first place first
     const [current, setCurrent] = useState(-1);
     const [revealed, setRevealed] = useState<Winner[]>(initial.status === "done" ? initial.winners : []);
     const [replay, setReplay] = useState(false);
@@ -57,8 +56,9 @@ function Stage({ initial }: { initial: Draw }) {
     // the signed-in screens render in the browser only (RequireAuth), so this is read once, at the start
     const [reduced] = useState(() => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
     const people = useMemo(() => draw.participants || [], [draw.participants]);
-    const [labels, setLabels] = useState<string[]>(() =>
-        (people.length <= WHEEL_MAX ? people : shuffle(people).slice(0, WHEEL_MAX)).map(p => p.full_name));
+    // every participant on the wheel, mixed once — the same order on every spin
+    const [mixed] = useState(() => shuffle(initial.participants || []));
+    const [labels, setLabels] = useState<string[]>(() => mixed.map(p => p.full_name));
     const stage = useRef<HTMLDivElement>(null);
     const wheel = useRef<WheelHandle>(null);
     const confetti = useRef<ConfettiHandle>(null);
@@ -84,15 +84,11 @@ function Stage({ initial }: { initial: Draw }) {
         } catch { /* the browser refused — the screen stays as it is */ }
     };
 
-    // spin to one winner: the wheel's names, with them among them, then the reveal
-    const spinFor = useCallback(async (w: Winner) => {
-        let names: { id: string; full_name: string }[];
-        if (people.length <= WHEEL_MAX) names = people;
-        else {
-            const others = shuffle(people.filter(p => p.id !== w.participant_id)).slice(0, WHEEL_MAX - 1);
-            const at = Math.floor(Math.random() * WHEEL_MAX);
-            names = [...others.slice(0, at), { id: w.participant_id, full_name: w.full_name }, ...others.slice(at)];
-        }
+    // spin to one winner: every participant but the winners already shown, then the reveal
+    const spinFor = useCallback(async (w: Winner, before: Winner[]) => {
+        const out = new Set(before.map(b => b.participant_id));
+        const names: { id: string; full_name: string }[] = mixed.filter(p => !out.has(p.id));
+        if (!names.some(p => p.id === w.participant_id)) names.push({ id: w.participant_id, full_name: w.full_name });
         const index = Math.max(0, names.findIndex(p => p.id === w.participant_id));
         setLabels(names.map(p => p.full_name));
         setPhase("spinning");
@@ -102,7 +98,7 @@ function Stage({ initial }: { initial: Draw }) {
         setPhase("reveal");
         confetti.current?.burst();
         if (soundRef.current) fanfare();
-    }, [people]);
+    }, [mixed]);
 
     const begin = async () => {
         audio();                                                  // sound is allowed from this click on
@@ -122,18 +118,18 @@ function Stage({ initial }: { initial: Draw }) {
         } else {
             setReplay(true);
         }
-        const seq = [...winners].sort((a, b) => b.place - a.place);
+        const seq = [...winners].sort((a, b) => a.place - b.place);
         setOrder(seq);
         setRevealed([]);
         setCurrent(0);
-        await spinFor(seq[0]);
+        await spinFor(seq[0], []);
     };
 
     const next = async () => {
         const i = current + 1;
         if (i >= order.length) { setPhase("finished"); return; }
         setCurrent(i);
-        await spinFor(order[i]);
+        await spinFor(order[i], order.slice(0, i));
     };
 
     // a keyboard at the TV: space or enter is the main button
