@@ -123,6 +123,7 @@ LINES: dict[str, str] = {
     "תודה שאתה/את חלק מהמועדון שלנו ❤️": "Thanks for being part of our club ❤️",
     "עוד לא חבר/ה במועדון?": "Not a club member yet?",
     "היום חסכת": "Today you saved",
+    "נשמח לראות אותך! 💫": "We'd love to see you! 💫",
 
     # ── birthdays ──
     "חודש יום ההולדת שלך הגיע!": "Your birthday month is here!",
@@ -450,6 +451,14 @@ PATTERNS: dict[str, str] = {
     # a link to pay (services/payment_requests)
     "לתשלום ב{}: {} · {}": "Payment to {0}: {1} · {2}",
     "לתשלום ב{}: {}": "Payment to {0}: {1}",
+    # a Lucky Club winner (services/lucky_draw.winner_message)
+    "מזל טוב {}! 🎉": "Congratulations {0}! 🎉",
+    "זכית במקום {} בהגרלה „{}” של {}.": "You won place {0} in the draw “{1}” by {2}.",
+    "הפרס שלך: {} נקודות — כבר נכנסו לכרטיס המועדון שלך.": "Your prize: {0} points — already in your club card.",
+    "הפרס שלך: {}% הנחה": "Your prize: {0}% off",
+    "קוד ההנחה שלך: *{}* — מציגים אותו בתשלום.": "Your discount code: *{0}* — show it when you pay.",
+    "הפרס שלך: {}": "Your prize: {0}",
+    "אפשר לממש עד {}.": "You can use it until {0}.",
     # the generic greeting with a note after it — last
     "היי {}, {}": "Hi {0}, {1}",
 }

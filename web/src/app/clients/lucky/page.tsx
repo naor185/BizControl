@@ -8,7 +8,7 @@ import PlanLock from "@/components/PlanLock";
 import { apiFetch } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import { intl, tx } from "@/lib/i18n";
-import { audienceLabel, Draw, STATUS } from "@/lib/luckyClub";
+import { audienceLabel, Draw, PRIZE_STATUS, STATUS } from "@/lib/luckyClub";
 
 // Lucky Club — the business's draws: what's being prepared, and the history (the owner's spec, 2026-11-04). Reached from
 // the club tab (components/lucky/LuckyClubCard); each draw opens in /clients/lucky/[id].
@@ -42,8 +42,8 @@ function DrawRow({ d }: { d: Draw }) {
                             <li key={w.id} className="flex flex-wrap items-center gap-x-2">
                                 <span className="font-semibold text-slate-800">{w.place}. {w.full_name}</span>
                                 <span className="text-slate-500">— {w.prize_title}</span>
-                                <span className={`rounded-full px-1.5 py-0.5 text-[11px] font-semibold ${w.status === "redeemed" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
-                                    {w.status === "redeemed" ? tx("מומש") : tx("ממתין למימוש")}
+                                <span className={`rounded-full px-1.5 py-0.5 text-[11px] font-semibold ${PRIZE_STATUS[w.status].chip}`}>
+                                    {PRIZE_STATUS[w.status].label}
                                 </span>
                             </li>
                         ))}
@@ -65,7 +65,9 @@ function Draws() {
 
     // the managers clear the history (the owner, 2026-11-04) — the activity log keeps the line
     const remove = async (d: Draw) => {
-        if (!confirm(tx("למחוק את ההגרלה „{0}” מההיסטוריה? אי אפשר לשחזר אותה.", { 0: d.name }))) return;
+        if (!confirm(d.status === "done"
+            ? tx("למחוק את ההגרלה „{0}” מההיסטוריה? הפרסים שהזוכים קיבלו נשארים אצלם עד שיפוגו.", { 0: d.name })
+            : tx("למחוק את ההגרלה „{0}” מההיסטוריה? אי אפשר לשחזר אותה.", { 0: d.name }))) return;
         try {
             await apiFetch(`/api/lucky-club/draws/${d.id}`, { method: "DELETE" });
             setDraws(prev => (prev || []).filter(x => x.id !== d.id));

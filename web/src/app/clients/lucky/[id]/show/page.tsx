@@ -8,6 +8,7 @@ import AppShell from "@/components/AppShell";
 import PlanLock from "@/components/PlanLock";
 import Wheel, { WheelHandle } from "@/components/lucky/Wheel";
 import Confetti, { ConfettiHandle } from "@/components/lucky/Confetti";
+import NotifyWinnersButton from "@/components/lucky/NotifyWinnersButton";
 import { apiFetch } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import { intl, tx } from "@/lib/i18n";
@@ -293,6 +294,9 @@ function Stage({ initial }: { initial: Draw }) {
                             ))}
                         </ol>
                         <div className="mt-7 flex flex-wrap justify-center gap-3">
+                            {/* now that all are seen — the winners hear it on WhatsApp */}
+                            <NotifyWinnersButton draw={draw} onSent={setDraw}
+                                className="inline-flex min-h-11 items-center gap-2 rounded-full bg-emerald-500 px-6 font-black text-white hover:bg-emerald-400 disabled:opacity-60" />
                             <button type="button" onClick={() => { setCurrent(-1); setReplay(false); }}
                                 className="min-h-11 rounded-full bg-white/10 px-6 font-bold hover:bg-white/20">{tx("סגירה")}</button>
                             {!full && (

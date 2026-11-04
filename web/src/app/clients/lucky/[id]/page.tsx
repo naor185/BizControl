@@ -2,14 +2,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { Check, ChevronRight, ImagePlus, Lock, MonitorPlay, Phone, Search, Trash2, Trophy, Users, X } from "lucide-react";
+import { Check, ChevronRight, ImagePlus, Lock, MonitorPlay, Phone, Search, Send, Trash2, Trophy, Users, X } from "lucide-react";
+import NotifyWinnersButton from "@/components/lucky/NotifyWinnersButton";
 import RequireAuth from "@/components/RequireAuth";
 import AppShell from "@/components/AppShell";
 import PlanLock from "@/components/PlanLock";
 import { apiFetch } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import { intl, tx } from "@/lib/i18n";
-import { Audience, AUDIENCES, audienceLabel, ChosenClient, Draw, MAX_WINNERS, placeLabel, STATUS, Winner } from "@/lib/luckyClub";
+import {
+    Audience, AUDIENCES, audienceLabel, ChosenClient, Draw, MAX_WINNERS, placeLabel, PRIZE_KINDS, PRIZE_STATUS, prizeDetails,
+    PrizeKind, STATUS, Winner,
+} from "@/lib/luckyClub";
 
 // One Lucky Club draw (the owner's spec, 2026-11-04): a draft is written here — name, picture, when, its rules, who
 // takes part (with how many, counted live), how many win and a prize for each place — then locked (who takes part is
@@ -18,6 +22,7 @@ import { Audience, AUDIENCES, audienceLabel, ChosenClient, Draw, MAX_WINNERS, pl
 
 const LABEL = "mb-1.5 block text-xs font-semibold text-slate-600";
 const INPUT = "w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-100";
+const NUMBER = "shrink-0 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm tabular-nums text-slate-900 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-100";
 
 const when = (iso: string | null) =>
     iso ? new Date(iso).toLocaleString(intl(), { day: "numeric", month: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" }) : null;
@@ -41,15 +46,17 @@ function BackLink() {
 
 // ── the draft ──────────────────────────────────────────────────────────────────
 
+type PrizeForm = { title: string; description: string; kind: PrizeKind; value: string; valid_days: string };
 type Form = {
     name: string; description: string; image_url: string; terms: string; scheduled_at: string; audience: Audience;
-    winners_count: number; prizes: { title: string; description: string }[]; manual: ChosenClient[];
+    winners_count: number; prizes: PrizeForm[]; manual: ChosenClient[];
 };
 
 function formOf(d: Draw | null): Form {
     const prizes = Array.from({ length: MAX_WINNERS }, (_, i) => {
         const p = d?.prizes.find(x => x.place === i + 1);
-        return { title: p?.title ?? "", description: p?.description ?? "" };
+        return { title: p?.title ?? "", description: p?.description ?? "", kind: p?.kind ?? "gift",
+                 value: p?.value ? String(p.value) : "", valid_days: p?.valid_days ? String(p.valid_days) : "" };
     });
     return {
         name: d?.name ?? "", description: d?.description ?? "", image_url: d?.image_url ?? "", terms: d?.terms ?? "",
@@ -108,7 +115,10 @@ function Editor({ draw, onSaved }: { draw: Draw | null; onSaved: (d: Draw) => vo
         name: f.name.trim(), description: f.description, image_url: f.image_url, terms: f.terms,
         scheduled_at: fromLocalInput(f.scheduled_at), audience: f.audience, winners_count: f.winners_count,
         manual_client_ids: f.manual.map(c => c.id),
-        prizes: f.prizes.slice(0, f.winners_count).map((p, i) => ({ place: i + 1, title: p.title.trim(), description: p.description })),
+        prizes: f.prizes.slice(0, f.winners_count).map((p, i) => ({
+            place: i + 1, title: p.title.trim(), description: p.description, kind: p.kind,
+            value: p.kind === "gift" || !p.value ? null : Number(p.value), valid_days: p.valid_days ? Number(p.valid_days) : null,
+        })),
     });
 
     const save = async (): Promise<Draw | null> => {
@@ -135,7 +145,7 @@ function Editor({ draw, onSaved }: { draw: Draw | null; onSaved: (d: Draw) => vo
     };
 
     const lock = async () => {
-        const missing = f.prizes.slice(0, f.winners_count).findIndex(p => !p.title.trim());
+        const missing = f.prizes.slice(0, f.winners_count).findIndex(p => p.kind === "gift" ? !p.title.trim() : !Number(p.value));
         if (missing >= 0) { toast.error(tx("חסר פרס למקום {0}", { 0: missing + 1 })); return; }
         if (!confirm(tx("לנעול את ההגרלה עם {0} משתתפים? אחרי הנעילה רשימת המשתתפים קבועה ואי אפשר לשנות את ההגרלה.", { 0: count ?? "—" }))) return;
         const d = await save();
@@ -277,19 +287,53 @@ function Editor({ draw, onSaved }: { draw: Draw | null; onSaved: (d: Draw) => vo
                         ))}
                     </div>
                 </div>
-                {f.prizes.slice(0, f.winners_count).map((p, i) => (
-                    <div key={i} className="grid gap-2 sm:grid-cols-[7rem_1fr]">
-                        <span className="pt-2.5 text-sm font-bold text-slate-700">{placeLabel(i + 1)}</span>
-                        <div className="space-y-2">
-                            <input value={p.title} maxLength={160} aria-label={tx("הפרס ל{0}", { 0: placeLabel(i + 1) })}
-                                onChange={e => set("prizes", f.prizes.map((x, j) => j === i ? { ...x, title: e.target.value } : x))}
-                                className={INPUT} placeholder={[tx("לדוגמה: טיפול מתנה"), tx("לדוגמה: 30% הנחה"), tx("לדוגמה: מוצר מתנה")][i]} />
-                            <input value={p.description} maxLength={1000} aria-label={tx("פרטי הפרס ל{0}", { 0: placeLabel(i + 1) })}
-                                onChange={e => set("prizes", f.prizes.map((x, j) => j === i ? { ...x, description: e.target.value } : x))}
-                                className={INPUT} placeholder={tx("פרטים (לא חובה) — למשל עד מתי אפשר לממש")} />
+                {f.prizes.slice(0, f.winners_count).map((p, i) => {
+                    const put = (patch: Partial<PrizeForm>) => set("prizes", f.prizes.map((x, j) => j === i ? { ...x, ...patch } : x));
+                    const place = placeLabel(i + 1);
+                    return (
+                        <div key={i} className="grid gap-2 border-t border-slate-100 pt-4 sm:grid-cols-[7rem_1fr]">
+                            <span className="pt-2.5 text-sm font-bold text-slate-700">{place}</span>
+                            <div className="space-y-2">
+                                {/* what kind of prize — a gift, points into the club card, a percent off with its own code */}
+                                <div className="inline-flex flex-wrap rounded-xl border border-slate-200 p-1" role="radiogroup" aria-label={tx("סוג הפרס ל{0}", { 0: place })}>
+                                    {PRIZE_KINDS.map(k => (
+                                        <button key={k.key} type="button" role="radio" aria-checked={p.kind === k.key} onClick={() => put({ kind: k.key })}
+                                            className={`min-h-9 rounded-lg px-3 text-sm font-bold transition ${p.kind === k.key ? "bg-amber-500 text-white" : "text-slate-600 hover:bg-slate-50"}`}>
+                                            {k.label}
+                                        </button>
+                                    ))}
+                                </div>
+                                {p.kind !== "gift" && (
+                                    <label className="flex items-center gap-2 text-sm text-slate-700">
+                                        <input type="number" inputMode="numeric" min={1} max={p.kind === "percent" ? 100 : 100000} value={p.value}
+                                            onChange={e => put({ value: e.target.value })} className={`${NUMBER} w-28`}
+                                            aria-label={p.kind === "percent" ? tx("אחוז ההנחה ל{0}", { 0: place }) : tx("כמה נקודות ל{0}", { 0: place })} />
+                                        <span className="font-semibold">{p.kind === "percent" ? tx("% הנחה — קוד אישי לזוכה") : tx("נקודות לכרטיס המועדון")}</span>
+                                    </label>
+                                )}
+                                <input value={p.title} maxLength={160} aria-label={tx("הפרס ל{0}", { 0: place })}
+                                    onChange={e => put({ title: e.target.value })}
+                                    className={INPUT} placeholder={p.kind === "gift"
+                                        ? [tx("לדוגמה: טיפול מתנה"), tx("לדוגמה: מוצר מתנה"), tx("לדוגמה: שובר לטיפול")][i]
+                                        : tx("שם הפרס (לא חובה) — אחרת \"{0}\"", { 0: p.kind === "percent" ? tx("{0}% הנחה", { 0: p.value || "20" }) : tx("{0} נקודות", { 0: p.value || "500" }) })} />
+                                <label className="flex flex-wrap items-center gap-2 text-sm text-slate-700">
+                                    <span>{tx("זמן למימוש:")}</span>
+                                    <input type="number" inputMode="numeric" min={1} max={3650} value={p.valid_days}
+                                        onChange={e => put({ valid_days: e.target.value })} className={`${NUMBER} w-24`}
+                                        aria-label={tx("ימים למימוש הפרס ל{0}", { 0: place })} placeholder="30" />
+                                    <span>{tx("ימים מיום ההגרלה")}</span>
+                                    <span className="text-xs text-slate-500">{p.kind === "points"
+                                        ? tx("— נקודות שלא נוצלו עד אז יורדות מהכרטיס. ריק: בלי הגבלה")
+                                        : tx("— אחר כך הפרס פג. ריק: בלי הגבלה")}</span>
+                                </label>
+                                <input value={p.description} maxLength={1000} aria-label={tx("פרטי הפרס ל{0}", { 0: place })}
+                                    onChange={e => put({ description: e.target.value })}
+                                    className={INPUT} placeholder={tx("פרטים (לא חובה)")} />
+                            </div>
                         </div>
-                    </div>
-                ))}
+                    );
+                })}
+                <p className="text-xs text-slate-500">{tx("ויקי תזכיר לך שבוע לפני שפרס שלא מומש עומד לפוג.")}</p>
             </section>
 
             {/* the rules */}
@@ -327,7 +371,7 @@ function Editor({ draw, onSaved }: { draw: Draw | null; onSaved: (d: Draw) => vo
 
 // ── locked, done, canceled ─────────────────────────────────────────────────────
 
-function WinnerCard({ w, onChange }: { w: Winner; onChange: (w: Winner) => void }) {
+function WinnerCard({ w, drawId, onChange }: { w: Winner; drawId: string; onChange: (w: Winner) => void }) {
     const [busy, setBusy] = useState(false);
     const toggle = async () => {
         setBusy(true);
@@ -341,32 +385,68 @@ function WinnerCard({ w, onChange }: { w: Winner; onChange: (w: Winner) => void 
             setBusy(false);
         }
     };
+    // the WhatsApp to this winner — once more, on purpose (a reminder before the prize ends)
+    const tell = async () => {
+        setBusy(true);
+        try {
+            const r = await apiFetch<{ sent: number; no_phone: string[] }>(`/api/lucky-club/draws/${drawId}/notify`, {
+                method: "POST", body: JSON.stringify({ winner_id: w.id }),
+            });
+            if (r.sent) {
+                toast.success(tx("ההודעה נשלחה ל{0}", { 0: w.full_name }));
+                onChange({ ...w, notified_at: new Date().toISOString() });
+            } else toast.error(tx("אין טלפון ל{0}", { 0: w.full_name }));
+        } catch (e) {
+            toast.error((e as Error)?.message || tx("השליחה נכשלה"));
+        } finally {
+            setBusy(false);
+        }
+    };
     const redeemed = w.status === "redeemed";
+    const st = PRIZE_STATUS[w.status];
     return (
         <li className="flex flex-wrap items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4">
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-amber-500 text-lg font-black text-white">{w.place}</span>
             <div className="min-w-0 flex-1">
                 <div className="font-bold text-slate-900">{w.full_name}</div>
                 <div className="text-sm text-slate-600">{w.prize_title}</div>
-                {w.phone && (
-                    <a href={`tel:${w.phone}`} className="mt-0.5 inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-800" dir="ltr">
-                        <Phone className="h-3 w-3" aria-hidden /> {w.phone}
-                    </a>
+                {prizeDetails(w).length > 0 && (
+                    <div className="mt-0.5 flex flex-wrap gap-x-3 text-xs text-slate-500">
+                        {prizeDetails(w).map(t => <span key={t} dir="auto">{t}</span>)}
+                    </div>
                 )}
+                <div className="mt-0.5 flex flex-wrap items-center gap-x-3 text-xs text-slate-500">
+                    {w.phone && (
+                        <a href={`tel:${w.phone}`} className="inline-flex items-center gap-1 hover:text-slate-800" dir="ltr">
+                            <Phone className="h-3 w-3" aria-hidden /> {w.phone}
+                        </a>
+                    )}
+                    {w.notified_at && <span>{tx("הודעה נשלחה {0}", { 0: when(w.notified_at) })}</span>}
+                </div>
             </div>
             <div className="flex flex-col items-end gap-1.5">
-                <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${redeemed ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
-                    {redeemed ? tx("מומש · {0}", { 0: when(w.redeemed_at) }) : tx("ממתין למימוש")}
+                <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${st.chip}`}>
+                    {redeemed && w.redeemed_at ? tx("מומש · {0}", { 0: when(w.redeemed_at) }) : st.label}
                 </span>
-                <button type="button" onClick={toggle} disabled={busy}
-                    className={`inline-flex min-h-9 items-center gap-1 rounded-lg px-3 text-xs font-bold disabled:opacity-60 ${redeemed ? "text-slate-600 hover:bg-slate-100" : "bg-emerald-600 text-white hover:bg-emerald-700"}`}>
-                    {redeemed ? tx("החזרה לממתין") : <><Check className="h-3.5 w-3.5" aria-hidden /> {tx("סימון כמומש")}</>}
-                </button>
+                <div className="flex flex-wrap justify-end gap-1">
+                    {w.status === "pending" && w.client_id && (
+                        <button type="button" onClick={tell} disabled={busy}
+                            className="inline-flex min-h-9 items-center gap-1 rounded-lg border border-slate-200 px-3 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-60">
+                            <Send className="h-3.5 w-3.5" aria-hidden /> {w.notified_at ? tx("תזכורת לזוכה") : tx("הודעה לזוכה")}
+                        </button>
+                    )}
+                    {/* points are used at the till — the system marks them; a gift or a code the owner may mark by hand */}
+                    {w.status !== "expired" && w.prize_kind !== "points" && (
+                        <button type="button" onClick={toggle} disabled={busy}
+                            className={`inline-flex min-h-9 items-center gap-1 rounded-lg px-3 text-xs font-bold disabled:opacity-60 ${redeemed ? "text-slate-600 hover:bg-slate-100" : "bg-emerald-600 text-white hover:bg-emerald-700"}`}>
+                            {redeemed ? tx("החזרה לממתין") : <><Check className="h-3.5 w-3.5" aria-hidden /> {tx("סימון כמומש")}</>}
+                        </button>
+                    )}
+                </div>
             </div>
         </li>
     );
 }
-
 function DrawView({ draw, onChange }: { draw: Draw; onChange: (d: Draw) => void }) {
     const router = useRouter();
     const [busy, setBusy] = useState(false);
@@ -392,7 +472,9 @@ function DrawView({ draw, onChange }: { draw: Draw; onChange: (d: Draw) => void 
 
     // a draw done or canceled leaves the history (the owner, 2026-11-04) — a locked one is canceled first
     const remove = async () => {
-        if (!confirm(tx("למחוק את ההגרלה „{0}” מההיסטוריה? אי אפשר לשחזר אותה.", { 0: draw.name }))) return;
+        if (!confirm(draw.status === "done"
+            ? tx("למחוק את ההגרלה „{0}” מההיסטוריה? הפרסים שהזוכים קיבלו נשארים אצלם עד שיפוגו.", { 0: draw.name })
+            : tx("למחוק את ההגרלה „{0}” מההיסטוריה? אי אפשר לשחזר אותה.", { 0: draw.name }))) return;
         setBusy(true);
         try {
             await apiFetch(`/api/lucky-club/draws/${draw.id}`, { method: "DELETE" });
@@ -446,15 +528,18 @@ function DrawView({ draw, onChange }: { draw: Draw; onChange: (d: Draw) => void 
                     <h2 className="flex items-center gap-2 font-bold text-slate-900"><Trophy className="h-5 w-5 text-amber-500" aria-hidden /> {tx("הזוכים")}</h2>
                     <ul className="space-y-2">
                         {draw.winners.map(w => (
-                            <WinnerCard key={w.id} w={w} onChange={nw => onChange({ ...draw, winners: draw.winners.map(x => x.id === nw.id ? nw : x) })} />
+                            <WinnerCard key={w.id} w={w} drawId={draw.id} onChange={nw => onChange({ ...draw, winners: draw.winners.map(x => x.id === nw.id ? nw : x) })} />
                         ))}
                     </ul>
                     <div className="flex flex-wrap items-center justify-between gap-2">
                         <p className="text-xs text-slate-500">{tx("הזוכים נבחרו באקראי בשרת ולא ניתנים לשינוי. אפשר רק לסמן אם הפרס מומש.")}</p>
-                        <Link href={`/clients/lucky/${draw.id}/show`}
-                            className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-                            <MonitorPlay className="h-4 w-4" aria-hidden /> {tx("הצגה חוזרת במסך")}
-                        </Link>
+                        <div className="flex flex-wrap gap-2">
+                            <NotifyWinnersButton draw={draw} onSent={onChange} />
+                            <Link href={`/clients/lucky/${draw.id}/show`}
+                                className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                                <MonitorPlay className="h-4 w-4" aria-hidden /> {tx("הצגה חוזרת במסך")}
+                            </Link>
+                        </div>
                     </div>
                 </section>
             ) : (
@@ -463,6 +548,9 @@ function DrawView({ draw, onChange }: { draw: Draw; onChange: (d: Draw) => void 
                     <ul className="space-y-1.5 text-sm">
                         {draw.prizes.map(p => (
                             <li key={p.place}><span className="font-semibold text-slate-800">{placeLabel(p.place)}:</span> {p.title}
+                                {p.kind === "percent" && <span className="text-slate-500"> · {tx("קוד הנחה אישי לזוכה")}</span>}
+                                {p.kind === "points" && <span className="text-slate-500"> · {tx("נכנסות לכרטיס המועדון")}</span>}
+                                {p.valid_days && <span className="text-slate-500"> · {tx("{0} ימים למימוש", { 0: p.valid_days })}</span>}
                                 {p.description && <span className="text-slate-500"> — {p.description}</span>}</li>
                         ))}
                     </ul>

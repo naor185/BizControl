@@ -1,7 +1,8 @@
 """
-Coupons — one code field for both kinds: the business's own coupons (models/coupon.Coupon: a code the owner writes,
-a percent, a category, a source, how many uses, until when) and the birthday coupons the system makes per client
-(models/birthday_coupon.BirthdayCoupon). find() says whether a code works now (and why not, in plain Hebrew),
+Coupons — one code field for every kind: the business's own coupons (models/coupon.Coupon: a code the owner writes,
+a percent, a category, a source, how many uses, until when), the birthday coupons the system makes per client
+(models/birthday_coupon.BirthdayCoupon) and a Lucky Club percent prize's personal code (models/lucky_draw.
+LuckyDrawWinner.code — once, the winner's own, until its last day). find() says whether a code works now (and why not, in plain Hebrew),
 redeem() records the use on a payment or a till sale, release() gives it back when that sale is voided, report()
 adds up the uses for the owner: per coupon, per category, per source — uses, what is left, money in, discount given.
 """
@@ -17,6 +18,7 @@ from sqlalchemy.orm import Session
 
 from app.models.birthday_coupon import BirthdayCoupon
 from app.models.coupon import Coupon, CouponUse
+from app.models.lucky_draw import LuckyDrawWinner
 from app.services.classes import today_il
 
 BIRTHDAY_CATEGORY = "יום הולדת"
@@ -35,10 +37,11 @@ class Hit:
     percent: int
     coupon: Coupon | None = None
     birthday: BirthdayCoupon | None = None
+    lucky: LuckyDrawWinner | None = None
 
     @property
     def label(self) -> str:
-        kind = "קופון יום הולדת" if self.birthday else "קופון"
+        kind = "קופון יום הולדת" if self.birthday else "קוד פרס מהגרלה" if self.lucky else "קופון"
         return f"{kind} {self.code} — {self.percent}% הנחה"
 
 
@@ -94,6 +97,17 @@ def find(db: Session, studio_id, code: str, client_id=None, *, lock: bool = Fals
         if client_id and b.client_id != client_id:
             raise ValueError(f"קופון יום ההולדת {code} שייך ללקוח אחר")
         return Hit(code=code, percent=b.discount_percent, birthday=b)
+
+    q = select(LuckyDrawWinner).where(LuckyDrawWinner.studio_id == studio_id, LuckyDrawWinner.code == code)
+    w = db.scalar(q.with_for_update() if lock else q)
+    if w:
+        if w.status == "redeemed":
+            raise ValueError(f"קוד הפרס {code} כבר נוצל")
+        if w.status == "expired" or (w.expires_on and w.expires_on < today_il()):
+            raise ValueError(f"תוקף קוד הפרס {code} פג")
+        if client_id and w.client_id != client_id:
+            raise ValueError(f"קוד הפרס {code} שייך ללקוח אחר")
+        return Hit(code=code, percent=int(w.prize_value or 0), lucky=w)
     raise ValueError(f"אין קופון בקוד {code}")
 
 
@@ -108,11 +122,12 @@ def redeem(db: Session, studio_id, hit: Hit, *, before_cents: int, client_id=Non
     the discount gets its own row in payments — "[מערכת] קופון …", for the same thing — so what the client owes
     is closed, while the money reports leave it out (it is not money, like paying with club points)."""
     from app.models.payment import Payment
-    if hit.coupon is not None:
+    if hit.coupon is not None or hit.lucky is not None:
         hit = find(db, studio_id, hit.code, client_id, lock=True)
     discount = discount_of(hit, before_cents)
     use = CouponUse(studio_id=studio_id, coupon_id=hit.coupon.id if hit.coupon else None,
-                    birthday_coupon_id=hit.birthday.id if hit.birthday else None, code=hit.code, client_id=client_id,
+                    birthday_coupon_id=hit.birthday.id if hit.birthday else None,
+                    lucky_winner_id=hit.lucky.id if hit.lucky else None, code=hit.code, client_id=client_id,
                     payment_id=payment.id if payment is not None else None, pos_transaction_id=pos_transaction_id,
                     before_cents=before_cents, discount_cents=discount, used_by=user_id)
     if payment is not None and discount > 0:
@@ -133,6 +148,8 @@ def redeem(db: Session, studio_id, hit: Hit, *, before_cents: int, client_id=Non
         else:
             hit.birthday.status = "redeemed"
             hit.birthday.redeemed_at = datetime.now(timezone.utc)
+    if hit.lucky is not None:                            # the prize is given — the draw's page and the client's card say so
+        hit.lucky.status, hit.lucky.redeemed_at, hit.lucky.redeemed_by = "redeemed", datetime.now(timezone.utc), user_id
     return use
 
 
@@ -162,6 +179,11 @@ def release(db: Session, *, pos_transaction_id=None, payment_id=None) -> int:
             if b and b.status == "redeemed":
                 b.status = "active" if b.expires_at >= datetime.now(timezone.utc) else "expired"
                 b.redeemed_at = None
+        if u.lucky_winner_id:
+            w = db.get(LuckyDrawWinner, u.lucky_winner_id)
+            if w and w.status == "redeemed":
+                w.status = "expired" if w.expires_on and w.expires_on < today_il() else "pending"
+                w.redeemed_at, w.redeemed_by = None, None
         if u.discount_payment_id:
             row = db.get(Payment, u.discount_payment_id)
             if row is not None and row.status == "paid":
@@ -227,4 +249,6 @@ def code_taken(db: Session, studio_id, code: str, *, not_id: uuid.UUID | None = 
     if not_id:
         q = q.where(Coupon.id != not_id)
     return bool(db.scalar(q.limit(1)) or db.scalar(
-        select(BirthdayCoupon.id).where(BirthdayCoupon.studio_id == studio_id, BirthdayCoupon.code == code).limit(1)))
+        select(BirthdayCoupon.id).where(BirthdayCoupon.studio_id == studio_id, BirthdayCoupon.code == code).limit(1))
+        or db.scalar(select(LuckyDrawWinner.id).where(LuckyDrawWinner.studio_id == studio_id,
+                                                      LuckyDrawWinner.code == code).limit(1)))

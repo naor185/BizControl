@@ -48,10 +48,16 @@ class CouponValidateResponse(BaseModel):
 def _checked(db: Session, studio_id, code: str, client_id) -> CouponValidateResponse:
     hit = svc.find(db, studio_id, code, client_id)
     client_name = None
-    if hit.birthday is not None:
-        c = db.get(Client, hit.birthday.client_id)
+    owner_id = hit.birthday.client_id if hit.birthday else hit.lucky.client_id if hit.lucky else None
+    if owner_id is not None:
+        c = db.get(Client, owner_id)
         client_name = c.full_name if c else None
-    expires = hit.birthday.expires_at.isoformat() if hit.birthday else (hit.coupon.expires_on.isoformat() if hit.coupon.expires_on else None)
+    if hit.birthday:
+        expires = hit.birthday.expires_at.isoformat()
+    elif hit.lucky:
+        expires = hit.lucky.expires_on.isoformat() if hit.lucky.expires_on else None
+    else:
+        expires = hit.coupon.expires_on.isoformat() if hit.coupon.expires_on else None
     return CouponValidateResponse(valid=True, discount_percent=hit.percent, code=hit.code, expires_at=expires,
                                   client_name=client_name, message=f"{hit.label} — תקין")
 

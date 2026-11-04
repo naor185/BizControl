@@ -1,5 +1,6 @@
 "use client";
 import BirthDateBox from "@/components/ui/birth-date-box";
+import ClientPrizes from "@/components/lucky/ClientPrizes";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/lib/toast";
 
@@ -558,6 +559,9 @@ export default function ClientProfilePage() {
                                     </div>
                                 </div>
                             </div>
+
+                            {/* Lucky Club — what the client won, its code and until when */}
+                            <ClientPrizes clientId={id} />
 
                             {/* Health declarations — signed on an appointment, or from here */}
                             <HealthDeclarations clientId={id} boxClassName="rounded-xl border bg-white p-4 shadow-sm" />

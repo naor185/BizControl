@@ -1225,6 +1225,23 @@ def ensure_schema():
             cur.execute(f"CREATE INDEX IF NOT EXISTS ix_{_t}_studio_id ON {_t} (studio_id)")
         for _t in ("lucky_draw_participants", "lucky_draw_winners"):
             cur.execute(f"CREATE INDEX IF NOT EXISTS ix_{_t}_client_id ON {_t} (client_id)")
+        # a prize: a gift, points or a percent off, with days to use it (the owner, 2026-11-04); a done draw deleted
+        # from the history is hidden, its winners keep their prizes
+        cur.execute("ALTER TABLE lucky_draws ADD COLUMN IF NOT EXISTS hidden_at TIMESTAMPTZ")
+        cur.execute("ALTER TABLE lucky_draw_prizes ADD COLUMN IF NOT EXISTS kind VARCHAR(10) NOT NULL DEFAULT 'gift'")
+        cur.execute("ALTER TABLE lucky_draw_prizes ADD COLUMN IF NOT EXISTS value INTEGER")
+        cur.execute("ALTER TABLE lucky_draw_prizes ADD COLUMN IF NOT EXISTS valid_days INTEGER")
+        cur.execute("ALTER TABLE lucky_draw_prizes DROP CONSTRAINT IF EXISTS ck_lucky_draw_prizes_kind")
+        cur.execute("ALTER TABLE lucky_draw_prizes ADD CONSTRAINT ck_lucky_draw_prizes_kind CHECK (kind IN ('gift','points','percent'))")
+        cur.execute("ALTER TABLE lucky_draw_winners ADD COLUMN IF NOT EXISTS prize_kind VARCHAR(10) NOT NULL DEFAULT 'gift'")
+        cur.execute("ALTER TABLE lucky_draw_winners ADD COLUMN IF NOT EXISTS prize_value INTEGER")
+        cur.execute("ALTER TABLE lucky_draw_winners ADD COLUMN IF NOT EXISTS expires_on DATE")
+        cur.execute("ALTER TABLE lucky_draw_winners ADD COLUMN IF NOT EXISTS code VARCHAR(32)")
+        cur.execute("ALTER TABLE lucky_draw_winners ADD COLUMN IF NOT EXISTS points_expired INTEGER")
+        cur.execute("ALTER TABLE lucky_draw_winners ADD COLUMN IF NOT EXISTS notified_at TIMESTAMPTZ")
+        cur.execute("ALTER TABLE lucky_draw_winners DROP CONSTRAINT IF EXISTS ck_lucky_draw_winners_status")
+        cur.execute("ALTER TABLE lucky_draw_winners ADD CONSTRAINT ck_lucky_draw_winners_status CHECK (status IN ('pending','redeemed','expired'))")
+        cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_lucky_draw_winners_code ON lucky_draw_winners (studio_id, code) WHERE code IS NOT NULL")
         # a link to pay sent to a client on WhatsApp — from the till or an appointment (models/payment_request)
         cur.execute("""
             CREATE TABLE IF NOT EXISTS payment_requests (
@@ -2731,6 +2748,12 @@ def ensure_schema():
         """)
         if _birthday_table:
             cur.execute("ALTER TABLE coupon_uses ADD COLUMN IF NOT EXISTS discount_payment_id UUID REFERENCES payments(id) ON DELETE SET NULL")
+            # a Lucky Club percent prize's personal code, in the same code field (services/coupons; 2026-11-04)
+            cur.execute("ALTER TABLE coupon_uses ADD COLUMN IF NOT EXISTS lucky_winner_id UUID REFERENCES lucky_draw_winners(id) ON DELETE CASCADE")
+            cur.execute("CREATE INDEX IF NOT EXISTS ix_coupon_uses_lucky_winner_id ON coupon_uses (lucky_winner_id)")
+            cur.execute("ALTER TABLE coupon_uses DROP CONSTRAINT IF EXISTS ck_coupon_uses_coupon")
+            cur.execute("ALTER TABLE coupon_uses ADD CONSTRAINT ck_coupon_uses_coupon CHECK "
+                        "(coupon_id IS NOT NULL OR birthday_coupon_id IS NOT NULL OR lucky_winner_id IS NOT NULL)")
         for _t, _c in (("coupons", "studio_id"), ("coupon_uses", "studio_id"), ("coupon_uses", "coupon_id"),
                        ("coupon_uses", "birthday_coupon_id"), ("coupon_uses", "client_id"), ("coupon_uses", "payment_id"),
                        ("coupon_uses", "pos_transaction_id")):

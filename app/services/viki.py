@@ -198,6 +198,32 @@ def suggestions(db: Session, studio_id, now: datetime | None = None, lang: str =
                   f"{born} clients have a birthday this month, and the birthday message is off. A greeting with a small benefit brings clients back."),
                 w("להפעיל ברכות", "Turn on greetings"), "/automation")
 
+    # ── Lucky Club prizes not used yet whose time ends within a week (the owner, 2026-11-04: "Viki should remind when
+    # a prize wasn't used and its time is running out") — a code, points or a gift; "עשיתי" hides it until the list
+    # changes ──
+    if has_module(db, studio_id, "lucky_club"):
+        from app.models.lucky_draw import LuckyDrawParticipant, LuckyDrawWinner
+        soon = db.execute(select(LuckyDrawWinner, LuckyDrawParticipant.full_name)
+                          .join(LuckyDrawParticipant, LuckyDrawParticipant.id == LuckyDrawWinner.participant_id)
+                          .where(LuckyDrawWinner.studio_id == studio_id, LuckyDrawWinner.status == "pending",
+                                 LuckyDrawWinner.expires_on >= today, LuckyDrawWinner.expires_on <= today + timedelta(days=7))
+                          .order_by(LuckyDrawWinner.expires_on)).all()
+        if soon:
+            def _left(d) -> str:
+                n = (d - today).days
+                return w("היום האחרון", "the last day") if n == 0 else w("נשאר יום", "1 day left") if n == 1 \
+                    else w(f"נשארו {n} ימים", f"{n} days left")
+            shown = [f"{name} — {x.prize_title} ({_left(x.expires_on)})" for x, name in soon[:3]]
+            more = len(soon) - len(shown)
+            listed = "; ".join(shown) + (w(f" ועוד {more}", f" and {more} more") if more else "")
+            add(82, f"lucky_soon:{soon[0][0].id}:{len(soon)}", "warn",
+                w(("פרס אחד מההגרלות עוד לא מומש והזמן שלו נגמר השבוע" if len(soon) == 1
+                   else f"{len(soon)} פרסים מההגרלות עוד לא מומשו והזמן שלהם נגמר השבוע") + f": {listed}. כדאי להזכיר לזוכים.",
+                  ("A prize from your draws hasn't been used and its time ends this week" if len(soon) == 1
+                   else f"{len(soon)} prizes from your draws haven't been used and their time ends this week") + f": {listed}. Worth reminding the winners."),
+                *((w("לכרטיס הלקוח", "To the client's card"), f"/clients/{soon[0][0].client_id}")
+                  if len(soon) == 1 and soon[0][0].client_id else (w("לזוכים", "To the winners"), "/clients/lucky")))
+
     # ── what came of what was done (stage 3 — services/viki_learning.py) ──
     from app.services import viki_learning as vl
     sent = vl.recent(db, studio_id, now)

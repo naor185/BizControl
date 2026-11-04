@@ -45,13 +45,16 @@ class Coupon(Base):
 class CouponUse(Base):
     __tablename__ = "coupon_uses"
     __table_args__ = (
-        CheckConstraint("coupon_id IS NOT NULL OR birthday_coupon_id IS NOT NULL", name="ck_coupon_uses_coupon"),
+        CheckConstraint("coupon_id IS NOT NULL OR birthday_coupon_id IS NOT NULL OR lucky_winner_id IS NOT NULL",
+                        name="ck_coupon_uses_coupon"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     studio_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("studios.id", ondelete="CASCADE"), nullable=False, index=True)
     coupon_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("coupons.id", ondelete="CASCADE"), nullable=True, index=True)
     birthday_coupon_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("birthday_coupons.id", ondelete="CASCADE"), nullable=True, index=True)
+    # a Lucky Club percent prize's personal code (models/lucky_draw.LuckyDrawWinner.code)
+    lucky_winner_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("lucky_draw_winners.id", ondelete="CASCADE"), nullable=True, index=True)
     code: Mapped[str] = mapped_column(String(32), nullable=False)
     client_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("clients.id", ondelete="SET NULL"), nullable=True, index=True)
     # what it was used on — a payment (an appointment) or a till sale; deleting that removes the use

@@ -59,6 +59,8 @@ SERVICE_TYPES = frozenset({
     # a response to the client's own action (joining the club / redeeming points) — kept as service,
     # i.e. their behaviour is unchanged; listed separately so the owner can decide otherwise
     "club_welcome", "points_celebration",
+    "lucky_win",             # a Lucky Club winner told what they won and until when (services/lucky_draw.notify) — theirs
+                             # already, like a receipt; sent only when the owner presses it
     # to the studio's staff, not to clients
     "new_lead", "manual",
     "deposit_reported",      # a client says they paid the deposit (services/deposit_report)

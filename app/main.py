@@ -140,6 +140,21 @@ def start_scheduler():
         finally:
             db.close()
 
+    def tick_lucky_prizes():
+        # Lucky Club prizes: points spent → used; past the last day → expired, unspent prize points taken back
+        from app.services.lucky_draw import sweep
+        db = SessionLocal()
+        try:
+            n = sweep(db)
+            db.commit()
+            if n:
+                logging.getLogger("bizcontrol.lucky_club").info("Lucky Club: %d prizes used or ended", n)
+        except Exception:
+            db.rollback()
+            _scheduler_log.exception("lucky prizes sweep failed")
+        finally:
+            db.close()
+
     def tick_purge_deleted_businesses():
         from app.services.account_deletion import purge_due
         db = SessionLocal()
@@ -152,6 +167,8 @@ def start_scheduler():
 
     scheduler.add_job(tick_jobs, "interval", seconds=20, id="message_jobs_tick", replace_existing=True)
     scheduler.add_job(tick_purge_deleted_businesses, "cron", hour=3, minute=30, timezone="Asia/Jerusalem", id="purge_deleted_businesses_tick", replace_existing=True)
+    scheduler.add_job(tick_lucky_prizes, "cron", hour=0, minute=20, timezone="Asia/Jerusalem", misfire_grace_time=86400,
+                      id="lucky_prizes_tick", replace_existing=True)
     scheduler.add_job(tick_reminders, "interval", minutes=60, id="reminders_sweep_tick", replace_existing=True)
     # every morning hour a business can choose for its morning reminder (7–10)
     scheduler.add_job(tick_same_day_reminders, "cron", hour="7-10", minute=0, timezone="Asia/Jerusalem", id="same_day_reminders_tick", replace_existing=True)
