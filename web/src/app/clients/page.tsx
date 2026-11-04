@@ -7,6 +7,7 @@ import { useSearchParams } from "next/navigation";
 import RequireAuth from "@/components/RequireAuth";
 import AppShell from "@/components/AppShell";
 import ClientsTabs from "@/components/ClientsTabs";
+import LuckyClubCard from "@/components/lucky/LuckyClubCard";
 import { apiFetch } from "@/lib/api";
 import { toLocalDateStr } from "@/lib/format";
 import Link from "next/link";
@@ -430,6 +431,8 @@ function PageInner() {
                             </div>
                         ) : (
                             <div className="space-y-6">
+                                {/* Lucky Club — raffles among the club's clients, where the business has it (2026-11-04) */}
+                                <LuckyClubCard />
                                 {/* Stats cards */}
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                                     {[
