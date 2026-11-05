@@ -16,8 +16,8 @@ import { audio, fanfare, Music, tick } from "@/lib/luckySound";
 import { Draw, placeLabel, Winner } from "@/lib/luckyClub";
 
 // Lucky Club's draw screen (the owner's spec, 2026-11-04) — for the studio's screen or a TV: full screen, the wheel with
-// the names, bulbs, sound, confetti, and the winners revealed one after another — the first place first, then the
-// second (the owner, 2026-11-04). The winners are picked on the server the moment the host starts (POST …/run, once);
+// the names, bulbs, sound, confetti, and the winners revealed one after another — the last place first, up to the
+// first place at the end (the owner, 2026-11-05, back to the original order). The winners are picked on the server the moment the host starts (POST …/run, once);
 // the wheel only shows them. Every participant is on the wheel, and a winner leaves it before the next spin. A draw
 // already done can be shown again — marked as a replay of the saved result.
 
@@ -47,7 +47,7 @@ const STAGE_CSS = `
 function Stage({ initial }: { initial: Draw }) {
     const [draw, setDraw] = useState(initial);
     const [phase, setPhase] = useState<Phase>("ready");
-    const [order, setOrder] = useState<Winner[]>([]);            // the reveal order: the first place first
+    const [order, setOrder] = useState<Winner[]>([]);            // the reveal order: the last place first, the first place last
     const [current, setCurrent] = useState(-1);
     const [revealed, setRevealed] = useState<Winner[]>(initial.status === "done" ? initial.winners : []);
     const [replay, setReplay] = useState(false);
@@ -119,7 +119,7 @@ function Stage({ initial }: { initial: Draw }) {
         } else {
             setReplay(true);
         }
-        const seq = [...winners].sort((a, b) => a.place - b.place);
+        const seq = [...winners].sort((a, b) => b.place - a.place);
         setOrder(seq);
         setRevealed([]);
         setCurrent(0);
