@@ -80,14 +80,17 @@ const Wheel = forwardRef<WheelHandle, Props>(function Wheel({ labels, onTick, re
         }
         c.shadowBlur = 0;
 
-        // the slices and the names
+        // the slices and the names — a name fills most of its slice's width where it starts at the rim, and runs inwards
+        // until the slice gets too narrow for it (the owner, 2026-11-05: with 117 clients the names didn't show at all)
         const font = getComputedStyle(cv).fontFamily || "sans-serif";
-        const fontSize = Math.min(size * 0.042, ((Math.PI * 2 * r) / n) * 0.5);
-        const named = fontSize >= 5;              // thinner than this a slice is only its colour — the name shows above
+        const outer = r - size * 0.03;
+        const fontSize = Math.min(size * 0.042, outer * a * 0.7);
+        const named = fontSize >= 3;              // thinner than this a slice is only its colour — the name shows above
         const key = `${names.join("\u0001")}|${size}|${fontSize}`;
         if (named && fitted.current.key !== key) {
             c.font = `700 ${fontSize}px ${font}`;
-            fitted.current = { key, texts: names.map(x => fit(c, x, r * 0.62)) };
+            const room = Math.min(r * 0.62, outer - (fontSize * 0.6) / a);
+            fitted.current = { key, texts: names.map(x => fit(c, x, room)) };
         }
         for (let i = 0; i < n; i++) {
             const start = theta.current + i * a - Math.PI / 2;
@@ -115,7 +118,7 @@ const Wheel = forwardRef<WheelHandle, Props>(function Wheel({ labels, onTick, re
             c.textBaseline = "middle";
             c.direction = "rtl";
             c.textAlign = left ? "end" : "start";
-            c.fillText(fitted.current.texts[i] ?? names[i], left ? -(r - size * 0.03) : r - size * 0.03, 0);
+            c.fillText(fitted.current.texts[i] ?? names[i], left ? -outer : outer, 0);
             c.restore();
         }
 
