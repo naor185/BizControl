@@ -184,10 +184,11 @@ const Wheel = forwardRef<WheelHandle, Props>(function Wheel({ labels, onTick, re
             // slice `index` under the pointer (at the top), somewhere inside the slice — not always its middle
             const inside = (Math.random() - 0.5) * a * 0.6;
             let target = -(index * a + a / 2) - inside;
-            const turns = reducedMotion ? 2 : 7 + Math.floor(Math.random() * 3);
+            // at least 10 seconds a spin (the owner, 2026-11-05), with more turns to fill them
+            const turns = reducedMotion ? 2 : 10 + Math.floor(Math.random() * 3);
             while (target <= from) target += Math.PI * 2;
             target += turns * Math.PI * 2;
-            const duration = reducedMotion ? 1800 : 7500 + Math.random() * 1500;
+            const duration = reducedMotion ? 1800 : 10000 + Math.random() * 2000;
             const start = performance.now();
             let lastPeg = Math.floor(from / a);
             spinning.current = true;
