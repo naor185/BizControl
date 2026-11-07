@@ -1,11 +1,11 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { imgUrl } from "@/lib/api";
+import { API_BASE, imgUrl } from "@/lib/api";
 
 import { tx, speakBusiness } from "@/lib/i18n";
 import AfterMount from "@/components/AfterMount";
-const API = (process.env.NEXT_PUBLIC_API_BASE || "").replace(/\/$/, "");
+const API = API_BASE.replace(/\/$/, "");
 
 type Info = { studio_name: string; logo_url: string | null; message: string; locale?: string };   // locale: the business's language
 

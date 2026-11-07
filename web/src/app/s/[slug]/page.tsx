@@ -1,6 +1,6 @@
 "use client";
 
-import { errorText } from "@/lib/api";
+import { API_BASE, errorText } from "@/lib/api";
 import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import LandingPageTemplate from "@/components/LandingPageTemplate";
@@ -32,8 +32,7 @@ type LandingData = {
 function imgUrl(filename: string | null | undefined): string | null {
     if (!filename) return null;
     if (filename.startsWith("http")) return filename;
-    const base = process.env.NEXT_PUBLIC_API_BASE || "";
-    return `${base}/uploads/${filename}`;
+    return `${API_BASE}/uploads/${filename}`;
 }
 
 // in the browser only: the page speaks the business's language, which the server's first page doesn't know
@@ -63,7 +62,9 @@ function StudioLanding() {
     const [joinedPoints, setJoinedPoints] = useState<number>(0);
     const [submitErr, setSubmitErr] = useState<string | null>(null);
 
-    const apiBase = process.env.NEXT_PUBLIC_API_BASE || "";
+    // the server straight from the browser, as every screen (lib/api) — the site's own /api detour reached the server
+    // from Vercel's address, so every client joining from these pages counted as one visitor (core/limiter, 2026-11-07)
+    const apiBase = API_BASE;
 
     // Capture UTM params on mount and persist them in sessionStorage
     // so they survive any internal navigation (e.g. template switching)

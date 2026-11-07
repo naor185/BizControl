@@ -1,6 +1,6 @@
 "use client";
 
-import { errorText } from "@/lib/api";
+import { API_BASE, errorText } from "@/lib/api";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import LandingPageTemplate from "@/components/LandingPageTemplate";
@@ -9,8 +9,6 @@ import { usePlatformTheme } from "@/lib/usePlatformTheme";
 
 import { tx, speakBusiness, langHeader } from "@/lib/i18n";
 import AfterMount from "@/components/AfterMount";
-// Define the API URL directly since this page is public and doesn't use the standard authenticated api fetcher for everything.
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:8000";
 
 type PublicStudioInfo = {
     id: string;
