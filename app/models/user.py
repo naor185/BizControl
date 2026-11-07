@@ -64,6 +64,8 @@ class User(Base):
 
     phone: Mapped[str | None] = mapped_column(String(32), nullable=True)
     totp_secret: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # the last new password — the logins from before it are over (services/auth_service.password_changed)
+    password_changed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     # what this worker may do beyond their own calendar — the owner's switches (core/permissions.WORKER_PERMISSIONS)
     worker_permissions: Mapped[str | None] = mapped_column(Text, nullable=True)
 

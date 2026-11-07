@@ -309,6 +309,9 @@ def refresh(request: Request, payload: RefreshRequest, db: Session = Depends(get
     user = db.query(User).filter(User.id == user_id, User.studio_id == studio_id, User.is_active == True).first()  # noqa: E712
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
+    from app.core.security import issued_before
+    if issued_before(data, user.password_changed_at):          # a login from before the password was changed
+        raise HTTPException(status_code=401, detail="Refresh token revoked or not found")
 
     new_access = create_access_token({"user_id": str(user.id), "studio_id": str(user.studio_id), "role": user.role})
     new_refresh = create_refresh_token({"user_id": str(user.id), "studio_id": str(user.studio_id)})
@@ -424,8 +427,8 @@ class ForgotPasswordIn(BaseModel):
 
 
 def _gen_reset_code() -> str:
-    import random, string
-    return "".join(random.choices(string.digits, k=6))
+    from app.services.one_time_codes import new_code
+    return new_code(6)
 
 
 def _normalize_il_phone(phone: str) -> str:
@@ -560,25 +563,11 @@ def forgot_password_verify_phone(request: Request, payload: VerifyResetCodeIn, d
     """Verify a WhatsApp code and return a set-password token directly — the
     phone check IS the proof of ownership, so this skips the emailed link
     entirely and the frontend can jump straight to setting a new password."""
-    target = _normalize_il_phone(payload.phone)
-    code = payload.code.strip()
-    now = datetime.now(timezone.utc)
-    row = db.execute(
-        text("""
-            SELECT user_id FROM password_reset_otps
-            WHERE phone = :phone AND code = :code
-              AND expires_at > :now AND used_at IS NULL
-            ORDER BY created_at DESC LIMIT 1
-        """),
-        {"phone": target, "code": code, "now": now},
-    ).fetchone()
-    if not row:
-        raise HTTPException(status_code=400, detail="קוד שגוי או פג תוקף")
-
-    db.execute(text("UPDATE password_reset_otps SET used_at = NOW() WHERE user_id = :uid AND code = :code"), {"uid": str(row[0]), "code": code})
+    from app.services import one_time_codes
+    row = one_time_codes.check(db, "password_reset_otps", _normalize_il_phone(payload.phone), payload.code, extra="user_id")
     db.commit()
 
-    user = db.get(User, row[0])
+    user = db.get(User, row.user_id)
     if not user or not user.is_active:
         raise HTTPException(status_code=404, detail="משתמש לא נמצא")
 
@@ -604,8 +593,13 @@ def set_password(payload: SetPasswordRequest, db: Session = Depends(get_db)):
     user = db.get(User, data["sub"])
     if not user or not user.is_active:
         raise HTTPException(status_code=404, detail="משתמש לא נמצא")
+    from app.core.security import issued_before
+    from app.services.auth_service import password_changed
+    if issued_before(data, user.password_changed_at):          # a link from before the last new password — used once
+        raise HTTPException(status_code=400, detail="הקישור לא תקין או פג תוקף")
     validate_password_strength(payload.new_password)
     user.password_hash = ph.hash(payload.new_password)
+    password_changed(db, user)       # whoever was signed in with the old password is signed out
     db.commit()
     reset_login_failures(db, user)   # the reset proves it's them — a lock from earlier wrong tries is lifted
     return {"status": "ok"}
@@ -619,16 +613,25 @@ class ChangePasswordRequest(BaseModel):
 
 
 @router.post("/change-password")
-def change_password(payload: ChangePasswordRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def change_password(request: Request, payload: ChangePasswordRequest, current_user: User = Depends(get_current_user),
+                    db: Session = Depends(get_db)):
+    """Every other device is signed out; this one gets new tokens and stays in (ChangePasswordForm saves them). Not
+    when the superadmin is signed in as the business — that support login simply ends."""
+    from app.services.auth_service import password_changed, issue_full_tokens
     try:
         ph.verify(current_user.password_hash, payload.current_password)
     except VerifyMismatchError:
         raise HTTPException(status_code=400, detail="הסיסמה הנוכחית שגויה")
     validate_password_strength(payload.new_password)
     current_user.password_hash = ph.hash(payload.new_password)
+    impersonated = getattr(current_user, "impersonated_by", None)
+    password_changed(db, current_user)
     db.commit()
     reset_login_failures(db, current_user)
-    return {"status": "ok"}
+    if impersonated:
+        return {"status": "ok"}
+    tokens = issue_full_tokens(current_user, db, user_agent=request.headers.get("user-agent"))
+    return {"status": "ok", "access_token": tokens.access_token, "refresh_token": tokens.refresh_token}
 
 
 # ── Me ────────────────────────────────────────────────────────────────────────

@@ -697,6 +697,7 @@ _PATTERNS_RX = [(re.compile("^" + re.escape(he).replace(re.escape("{}"), "(.+?)"
 
 EN.update({"איש הצוות לא נמצא": "Team member not found"})   # the till: who did the work / made the sale
 EN.update({"יותר מדי בקשות — נסו שוב בעוד כמה דקות": "Too many requests — try again in a few minutes"})   # core/limiter
+EN.update({"הקוד בוטל אחרי 5 ניסיונות שגויים — בקשו קוד חדש": "The code was cancelled after 5 wrong tries — ask for a new one"})
 
 EN.update({   # a link to pay (services/payment_requests)
     "פריט לא תקין": "Invalid item", "התשלום כבר אושר": "The payment was already approved", "הקישור בוטל": "The link was canceled",

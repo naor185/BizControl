@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, setToken } from "@/lib/api";
 import PasswordInput from "@/components/PasswordInput";
 
 import { tx } from "@/lib/i18n";
@@ -22,8 +22,11 @@ export default function ChangePasswordForm({ tone = "light" }: { tone?: "light" 
         if (next.length < 6) { setMsg({ ok: false, text: tx("סיסמה חייבת להכיל לפחות 6 תווים") }); return; }
         setSaving(true); setMsg(null);
         try {
-            await apiFetch("/api/auth/change-password", { method: "POST", body: JSON.stringify({ current_password: cur, new_password: next }) });
-            setMsg({ ok: true, text: tx("הסיסמה שונתה") });
+            // every other device is signed out; this one gets new tokens and stays in
+            const r = await apiFetch<{ access_token?: string; refresh_token?: string }>("/api/auth/change-password",
+                { method: "POST", body: JSON.stringify({ current_password: cur, new_password: next }) });
+            if (r?.access_token) setToken(r.access_token, r.refresh_token);
+            setMsg({ ok: true, text: tx("הסיסמה שונתה — שאר המכשירים נותקו") });
             setCur(""); setNext(""); setConf("");
         } catch (err: unknown) {
             setMsg({ ok: false, text: (err as Error)?.message || tx("שגיאה בשינוי הסיסמה") });

@@ -1771,6 +1771,7 @@ export const EN: Record<string, string> = {
     "הסיסמאות החדשות לא תואמות": "The new passwords don't match",
     "סיסמה חייבת להכיל לפחות 6 תווים": "A password needs at least 6 characters",
     "הסיסמה שונתה": "Password changed",
+    "הסיסמה שונתה — שאר המכשירים נותקו": "Password changed — your other devices were signed out",
     "שגיאה בשינוי הסיסמה": "Error changing the password",
     "סיסמה נוכחית": "Current password",
     "סיסמה חדשה": "New password",

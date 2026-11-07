@@ -1323,6 +1323,11 @@ def ensure_schema():
         cur.execute("ALTER TABLE password_reset_otps ADD COLUMN IF NOT EXISTS phone VARCHAR(32)")
         cur.execute("CREATE INDEX IF NOT EXISTS ix_password_reset_otps_email ON password_reset_otps (email, expires_at)")
         cur.execute("CREATE INDEX IF NOT EXISTS ix_password_reset_otps_phone ON password_reset_otps (phone, expires_at)")
+        # wrong tries against a code — the fifth voids it (services/one_time_codes, the pre-launch review 2026-11-07)
+        cur.execute("ALTER TABLE password_reset_otps ADD COLUMN IF NOT EXISTS attempts INTEGER NOT NULL DEFAULT 0")
+        cur.execute("ALTER TABLE marketplace_otps ADD COLUMN IF NOT EXISTS attempts INTEGER NOT NULL DEFAULT 0")
+        # a new password ends the logins from before it (services/auth_service.password_changed)
+        cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS password_changed_at TIMESTAMPTZ")
 
         cur.execute("""
             CREATE TABLE IF NOT EXISTS marketplace_favorites (

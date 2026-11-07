@@ -11,8 +11,6 @@ POST /api/marketplace/auth/favorites     — toggle favorite studio
 GET  /api/marketplace/auth/linked/{slug} — check if customer is a client of this studio
 """
 import os
-import random
-import string
 import uuid
 from datetime import datetime, timezone, timedelta
 from typing import Optional
@@ -40,7 +38,8 @@ OTP_TTL_MINUTES = 10
 # ── Simple models (no SQLAlchemy ORM — raw SQL for speed) ────────────────────
 
 def _gen_otp() -> str:
-    return "".join(random.choices(string.digits, k=5))
+    from app.services.one_time_codes import new_code
+    return new_code(5)
 
 
 MARKETPLACE_TOKEN_TTL_DAYS = 30
@@ -202,23 +201,8 @@ def request_otp(request: Request, payload: RequestOTPIn, db: Session = Depends(g
 @limiter.limit("5/minute")
 def verify_otp(request: Request, payload: VerifyOTPIn, db: Session = Depends(get_db)):
     phone = payload.phone.strip().replace("-", "").replace(" ", "")
-    now = datetime.now(timezone.utc)
-
-    row = db.execute(
-        text("""
-            SELECT id FROM marketplace_otps
-            WHERE phone = :phone AND code = :code
-              AND expires_at > :now AND used_at IS NULL
-            ORDER BY created_at DESC LIMIT 1
-        """),
-        {"phone": phone, "code": payload.code.strip(), "now": now}
-    ).fetchone()
-
-    if not row:
-        raise HTTPException(status_code=400, detail="קוד שגוי או פג תוקף")
-
-    # Mark OTP used
-    db.execute(text("UPDATE marketplace_otps SET used_at = NOW() WHERE id = :id"), {"id": str(row[0])})
+    from app.services import one_time_codes
+    one_time_codes.check(db, "marketplace_otps", phone, payload.code)        # marks it used; a wrong one counts
 
     # Find or create customer
     customer = db.execute(

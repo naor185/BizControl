@@ -1177,6 +1177,9 @@ def _pdf_auth(
     user = db.query(User).filter(User.id == user_id, User.studio_id == studio_id, User.is_active == True).first()
     if not user:
         raise HTTPException(401, "User not found")
+    from app.core.security import issued_before
+    if issued_before(payload, user.password_changed_at):
+        raise HTTPException(401, "Password changed")
     return AuthContext(studio_id=user.studio_id, user_id=user.id, role=str(user.role))
 
 

@@ -81,6 +81,8 @@ def update_artist(db: Session, studio_id: UUID, user_id: UUID, data: ArtistUpdat
     _set_class_pay(user, data)
     if data.password is not None:
         user.password_hash = ph.hash(data.password)
+        from app.services.auth_service import password_changed
+        password_changed(db, user)      # the worker is signed out everywhere — the new password from now on
 
     db.commit()
     if data.password is not None:

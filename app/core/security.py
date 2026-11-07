@@ -19,24 +19,36 @@ TokenError = jwt.PyJWTError
 ACCESS_TOKEN_MINUTES = int(os.getenv("ACCESS_TOKEN_MINUTES", "10080"))  # 7 days — mobile-friendly
 REFRESH_TOKEN_DAYS = int(os.getenv("REFRESH_TOKEN_DAYS", "60"))  # 60 days — stay logged in
 
+# Every token says when it was issued (iat, to the microsecond — a whole second would let a login from the same second
+# as the new password survive it), so a new password ends the logins from before it (issued_before below)
+
 def create_access_token(data: Dict[str, Any]) -> str:
     to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_MINUTES)
-    to_encode.update({"exp": expire, "type": "access"})
+    now = datetime.now(timezone.utc)
+    to_encode.update({"exp": now + timedelta(minutes=ACCESS_TOKEN_MINUTES), "iat": now.timestamp(), "type": "access"})
     return jwt.encode(to_encode, JWT_SECRET, algorithm=JWT_ALG)
 
 def create_refresh_token(data: Dict[str, Any]) -> str:
     to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_DAYS)
-    to_encode.update({"exp": expire, "type": "refresh", "jti": uuid.uuid4().hex})
+    now = datetime.now(timezone.utc)
+    to_encode.update({"exp": now + timedelta(days=REFRESH_TOKEN_DAYS), "iat": now.timestamp(), "type": "refresh", "jti": uuid.uuid4().hex})
     return jwt.encode(to_encode, JWT_SECRET, algorithm=JWT_ALG)
+
+def issued_before(payload: Dict[str, Any], moment: Optional[datetime]) -> bool:
+    """A token issued before `moment` — the user's password change (users.password_changed_at, the pre-launch review
+    2026-11-07): that login has ended. A token without iat is from before every token had one, so before too."""
+    if moment is None:
+        return False
+    iat = payload.get("iat")
+    return iat is None or float(iat) < moment.timestamp()
 
 def decode_token(token: str) -> Dict[str, Any]:
     return jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALG])
 
 def create_set_password_token(user_id: str) -> str:
-    expire = datetime.now(timezone.utc) + timedelta(hours=72)
-    return jwt.encode({"sub": user_id, "exp": expire, "type": "set_password"}, JWT_SECRET, algorithm=JWT_ALG)
+    now = datetime.now(timezone.utc)
+    return jwt.encode({"sub": user_id, "exp": now + timedelta(hours=72), "iat": now.timestamp(), "type": "set_password"},
+                      JWT_SECRET, algorithm=JWT_ALG)
 
 def validate_password_strength(password: str) -> None:
     """Raise HTTPException if password is too weak (min 8 chars, letter + digit)."""

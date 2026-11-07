@@ -276,20 +276,8 @@ def verify_claim_otp(request: Request, business_id: str, payload: VerifyClaimOTP
     if not biz.phone:
         raise HTTPException(status_code=400, detail="לעסק זה אין מספר טלפון רשום")
     phone = biz.phone.strip().replace("-", "").replace(" ", "")
-    now = datetime.now(timezone.utc)
-
-    row = db.execute(
-        text("""
-            SELECT id FROM marketplace_otps
-            WHERE phone = :phone AND code = :code AND expires_at > :now AND used_at IS NULL
-            ORDER BY created_at DESC LIMIT 1
-        """),
-        {"phone": phone, "code": payload.code.strip(), "now": now},
-    ).fetchone()
-    if not row:
-        raise HTTPException(status_code=400, detail="קוד שגוי או פג תוקף")
-
-    db.execute(text("UPDATE marketplace_otps SET used_at = NOW() WHERE id = :id"), {"id": str(row[0])})
+    from app.services import one_time_codes
+    one_time_codes.check(db, "marketplace_otps", phone, payload.code)        # marks it used; a wrong one counts
     db.commit()
 
     return {"claim_token": _make_claim_token(business_id, phone)}

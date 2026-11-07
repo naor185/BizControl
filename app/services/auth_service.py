@@ -201,6 +201,16 @@ def create_studio_selection_token(candidate_user_ids: list[str]) -> str:
     )
 
 
+def password_changed(db: Session, user: User) -> None:
+    """A new password ends every login of this person (the owner, 2026-11-07: "everyone signed in is signed out — that
+    is right"): the tokens issued before now stop opening (core/security.issued_before) and the refresh tokens are
+    revoked. The caller commits; a device that should stay signed in gets new tokens (issue_full_tokens)."""
+    now = datetime.now(timezone.utc)
+    user.password_changed_at = now
+    db.query(RefreshToken).filter(RefreshToken.user_id == user.id, RefreshToken.is_revoked == False).update(  # noqa: E712
+        {"is_revoked": True, "revoked_at": now}, synchronize_session=False)
+
+
 def issue_full_tokens(user: User, db: Session, user_agent: str | None = None) -> TokenResponse:
     access = create_access_token({"user_id": str(user.id), "studio_id": str(user.studio_id), "role": user.role})
     refresh = create_refresh_token({"user_id": str(user.id), "studio_id": str(user.studio_id)})
