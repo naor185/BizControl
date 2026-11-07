@@ -54,7 +54,7 @@ export default function PrivacyPage() {
                     <p style={pStyle}>אנחנו משתפים מידע רק עם ספקים שמפעילים בפועל את השירות עבורנו, בהיקף המינימלי הנדרש:</p>
                     <ul style={ulStyle}>
                         <li><strong>Stripe</strong> — עיבוד תשלומים ומנויים.</li>
-                        <li><strong>ספקי WhatsApp</strong> (Green API / Meta Cloud API) — שליחת הודעות ותזכורות.</li>
+                        <li><strong>ספק WhatsApp</strong> (Green API) — שליחת הודעות ותזכורות.</li>
                         <li><strong>ספקי דוא"ל</strong> (Resend/Mailgun) — שליחת מיילים תפעוליים.</li>
                         <li><strong>ספקי בינה מלאכותית</strong> (Google Gemini / OpenAI) — סריקת חשבוניות ועוזר ה-AI, כאשר
                             תכונות אלו מופעלות.</li>

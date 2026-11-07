@@ -33,7 +33,6 @@ from app.models.message_job import MessageJob
 from app.models.studio_note import StudioNote
 from app.models.audit_log import AuditLog
 from app.services import bizfind_theme
-from app.models.studio_integration import StudioIntegration
 from app.models.lead import Lead
 
 router = APIRouter(prefix="/admin", tags=["SuperAdmin"])
@@ -149,7 +148,6 @@ class AdminSettingsIn(BaseModel):
     calendar_start_hour: Optional[str] = None
     calendar_end_hour: Optional[str] = None
     whatsapp_provider: Optional[str] = None
-    whatsapp_phone_id: Optional[str] = None
     whatsapp_api_key: Optional[str] = None
     whatsapp_instance_id: Optional[str] = None
 
@@ -163,7 +161,6 @@ class AdminSettingsOut(BaseModel):
     calendar_start_hour: str
     calendar_end_hour: str
     whatsapp_provider: Optional[str]
-    whatsapp_phone_id: Optional[str]
     whatsapp_api_key: Optional[str]
     whatsapp_instance_id: Optional[str]
 
@@ -264,7 +261,7 @@ def list_studios(admin: User = Depends(require_superadmin), db: Session = Depend
             )
         ) or 0
         settings = db.get(StudioSettings, s.id)
-        has_whatsapp = bool(settings and settings.whatsapp_provider and (settings.whatsapp_phone_id or settings.whatsapp_instance_id))
+        has_whatsapp = bool(settings and settings.whatsapp_provider == "green_api" and settings.whatsapp_instance_id)
         has_branding = bool(settings and (settings.logo_filename or settings.landing_page_title))
         has_activity = client_count > 0
         result.append(StudioOut(
@@ -764,7 +761,6 @@ def get_studio_settings(studio_id: uuid.UUID, admin: User = Depends(require_supe
         calendar_start_hour=settings.calendar_start_hour or "08:00",
         calendar_end_hour=settings.calendar_end_hour or "23:00",
         whatsapp_provider=settings.whatsapp_provider,
-        whatsapp_phone_id=settings.whatsapp_phone_id,
         whatsapp_api_key=settings.whatsapp_api_key,
         whatsapp_instance_id=settings.whatsapp_instance_id,
     )
@@ -795,9 +791,6 @@ def update_studio_settings(studio_id: uuid.UUID, payload: AdminSettingsIn, admin
     if payload.whatsapp_provider is not None:
         changes["whatsapp_provider"] = payload.whatsapp_provider
         settings.whatsapp_provider = payload.whatsapp_provider or None
-    if payload.whatsapp_phone_id is not None:
-        changes["whatsapp_phone_id"] = payload.whatsapp_phone_id
-        settings.whatsapp_phone_id = payload.whatsapp_phone_id or None
     if payload.whatsapp_api_key is not None:
         changes["whatsapp_api_key"] = "***"  # redact from audit log
         settings.whatsapp_api_key = payload.whatsapp_api_key or None
@@ -1023,128 +1016,6 @@ def get_audit_log(
     ]
 
 
-# ── Studio Integrations ───────────────────────────────────────────────────────
-
-PLATFORMS = ["whatsapp", "instagram", "facebook", "lead_ads"]
-
-
-class IntegrationOut(BaseModel):
-    platform: str
-    is_active: bool
-    expires_at: Optional[datetime]
-    is_permanent: bool
-    phone_number_id: Optional[str]
-    access_token: Optional[str]
-    page_id: Optional[str]
-    instagram_account_id: Optional[str]
-
-
-class IntegrationIn(BaseModel):
-    is_active: Optional[bool] = None
-    trial_days: Optional[int] = None      # grant N-day trial from now
-    permanent: Optional[bool] = None      # True = remove expiry
-    phone_number_id: Optional[str] = None
-    access_token: Optional[str] = None
-    page_id: Optional[str] = None
-    instagram_account_id: Optional[str] = None
-
-
-def _get_or_create_integration(db: Session, studio_id: uuid.UUID, platform: str) -> StudioIntegration:
-    row = db.scalar(
-        select(StudioIntegration).where(
-            StudioIntegration.studio_id == studio_id,
-            StudioIntegration.platform == platform,
-        )
-    )
-    if not row:
-        row = StudioIntegration(id=uuid.uuid4(), studio_id=studio_id, platform=platform)
-        db.add(row)
-        db.flush()
-    return row
-
-
-def _integration_out(row: StudioIntegration) -> IntegrationOut:
-    return IntegrationOut(
-        platform=row.platform,
-        is_active=row.is_active,
-        expires_at=row.expires_at,
-        is_permanent=row.is_active and row.expires_at is None,
-        phone_number_id=row.phone_number_id,
-        access_token=row.access_token,
-        page_id=row.page_id,
-        instagram_account_id=row.instagram_account_id,
-    )
-
-
-@router.get("/studios/{studio_id}/integrations", response_model=list[IntegrationOut])
-def list_integrations(studio_id: uuid.UUID, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
-    studio = db.get(Studio, studio_id)
-    if not studio or studio.is_platform:
-        raise HTTPException(status_code=404, detail="Studio not found")
-    rows = db.scalars(select(StudioIntegration).where(StudioIntegration.studio_id == studio_id)).all()
-    by_platform = {r.platform: r for r in rows}
-    result = []
-    for p in PLATFORMS:
-        if p in by_platform:
-            result.append(_integration_out(by_platform[p]))
-        else:
-            result.append(IntegrationOut(
-                platform=p, is_active=False, expires_at=None, is_permanent=False,
-                phone_number_id=None, access_token=None, page_id=None, instagram_account_id=None,
-            ))
-    return result
-
-
-@router.patch("/studios/{studio_id}/integrations/{platform}", response_model=IntegrationOut)
-def update_integration(
-    studio_id: uuid.UUID,
-    platform: str,
-    payload: IntegrationIn,
-    admin: User = Depends(require_superadmin),
-    db: Session = Depends(get_db),
-):
-    if platform not in PLATFORMS:
-        raise HTTPException(status_code=400, detail=f"Unknown platform: {platform}")
-    studio = db.get(Studio, studio_id)
-    if not studio or studio.is_platform:
-        raise HTTPException(status_code=404, detail="Studio not found")
-
-    row = _get_or_create_integration(db, studio_id, platform)
-    changes: dict = {}
-
-    if payload.is_active is not None:
-        row.is_active = payload.is_active
-        changes["is_active"] = payload.is_active
-
-    if payload.trial_days is not None:
-        row.is_active = True
-        row.expires_at = datetime.now(timezone.utc) + timedelta(days=payload.trial_days)
-        changes["trial_days"] = payload.trial_days
-
-    if payload.permanent is True:
-        row.is_active = True
-        row.expires_at = None
-        changes["permanent"] = True
-
-    if payload.phone_number_id is not None:
-        row.phone_number_id = payload.phone_number_id or None
-        changes["phone_number_id"] = "set"
-    if payload.access_token is not None:
-        row.access_token = payload.access_token or None
-        changes["access_token"] = "***"
-    if payload.page_id is not None:
-        row.page_id = payload.page_id or None
-        changes["page_id"] = "set"
-    if payload.instagram_account_id is not None:
-        row.instagram_account_id = payload.instagram_account_id or None
-        changes["instagram_account_id"] = "set"
-
-    _audit(db, admin, "update_integration", studio, {"platform": platform, **changes})
-    db.commit()
-    db.refresh(row)
-    return _integration_out(row)
-
-
 # ── Campaign Analytics ────────────────────────────────────────────────────────
 
 class CampaignStat(BaseModel):
@@ -1186,9 +1057,6 @@ def _get_platform_settings(db: Session) -> StudioSettings | None:
 
 
 class PlatformSettingsOut(BaseModel):
-    whatsapp_provider: str | None
-    whatsapp_phone_id: str | None
-    whatsapp_api_key: str | None
     theme_primary_color: str
     theme_secondary_color: str
     theme_accent_color: str
@@ -1205,9 +1073,6 @@ class PlatformSettingsOut(BaseModel):
 
 
 class PlatformSettingsIn(BaseModel):
-    whatsapp_provider: str | None = None
-    whatsapp_phone_id: str | None = None
-    whatsapp_api_key: str | None = None
     theme_primary_color: str | None = None
     theme_secondary_color: str | None = None
     theme_accent_color: str | None = None
@@ -1224,9 +1089,6 @@ class PlatformSettingsIn(BaseModel):
 
 def _platform_settings_out(settings: StudioSettings) -> "PlatformSettingsOut":
     return PlatformSettingsOut(
-        whatsapp_provider=settings.whatsapp_provider,
-        whatsapp_phone_id=settings.whatsapp_phone_id,
-        whatsapp_api_key=settings.whatsapp_api_key,
         theme_primary_color=settings.theme_primary_color,
         theme_secondary_color=settings.theme_secondary_color,
         theme_accent_color=settings.theme_accent_color,
@@ -1243,76 +1105,12 @@ def _platform_settings_out(settings: StudioSettings) -> "PlatformSettingsOut":
     )
 
 
-@router.get("/webhook-config")
-def get_webhook_config(admin: User = Depends(require_superadmin)):
-    verify_token = os.getenv("META_WEBHOOK_VERIFY_TOKEN", "bizcontrol_verify")
-    backend_url = os.getenv("BACKEND_URL", "")
-    webhook_url = f"{backend_url}/api/webhook/meta" if backend_url else ""
-    return {
-        "webhook_url": webhook_url,
-        "verify_token": verify_token,
-    }
-
-
 @router.get("/platform-settings", response_model=PlatformSettingsOut)
 def get_platform_settings(admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
     settings = _get_platform_settings(db)
     if not settings:
         raise HTTPException(status_code=404, detail="Platform settings not found")
     return _platform_settings_out(settings)
-
-
-class TestWhatsappIn(BaseModel):
-    phone: str
-
-
-@router.post("/test-whatsapp")
-def test_whatsapp(payload: TestWhatsappIn, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
-    import urllib.request as _urllib_req, json as _json, urllib.error as _urllib_err
-    settings = _get_platform_settings(db)
-    if not settings or not settings.whatsapp_provider:
-        raise HTTPException(status_code=400, detail="WhatsApp לא מוגדר בפלטפורמה")
-
-    if settings.whatsapp_provider == "meta":
-        phone_id = settings.whatsapp_phone_id
-        token = settings.whatsapp_api_key
-        if not phone_id or not token:
-            raise HTTPException(status_code=400, detail="Phone Number ID או Token חסרים")
-        url = f"https://graph.facebook.com/v19.0/{phone_id}/messages"
-        body_bytes = _json.dumps({
-            "messaging_product": "whatsapp",
-            "to": payload.phone,
-            "type": "text",
-            "text": {"body": "✅ הודעת טסט מ-BizControl — WhatsApp מחובר ועובד!"},
-        }).encode()
-        req = _urllib_req.Request(url, data=body_bytes, method="POST")
-        req.add_header("Authorization", f"Bearer {token}")
-        req.add_header("Content-Type", "application/json")
-        try:
-            with _urllib_req.urlopen(req, timeout=10) as resp:
-                result = _json.loads(resp.read())
-                if "error" in result:
-                    err_msg = result["error"].get("message", str(result["error"]))
-                    raise HTTPException(status_code=502, detail=f"Meta: {err_msg}")
-        except _urllib_err.HTTPError as e:
-            raw = e.read().decode()
-            try:
-                err_msg = _json.loads(raw).get("error", {}).get("message", raw)
-            except Exception:
-                err_msg = raw
-            raise HTTPException(status_code=502, detail=f"Meta API שגיאה {e.code}: {err_msg}")
-        except HTTPException:
-            raise
-        except Exception as e:
-            raise HTTPException(status_code=502, detail=f"שליחה נכשלה: {e}")
-    else:
-        try:
-            from app.services.message_worker import send_whatsapp_message
-            send_whatsapp_message(payload.phone, "✅ הודעת טסט מ-BizControl — WhatsApp מחובר ועובד!", settings=settings)
-        except Exception as e:
-            raise HTTPException(status_code=502, detail=f"שליחה נכשלה: {e}")
-
-    return {"status": "sent"}
 
 
 @router.patch("/platform-settings", response_model=PlatformSettingsOut)
@@ -1324,12 +1122,6 @@ def update_platform_settings(
     settings = _get_platform_settings(db)
     if not settings:
         raise HTTPException(status_code=404, detail="Platform settings not found")
-    if payload.whatsapp_provider is not None:
-        settings.whatsapp_provider = payload.whatsapp_provider or None
-    if payload.whatsapp_phone_id is not None:
-        settings.whatsapp_phone_id = payload.whatsapp_phone_id or None
-    if payload.whatsapp_api_key is not None:
-        settings.whatsapp_api_key = payload.whatsapp_api_key or None
     if payload.bizfind_theme is not None:
         try:
             settings.bizfind_theme = bizfind_theme.merged(settings.bizfind_theme, payload.bizfind_theme)
@@ -1890,7 +1682,6 @@ def platform_health(db: Session = Depends(get_db), _admin: User = Depends(requir
             "wa_status": wa_status,
             "wa_instance_id": settings.whatsapp_instance_id if settings else None,
             "wa_provider": settings.whatsapp_provider if settings else None,
-            "wa_phone_id": settings.whatsapp_phone_id if settings else None,
             "failed_jobs_24h": failed_count,
             "stuck_pending_jobs": pending_count,
             "has_alert": has_alert,

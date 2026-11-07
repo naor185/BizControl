@@ -1,13 +1,10 @@
 """
-Webhook endpoint for incoming messages.
-Supports: Meta Cloud API (WhatsApp), Green API (WhatsApp), Instagram DMs,
-          Facebook Messenger, Facebook/Instagram Lead Ads.
+Webhook endpoint for incoming WhatsApp messages — Green API (a linked device), the only WhatsApp the system uses
+(the Meta connection was removed, 2026-11-07).
 """
 from __future__ import annotations
-import os
 import uuid
-from datetime import datetime, timezone
-from fastapi import APIRouter, Request, Response, HTTPException, Depends
+from fastapi import APIRouter, Request, Depends
 from app.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -24,17 +21,8 @@ router = APIRouter(prefix="/webhook", tags=["Webhook"])
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def _find_by_phone_id(db: Session, phone_id: str) -> StudioSettings | None:
-    return db.scalar(select(StudioSettings).where(StudioSettings.whatsapp_phone_id == phone_id))
-
 def _find_by_instance(db: Session, instance_id: str) -> StudioSettings | None:
     return db.scalar(select(StudioSettings).where(StudioSettings.whatsapp_instance_id == instance_id))
-
-def _find_by_page_id(db: Session, page_id: str) -> StudioSettings | None:
-    return db.scalar(select(StudioSettings).where(StudioSettings.facebook_page_id == page_id))
-
-def _find_by_ig_account(db: Session, ig_id: str) -> StudioSettings | None:
-    return db.scalar(select(StudioSettings).where(StudioSettings.instagram_account_id == ig_id))
 
 def _match_client(db: Session, studio_id, phone: str) -> Client | None:
     # WhatsApp sends 972501234567; clients are kept as 0501234567 (app/utils/phone.normalize_phone)
@@ -61,15 +49,8 @@ def _unsubscribe_reply(db: Session, studio_id, phone: str, body: str) -> bool:
         log.info("Client %s opted out by WhatsApp reply (studio %s)", client.id, studio_id)
     return True
 
-def _match_lead(db: Session, studio_id, phone: str | None, external_id: str | None = None) -> Lead | None:
+def _match_lead(db: Session, studio_id, phone: str | None) -> Lead | None:
     """Find existing open lead so we don't create duplicates."""
-    if external_id:
-        existing = db.scalar(select(Lead).where(
-            Lead.studio_id == studio_id,
-            Lead.external_id == external_id,
-        ))
-        if existing:
-            return existing
     if phone:
         clean = phone.replace("+", "").replace(" ", "").replace("-", "")
         return db.scalar(select(Lead).where(
@@ -86,16 +67,13 @@ def _auto_lead(
     phone: str | None,
     name: str | None,
     body: str,
-    campaign_name: str | None = None,
-    ad_id: str | None = None,
-    external_id: str | None = None,
 ) -> None:
     """Create a lead from an inbound message if person is not already a client/lead."""
     # Skip if existing client
     if phone and _match_client(db, studio_id, phone):
         return
     # Skip if already an open lead
-    if _match_lead(db, studio_id, phone, external_id):
+    if _match_lead(db, studio_id, phone):
         return
 
     lead = Lead(
@@ -106,9 +84,6 @@ def _auto_lead(
         source=source,
         status="new",
         notes=body[:500] if body else None,
-        campaign_name=campaign_name,
-        ad_id=ad_id,
-        external_id=external_id,
     )
     db.add(lead)
     db.commit()
@@ -131,173 +106,6 @@ def _auto_lead(
             threading.Thread(target=_tag, daemon=True).start()
         except Exception:
             pass
-
-# ── Meta Unified Webhook ──────────────────────────────────────────────────────
-
-@router.get("/meta")
-def meta_verify(request: Request):
-    verify_token = os.getenv("META_WEBHOOK_VERIFY_TOKEN", "")
-    if not verify_token:
-        raise HTTPException(status_code=403, detail="META_WEBHOOK_VERIFY_TOKEN not configured")
-    mode      = request.query_params.get("hub.mode")
-    token     = request.query_params.get("hub.verify_token")
-    challenge = request.query_params.get("hub.challenge")
-    if mode == "subscribe" and token == verify_token:
-        return Response(content=challenge, media_type="text/plain")
-    raise HTTPException(status_code=403, detail="Verification failed")
-
-
-@router.post("/meta")
-async def meta_incoming(request: Request, db: Session = Depends(get_db)):
-    try:
-        data = await request.json()
-        obj  = data.get("object", "")
-
-        if obj == "whatsapp_business_account":
-            _handle_whatsapp(db, data)
-        elif obj == "instagram":
-            _handle_instagram(db, data)
-        elif obj == "page":
-            _handle_facebook(db, data)
-
-    except Exception as e:
-        log.exception("[meta_webhook] error: %s", e)
-    return {"status": "ok"}
-
-
-PLATFORM_STUDIO_ID = os.getenv("PLATFORM_STUDIO_ID", "")
-
-
-def _find_settings_for_phone_id(db: Session, phone_id: str) -> StudioSettings | None:
-    """Find studio settings by phone_id — falls back to platform studio settings."""
-    settings = _find_by_phone_id(db, phone_id)
-    if settings:
-        return settings
-    # If it's the platform's own number, route to platform studio
-    if PLATFORM_STUDIO_ID:
-        platform = db.get(StudioSettings, PLATFORM_STUDIO_ID)
-        if platform and platform.whatsapp_phone_id == phone_id:
-            return platform
-    return None
-
-
-def _handle_whatsapp(db: Session, data: dict):
-    for entry in data.get("entry", []):
-        for change in entry.get("changes", []):
-            value    = change.get("value", {})
-            phone_id = value.get("metadata", {}).get("phone_number_id", "")
-            settings = _find_settings_for_phone_id(db, phone_id)
-            if not settings:
-                continue
-
-            # ── Lead Ads form submitted via WhatsApp ──────────────────────────
-            # (leadgen object arrives inside whatsapp_business_account too)
-            for leadgen in value.get("leads", []):
-                _handle_leadgen_entry(db, settings.studio_id, leadgen, source="whatsapp")
-
-            for msg in value.get("messages", []):
-                if msg.get("type") not in ("text", "button"):
-                    continue
-                from_phone = msg.get("from", "")
-                body       = (msg.get("text") or msg.get("button") or {}).get("body", "")
-                profile    = next(
-                    (c.get("profile", {}) for c in value.get("contacts", []) if c.get("wa_id") == from_phone),
-                    {}
-                )
-                from_name = profile.get("name")
-
-                # Referral = message came from clicking a WhatsApp ad
-                referral      = msg.get("referral", {})
-                campaign_name = referral.get("headline") or referral.get("source_url")
-                ad_id         = referral.get("source_id")
-
-                if _unsubscribe_reply(db, settings.studio_id, from_phone, body):
-                    continue
-                # Auto-create lead for unknowns
-                _auto_lead(db, settings.studio_id, "whatsapp", from_phone, from_name,
-                           body, campaign_name=campaign_name, ad_id=ad_id)
-
-
-def _handle_instagram(db: Session, data: dict):
-    for entry in data.get("entry", []):
-        ig_id    = str(entry.get("id", ""))
-        settings = _find_by_ig_account(db, ig_id)
-
-        # Lead Ads submitted via Instagram
-        for leadgen in entry.get("changes", []):
-            if leadgen.get("field") == "leadgen":
-                _handle_leadgen_entry(db, settings.studio_id if settings else None,
-                                      leadgen.get("value", {}), source="instagram")
-
-        # Direct messages are intentionally not handled (there is no inbox to show them and
-        # they carry no name/phone to build a lead from) — only Lead Ads forms above do.
-
-
-def _handle_facebook(db: Session, data: dict):
-    for entry in data.get("entry", []):
-        page_id  = str(entry.get("id", ""))
-        settings = _find_by_page_id(db, page_id)
-
-        # Lead Ads submitted via Facebook page
-        for change in entry.get("changes", []):
-            if change.get("field") == "leadgen":
-                _handle_leadgen_entry(db, settings.studio_id if settings else None,
-                                      change.get("value", {}), source="facebook")
-
-        # Direct messages are intentionally not handled — see _handle_instagram.
-
-
-def _handle_leadgen_entry(db: Session, studio_id, payload: dict, source: str):
-    """
-    Process a Meta Lead Ads submission.
-    payload keys: lead_id, form_id, ad_id, adgroup_id, page_id, campaign_name, ad_name, form_name, field_data
-    field_data: [{"name": "full_name", "values": ["John"]}, {"name": "phone_number", "values": ["+972..."]}]
-    """
-    if not studio_id:
-        return
-
-    external_id   = str(payload.get("lead_id", ""))
-    campaign_name = payload.get("campaign_name") or payload.get("ad_name") or payload.get("form_name")
-    ad_id         = str(payload.get("ad_id", "") or payload.get("adgroup_id", ""))
-
-    # Parse field_data into a dict
-    fields: dict[str, str] = {}
-    for f in payload.get("field_data", []):
-        key    = f.get("name", "").lower()
-        values = f.get("values", [])
-        if values:
-            fields[key] = values[0]
-
-    name  = fields.get("full_name") or fields.get("name") or fields.get("שם") or "ליד חדש"
-    phone = fields.get("phone_number") or fields.get("phone") or fields.get("טלפון")
-    email = fields.get("email") or fields.get("אימייל")
-    notes_parts = [f"{k}: {v}" for k, v in fields.items()
-                   if k not in ("full_name", "name", "phone_number", "phone", "email")]
-    notes = "\n".join(notes_parts) if notes_parts else None
-
-    # Skip duplicate
-    if _match_lead(db, studio_id, phone, external_id):
-        return
-
-    lead = Lead(
-        id=uuid.uuid4(),
-        studio_id=studio_id,
-        name=name,
-        phone=phone,
-        email=email,
-        source=source,
-        status="new",
-        notes=notes,
-        campaign_name=campaign_name,
-        ad_id=ad_id or None,
-        external_id=external_id or None,
-    )
-    db.add(lead)
-    db.commit()
-
-    from app.crud.lead_notifications import notify_new_lead
-    notify_new_lead(db, studio_id, lead.id, lead.name, campaign_name)
-
 
 # ── Green API (WhatsApp via linked device) ────────────────────────────────────
 

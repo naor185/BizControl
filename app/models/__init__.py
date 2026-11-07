@@ -18,7 +18,6 @@ from app.models.product_sale import ProductSale
 from app.models.studio_note import StudioNote
 from app.models.lead import Lead
 from app.models.audit_log import AuditLog
-from app.models.studio_integration import StudioIntegration
 from app.models.booking_request import BookingRequest
 from app.models.pos_transaction import PosTransaction, PosTransactionItem
 from app.models.payment_request import PaymentRequest
@@ -48,7 +47,7 @@ from app.models.lucky_draw import LuckyDraw, LuckyDrawPrize, LuckyDrawParticipan
 
 __all__ = [
     "Base", "Studio", "User", "StudioSettings", "RefreshToken",
-    "Client", "Appointment", "Payment", "ClientPointsLedger", "ClientTreatmentPhoto", "MessageJob", "Expense", "WorkSession", "MonthlyGoal", "WorkerGoal","Product", "ProductSale", "StudioNote", "Lead", "AuditLog", "StudioIntegration", "BookingRequest",
+    "Client", "Appointment", "Payment", "ClientPointsLedger", "ClientTreatmentPhoto", "MessageJob", "Expense", "WorkSession", "MonthlyGoal", "WorkerGoal","Product", "ProductSale", "StudioNote", "Lead", "AuditLog", "BookingRequest",
 
     "PosTransaction", "PosTransactionItem",
     "UserPinSettings", "PinAttemptLog",

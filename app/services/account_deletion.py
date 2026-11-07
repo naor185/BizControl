@@ -66,7 +66,7 @@ def cancel_business_deletion(db: Session, studio: Studio) -> None:
 # every other table goes with the business itself (ON DELETE CASCADE).
 _FIRST = ("message_jobs", "payments", "appointments", "booking_requests", "product_sales", "work_sessions",
           "client_points_ledger", "expenses", "monthly_goals", "leads", "clients", "products", "users",
-          "studio_notes", "studio_integrations")
+          "studio_notes")
 
 
 def purge_studio(db: Session, studio: Studio) -> None:

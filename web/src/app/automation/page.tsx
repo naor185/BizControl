@@ -103,14 +103,10 @@ type Settings = {
 
     whatsapp_provider?: string | null;
     whatsapp_api_key?: string | null;
-    whatsapp_phone_id?: string | null;
     whatsapp_instance_id?: string | null;
 
     resend_api_key?: string | null;
     resend_from_email?: string | null;
-
-    facebook_page_id?: string | null;
-    instagram_account_id?: string | null;
 
     theme_primary_color: string;
     theme_secondary_color: string;
@@ -170,77 +166,6 @@ type Settings = {
 // index = 0 Sunday … 6 Saturday, like the server's work_days
 const WORK_DAY_LABELS = [tx("ראשון"), tx("שני"), tx("שלישי"), tx("רביעי"), tx("חמישי"), tx("שישי"), tx("שבת")];
 const DEFAULT_WORK_DAYS = [0, 1, 2, 3, 4, 5];
-
-function WebhookUrlBox({ provider, instanceId }: { provider: "green_api" | "meta"; instanceId: string }) {
-    const [copied, setCopied] = useState<string | null>(null);
-    const domain = typeof window !== "undefined" ? (process.env.NEXT_PUBLIC_API_BASE || window.location.origin) : "";
-
-    const copy = (text: string, key: string) => {
-        navigator.clipboard.writeText(text).then(() => {
-            setCopied(key);
-            setTimeout(() => setCopied(null), 2000);
-        });
-    };
-
-    const CopyBtn = ({ text, label }: { text: string; label: string }) => (
-        <button
-            type="button"
-            onClick={() => copy(text, label)}
-            className="flex-shrink-0 px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
-        >
-            {copied === label ? tx("✓ הועתק") : tx("העתק")}
-        </button>
-    );
-
-    if (provider === "green_api") {
-        const webhookUrl = `${domain}/api/webhook/green/${instanceId || "{instance_id}"}`;
-        return (
-            <div className="mt-4 bg-amber-50 border border-amber-200 rounded-2xl p-5 space-y-3">
-                <div className="flex items-center gap-2">
-                    <span className="text-lg">🔗</span>
-                    <h4 className="font-bold text-amber-900 text-sm">{tx("כתובת Webhook להגדרה ב-Green API")}</h4>
-                </div>
-                <p className="text-xs text-amber-700">
-                    {tx("בממשק Green API, תחת ה-Instance שלך → Settings → Webhooks, הכנס את הכתובת הבאה:")}
-                </p>
-                <div className="flex items-center gap-2 bg-white rounded-xl border border-amber-200 px-3 py-2">
-                    <code className="flex-1 text-xs font-mono text-slate-700 break-all dir-ltr text-end">{webhookUrl}</code>
-                    <CopyBtn text={webhookUrl} label="green_webhook" />
-                </div>
-            </div>
-        );
-    }
-
-    const webhookUrl = `${domain}/api/webhook/meta`;
-    const verifyToken = "bizcontrol_verify";
-    return (
-        <div className="mt-4 bg-blue-50 border border-blue-200 rounded-2xl p-5 space-y-3">
-            <div className="flex items-center gap-2">
-                <span className="text-lg">🔗</span>
-                <h4 className="font-bold text-blue-900 text-sm">{tx("הגדרת Webhook ב-Meta Developer Portal")}</h4>
-            </div>
-            <p className="text-xs text-blue-700">
-                {tx("ב-Meta for Developers → WhatsApp → Configuration → Webhook, הכנס:")}
-            </p>
-            <div className="space-y-2">
-                <div>
-                    <div className="text-xs font-bold text-slate-500 mb-1">Callback URL</div>
-                    <div className="flex items-center gap-2 bg-white rounded-xl border border-blue-200 px-3 py-2">
-                        <code className="flex-1 text-xs font-mono text-slate-700 break-all dir-ltr text-end">{webhookUrl}</code>
-                        <CopyBtn text={webhookUrl} label="meta_webhook" />
-                    </div>
-                </div>
-                <div>
-                    <div className="text-xs font-bold text-slate-500 mb-1">Verify Token</div>
-                    <div className="flex items-center gap-2 bg-white rounded-xl border border-blue-200 px-3 py-2">
-                        <code className="flex-1 text-xs font-mono text-slate-700 dir-ltr text-end">{verifyToken}</code>
-                        <CopyBtn text={verifyToken} label="meta_token" />
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-}
 
 // ── Business Type Icons map ───────────────────────────────────────────────────
 // ── Marketplace Tab Component ─────────────────────────────────────────────────
@@ -2087,24 +2012,6 @@ export default function AutomationSettingsPage() {
 
                                 <div className="flex flex-col gap-4">
                                     {[
-                                        {
-                                            icon: "📸",
-                                            color: "bg-gradient-to-br from-purple-100 to-pink-100",
-                                            title: "Instagram",
-                                            desc: tx("קבל לידים אוטומטית מהודעות DM ומפרסומות Lead Ads באינסטגרם"),
-                                            connected: !!(settings.instagram_account_id),
-                                            href: "/integrations/meta",
-                                            logo: null,
-                                        },
-                                        {
-                                            icon: "👍",
-                                            color: "bg-blue-100",
-                                            title: "Facebook",
-                                            desc: tx("קבל לידים אוטומטית מ-Messenger ומפרסומות Lead Ads בפייסבוק"),
-                                            connected: !!(settings.facebook_page_id),
-                                            href: "/integrations/meta",
-                                            logo: null,
-                                        },
                                         {
                                             icon: "📅",
                                             color: "bg-sky-100",

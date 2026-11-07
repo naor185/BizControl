@@ -106,7 +106,6 @@ class StudioSettings(Base):
     # WhatsApp / SMS Settings
     whatsapp_provider: Mapped[str | None] = mapped_column(String(64), nullable=True)
     whatsapp_api_key: Mapped[str | None] = mapped_column(Text, nullable=True)
-    whatsapp_phone_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     # Branding & Themes
     theme_primary_color: Mapped[str] = mapped_column(String(32), nullable=False, default="#000000", server_default="#000000")
@@ -191,10 +190,6 @@ class StudioSettings(Base):
 
     # Green API (WhatsApp via linked device)
     whatsapp_instance_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
-
-    # Meta Social Inbox (Instagram DMs + Facebook Messenger)
-    facebook_page_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    instagram_account_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     # Deposit defaults
     deposit_fixed_amount_ils: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")

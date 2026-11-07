@@ -60,32 +60,6 @@ log = get_logger(__name__)
 _IL_TZ = pytz.timezone("Asia/Jerusalem")
 
 
-def _send_via_meta(phone_id: str, token: str, to_phone: str, body: str) -> None:
-    import urllib.request, urllib.error, json as _json
-    url = f"https://graph.facebook.com/v19.0/{phone_id}/messages"
-    payload = _json.dumps({
-        "messaging_product": "whatsapp",
-        "to": to_phone,
-        "type": "text",
-        "text": {"body": body}
-    }).encode()
-    req = urllib.request.Request(url, data=payload, method="POST")
-    req.add_header("Authorization", f"Bearer {token}")
-    req.add_header("Content-Type", "application/json")
-    try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            result = _json.loads(resp.read())
-            if "error" in result:
-                raise RuntimeError(f"Meta API error: {result['error'].get('message', result['error'])}")
-    except urllib.error.HTTPError as e:
-        raw = e.read().decode()
-        try:
-            err_msg = _json.loads(raw).get("error", {}).get("message", raw)
-        except Exception:
-            err_msg = raw
-        raise RuntimeError(f"Meta API error {e.code}: {err_msg}")
-
-
 def _normalize_phone(to_phone: str) -> str:
     clean = to_phone.replace("+", "").replace(" ", "").replace("-", "")
     if clean.startswith("0") and len(clean) >= 9:
@@ -252,7 +226,7 @@ def _get_platform_settings(db: Session):
         row = db.execute(_t("SELECT value FROM platform_config WHERE key='system_wa_studio_id'")).fetchone()
         if row and row[0]:
             settings = db.get(StudioSettings, _uuid.UUID(row[0]))
-            if settings and settings.whatsapp_provider:
+            if settings and settings.whatsapp_provider == "green_api":
                 return settings
     except Exception:
         pass
@@ -300,6 +274,8 @@ _PLATFORM_FOOTER = (
 def send_whatsapp_message(to_phone: str, body: str, settings=None, db: Session | None = None, media_url: str | None = None,
                           footer: bool = True) -> None:
     provider = getattr(settings, "whatsapp_provider", None) if settings else None
+    if provider != "green_api":     # Green API is the only WhatsApp (the Meta connection was removed, 2026-11-07) —
+        provider = None             # anything else left in a business's settings sends from the platform's number
     studio_id = getattr(settings, "studio_id", None) if settings else None
     using_platform_fallback = False
     lang = getattr(settings, "default_locale", None) if settings else None     # the business's, before a fallback
@@ -307,9 +283,9 @@ def send_whatsapp_message(to_phone: str, body: str, settings=None, db: Session |
     # Fall back to platform WhatsApp if studio has none configured
     if not provider and db is not None:
         platform = _get_platform_settings(db)
-        if platform and platform.whatsapp_provider:
+        if platform and platform.whatsapp_provider == "green_api":
             settings = platform
-            provider = platform.whatsapp_provider
+            provider = "green_api"
             using_platform_fallback = True
 
     if not provider:
@@ -330,26 +306,6 @@ def send_whatsapp_message(to_phone: str, body: str, settings=None, db: Session |
                 raise ValueError("Green API credentials missing (instance_id or api_key)")
             instance_id_used = instance_id
             _send_via_green(instance_id, api_key, to_phone, body, media_url=media_url)
-
-        elif provider == "meta":
-            phone_id = getattr(settings, "whatsapp_phone_id", None)
-            api_key = getattr(settings, "whatsapp_api_key", None)
-            if not phone_id or not api_key:
-                raise ValueError("Meta API credentials missing (phone_id or api_key)")
-            # Meta: send image first if available, then text
-            if media_url:
-                try:
-                    import httpx as _httpx
-                    _httpx.post(
-                        f"https://graph.facebook.com/v18.0/{phone_id}/messages",
-                        headers={"Authorization": f"Bearer {api_key}"},
-                        json={"messaging_product": "whatsapp", "to": to_phone.replace("+", ""),
-                              "type": "image", "image": {"link": media_url}},
-                        timeout=10,
-                    )
-                except Exception:
-                    pass
-            _send_via_meta(phone_id, api_key, to_phone, body)
 
         else:
             raise ValueError(f"Unknown WhatsApp provider: '{provider}'")

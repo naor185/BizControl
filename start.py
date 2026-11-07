@@ -76,24 +76,6 @@ def ensure_schema():
             cur.execute("UPDATE leads SET seen_at = NOW() WHERE status <> 'new'")
 
         cur.execute("""
-            CREATE TABLE IF NOT EXISTS studio_integrations (
-                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
-                platform VARCHAR(32) NOT NULL,
-                is_active BOOLEAN NOT NULL DEFAULT FALSE,
-                expires_at TIMESTAMPTZ,
-                phone_number_id VARCHAR(255),
-                access_token VARCHAR(1024),
-                page_id VARCHAR(128),
-                instagram_account_id VARCHAR(128),
-                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                UNIQUE (studio_id, platform)
-            )
-        """)
-        cur.execute("CREATE INDEX IF NOT EXISTS ix_studio_integrations_studio_id ON studio_integrations (studio_id)")
-
-        cur.execute("""
             CREATE TABLE IF NOT EXISTS audit_logs (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                 admin_id VARCHAR(64) NOT NULL,
@@ -135,11 +117,8 @@ def ensure_schema():
         for stmt in [
             # WhatsApp integration columns — added idempotently
             "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS whatsapp_provider VARCHAR(64)",
-            "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS whatsapp_phone_id VARCHAR(255)",
             "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS whatsapp_api_key TEXT",
             "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS whatsapp_instance_id VARCHAR(255)",
-            "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS facebook_page_id VARCHAR(64)",
-            "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS instagram_account_id VARCHAR(64)",
             "ALTER TABLE studio_settings ALTER COLUMN whatsapp_api_key TYPE TEXT",
             "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS self_booking_enabled BOOLEAN NOT NULL DEFAULT false",
             "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS self_booking_slot_minutes INTEGER NOT NULL DEFAULT 60",
@@ -723,6 +702,9 @@ def ensure_schema():
         # Unified inbox + marketing analytics removed: their module rows (and, via ON DELETE CASCADE,
         # their plan/studio grants).
         cur.execute("DELETE FROM modules WHERE id IN ('meta_inbox', 'realtime_inbox', 'quick_replies', 'marketing_analytics', 'ai_insights')")
+        # The Meta connection removed (the owner, 2026-11-07: "it's not something that works") — Green API is the only
+        # WhatsApp. Its module row goes too (no plan or business had it).
+        cur.execute("DELETE FROM modules WHERE id = 'whatsapp_cloud'")
 
         # ── Seed fine-grained "permissions" (sub-capabilities nested under a
         # parent module) — the one-time migration target for the legacy
@@ -730,7 +712,6 @@ def ensure_schema():
         # admin tree UI renders each child under the right group.
         # (id, parent_id, category, name, sort_order)
         SUB_MODULES = [
-            ("whatsapp_cloud",       "whatsapp",  "communication", "WhatsApp Cloud API (Meta)",        1),
             ("lead_attribution",     "analytics", "advanced",      "מעקב לידים (Attribution)",         2),
             ("ai_auto_tag",          "ai_assistant", "ai",         "תיוג AI אוטומטי ללידים",           0),
             # Was previously an ungated endpoint (only a role check, no
@@ -3368,6 +3349,22 @@ def ensure_schema():
                   AND EXISTS (SELECT 1 FROM modules m WHERE m.id = 'lucky_club')
                   AND NOT EXISTS (SELECT 1 FROM studio_modules sm WHERE sm.studio_id = s.id AND sm.module_id = 'lucky_club')
             """)
+
+        if _once("meta_connection_gone_v1"):
+            # The owner (2026-11-07): "cancel the Meta messages connection from the whole system — it's not something that
+            # works". Read-only check before: one row has whatsapp_provider 'meta' — the platform's own (naoradmin), a
+            # Meta key and no Green API instance; nothing was ever sent through it (whatsapp_logs: 0 for Meta, 1,938 for
+            # Green API), no business set a Facebook page or Instagram account, no lead came from Meta. Its Meta key is
+            # cleared; the platform sends from its Green API number (platform_config) as before. The Meta columns and the
+            # studio_integrations table (0 rows) are left in the database, unread.
+            cur.execute("""
+                UPDATE studio_settings SET whatsapp_provider = NULL, whatsapp_api_key = NULL
+                WHERE whatsapp_provider = 'meta' AND whatsapp_instance_id IS NULL
+            """)
+            cur.execute("""SELECT 1 FROM information_schema.columns
+                           WHERE table_name = 'studio_settings' AND column_name = 'whatsapp_phone_id'""")
+            if cur.fetchone():
+                cur.execute("UPDATE studio_settings SET whatsapp_phone_id = NULL WHERE whatsapp_phone_id IS NOT NULL")
 
         conn.commit()
         cur.close()

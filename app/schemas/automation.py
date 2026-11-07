@@ -70,7 +70,6 @@ class AutomationSettingsOut(BaseModel):
     # WhatsApp Settings
     whatsapp_provider: str | None = None
     whatsapp_api_key: str | None = None
-    whatsapp_phone_id: str | None = None
 
     # Branding & Themes
     theme_primary_color: str = "#000000"
@@ -135,10 +134,6 @@ class AutomationSettingsOut(BaseModel):
 
     # Green API
     whatsapp_instance_id: str | None = None
-
-    # Meta Social Inbox (Instagram DMs + Facebook Messenger)
-    facebook_page_id: str | None = None
-    instagram_account_id: str | None = None
 
     # Studio identifier (for landing page URL)
     studio_slug: str | None = None
@@ -278,7 +273,6 @@ class AutomationSettingsUpdate(BaseModel):
     # WhatsApp Settings
     whatsapp_provider: str | None = None
     whatsapp_api_key: str | None = None
-    whatsapp_phone_id: str | None = None
 
     # Branding & Themes
     theme_primary_color: str | None = None
@@ -348,10 +342,6 @@ class AutomationSettingsUpdate(BaseModel):
 
     # Green API
     whatsapp_instance_id: str | None = None
-
-    # Meta Social Inbox (Instagram DMs + Facebook Messenger)
-    facebook_page_id: str | None = None
-    instagram_account_id: str | None = None
 
     # Reminder toggles
     same_day_reminder_enabled: bool | None = None

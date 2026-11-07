@@ -134,30 +134,24 @@ export default function AdminPage() {
     const [extendDays, setExtendDays] = useState(14);
     const [extending, setExtending] = useState(false);
     const [tab, setTab] = useState<Tab>("studios");
-    const [healthData, setHealthData] = useState<{ studio_id: string; studio_name: string; wa_status: string; wa_instance_id: string | null; wa_provider: string | null; wa_phone_id: string | null; failed_jobs_24h: number; stuck_pending_jobs: number; has_alert: boolean }[] | null>(null);
+    const [healthData, setHealthData] = useState<{ studio_id: string; studio_name: string; wa_status: string; wa_instance_id: string | null; wa_provider: string | null; failed_jobs_24h: number; stuck_pending_jobs: number; has_alert: boolean }[] | null>(null);
     const [healthLoading, setHealthLoading] = useState(false);
     const [auditLog, setAuditLog] = useState<AuditEntry[] | null>(null);
     const [auditLoading, setAuditLoading] = useState(false);
     const [platformSettings, setPlatformSettings] = useState<{
-        whatsapp_provider: string | null; whatsapp_phone_id: string | null; whatsapp_api_key: string | null;
         theme_primary_color?: string; theme_secondary_color?: string; theme_accent_color?: string;
         theme_background_color?: string; theme_surface_color?: string;
         theme_text_color?: string; theme_text_muted_color?: string;
         theme_heading_font?: string | null; theme_body_font?: string | null;
     } | null>(null);
-    const [webhookConfig, setWebhookConfig] = useState<{ webhook_url: string; verify_token: string } | null>(null);
     const [platformLoading, setPlatformLoading] = useState(false);
     const [platformSaving, setPlatformSaving] = useState(false);
     const [platformForm, setPlatformForm] = useState({
-        whatsapp_provider: "meta", whatsapp_phone_id: "", whatsapp_api_key: "",
         theme_primary_color: "#7c3aed", theme_secondary_color: "#4c1d95", theme_accent_color: "#f59e0b",
         theme_background_color: "#f8fafc", theme_surface_color: "#ffffff",
         theme_text_color: "#0f172a", theme_text_muted_color: "#64748b",
         theme_heading_font: "Heebo", theme_body_font: "Assistant",
     });
-    const [testPhone, setTestPhone] = useState("");
-    const [testSending, setTestSending] = useState(false);
-    const [testResult, setTestResult] = useState<{ ok: boolean; msg: string } | null>(null);
 
     // BizFind OTP WhatsApp settings
     type BizFindSettings = { otp_studio_id: string | null; otp_studio_name: string | null; otp_phone_number: string | null };
@@ -376,7 +370,6 @@ export default function AdminPage() {
         // Load remaining settings — each isolated so one failure doesn't block others
         try {
             const data = await apiFetch<{
-                whatsapp_provider: string | null; whatsapp_phone_id: string | null; whatsapp_api_key: string | null;
                 theme_primary_color: string; theme_secondary_color: string; theme_accent_color: string;
                 theme_background_color: string; theme_surface_color: string;
                 theme_text_color: string; theme_text_muted_color: string;
@@ -384,9 +377,6 @@ export default function AdminPage() {
             }>("/api/admin/platform-settings");
             setPlatformSettings(data);
             setPlatformForm({
-                whatsapp_provider: data.whatsapp_provider || "meta",
-                whatsapp_phone_id: data.whatsapp_phone_id || "",
-                whatsapp_api_key: data.whatsapp_api_key || "",
                 theme_primary_color: data.theme_primary_color || "#7c3aed",
                 theme_secondary_color: data.theme_secondary_color || "#4c1d95",
                 theme_accent_color: data.theme_accent_color || "#f59e0b",
@@ -398,11 +388,6 @@ export default function AdminPage() {
                 theme_body_font: data.theme_body_font || "Assistant",
             });
         } catch { setPlatformSettings(null); }
-
-        try {
-            const wh = await apiFetch<{ webhook_url: string; verify_token: string }>("/api/admin/webhook-config");
-            setWebhookConfig(wh);
-        } catch { /* ignore */ }
 
         try {
             const [bf, sysWA] = await Promise.all([
@@ -422,23 +407,6 @@ export default function AdminPage() {
         } catch { setBizfindStudios([]); }
 
         setPlatformLoading(false);
-    };
-
-    const handleTestWhatsapp = async () => {
-        if (!testPhone.trim()) return;
-        setTestSending(true);
-        setTestResult(null);
-        try {
-            await apiFetch("/api/admin/test-whatsapp", {
-                method: "POST",
-                body: JSON.stringify({ phone: testPhone.trim() }),
-            });
-            setTestResult({ ok: true, msg: tx("✅ ההודעה נשלחה! בדוק את הWhatsApp שלך.") });
-        } catch (e: any) {
-            setTestResult({ ok: false, msg: `❌ ${e?.message || tx("שליחה נכשלה")}` });
-        } finally {
-            setTestSending(false);
-        }
     };
 
     const handleSavePlatform = async () => {
@@ -1355,73 +1323,6 @@ export default function AdminPage() {
                             </button>
                         </div>
 
-                        {/* Webhook Config Card */}
-                        {webhookConfig && (
-                            <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-5">
-                                <div>
-                                    <h2 className="text-lg font-bold">{tx("🔗 חיבור פלטפורמות — Meta Webhook")}</h2>
-                                    <p className="text-slate-400 text-sm mt-1">{tx("הכנס את הפרטים האלה בקונסול Meta Developer כדי לקבל הודעות מ-WhatsApp, Facebook ו-Instagram.")}</p>
-                                </div>
-
-                                <div className="space-y-3">
-                                    <div>
-                                        <label className="text-xs text-slate-400 block mb-1.5">{tx("Callback URL (הכנס ב-Meta → Webhooks)")}</label>
-                                        <div className="flex gap-2">
-                                            <input readOnly value={webhookConfig.webhook_url} dir="ltr"
-                                                className="flex-1 bg-black/30 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-mono" />
-                                            <button onClick={() => navigator.clipboard.writeText(webhookConfig.webhook_url)}
-                                                className="px-3 py-2 bg-white/10 hover:bg-white/20 rounded-xl text-xs text-slate-300 transition-colors">{tx("העתק")}</button>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label className="text-xs text-slate-400 block mb-1.5">{tx("Verify Token (הכנס ב-Meta → Webhooks)")}</label>
-                                        <div className="flex gap-2">
-                                            <input readOnly value={webhookConfig.verify_token} dir="ltr"
-                                                className="flex-1 bg-black/30 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-mono" />
-                                            <button onClick={() => navigator.clipboard.writeText(webhookConfig.verify_token)}
-                                                className="px-3 py-2 bg-white/10 hover:bg-white/20 rounded-xl text-xs text-slate-300 transition-colors">{tx("העתק")}</button>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Platform connection status */}
-                                <div>
-                                    <div className="text-xs text-slate-400 mb-3">{tx("פלטפורמות מחוברות — BizControl")}</div>
-                                    <div className="grid grid-cols-3 gap-3">
-                                        {[
-                                            { icon: "💬", name: "WhatsApp", connected: !!platformSettings?.whatsapp_phone_id, detail: platformSettings?.whatsapp_phone_id ? `ID: ${platformSettings.whatsapp_phone_id}` : tx("לא מוגדר") },
-                                            { icon: "📘", name: "Facebook", connected: false, detail: tx("הגדר Page ID בסטודיו") },
-                                            { icon: "📸", name: "Instagram", connected: false, detail: tx("הגדר Account ID בסטודיו") },
-                                        ].map(p => (
-                                            <div key={p.name} className={`rounded-xl p-3 border text-center ${p.connected ? "bg-green-900/20 border-green-500/30" : "bg-white/5 border-white/10"}`}>
-                                                <div className="text-2xl mb-1">{p.icon}</div>
-                                                <div className="text-xs font-semibold text-white">{p.name}</div>
-                                                <div className={`text-xs mt-1 ${p.connected ? "text-green-400" : "text-slate-500"}`}>
-                                                    {p.connected ? tx("✅ מחובר") : tx("⚪ לא מחובר")}
-                                                </div>
-                                                <div className="text-xs text-slate-600 mt-0.5 truncate">{p.detail}</div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                {/* Instructions */}
-                                <details className="group">
-                                    <summary className="text-xs text-blue-300 cursor-pointer hover:text-blue-200 transition-colors">{tx("📋 הוראות חיבור ב-Meta Developer Console")}</summary>
-                                    <ol className="mt-3 space-y-2 text-xs text-slate-400 list-decimal list-inside leading-relaxed">
-                                        <li>{tx("כנס ל-")}<span className="text-blue-300">developers.facebook.com</span>{tx(" → האפליקציה שלך")}</li>
-                                        <li>{tx("בתפריט שמאל: ")}<strong className="text-slate-300">WhatsApp → Configuration</strong>{tx(" (או Messenger/Instagram)")}</li>
-                                        <li>{tx("לחץ ")}<strong className="text-slate-300">Edit</strong>{tx(" ב-Webhook")}</li>
-                                        <li>{tx("הכנס את ה-")}<strong className="text-slate-300">Callback URL</strong>{tx(" וה-")}<strong className="text-slate-300">Verify Token</strong>{tx(" מלמעלה")}</li>
-                                        <li>{tx("לחץ ")}<strong className="text-slate-300">Verify and Save</strong></li>
-                                        <li>{tx("עבור לטאב ")}<strong className="text-slate-300">Webhook Fields</strong>{tx(" → Subscribe ל: ")}<code className="bg-white/10 px-1 rounded">messages</code></li>
-                                        <li>{tx("חזור על הפעולה עבור כל פלטפורמה (WhatsApp, Messenger, Instagram)")}</li>
-                                        <li>{tx("הוסף ")}<code className="bg-white/10 px-1 rounded">META_WEBHOOK_VERIFY_TOKEN</code>{tx(" ו-")}<code className="bg-white/10 px-1 rounded">BACKEND_URL</code>{tx(" ב-Railway Environment Variables")}</li>
-                                    </ol>
-                                </details>
-                            </div>
-                        )}
-
                         {/* ══ UNIFIED WHATSAPP PLATFORM CARD ══ */}
                         <div className="bg-gradient-to-br from-emerald-900/30 to-slate-900/50 border border-emerald-500/40 rounded-2xl p-6 space-y-5">
                             {/* Header */}
@@ -2311,11 +2212,8 @@ export default function AdminPage() {
                                                 <div>
                                                     <span className="font-bold text-white text-sm">{s.studio_name}</span>
                                                     {/* WhatsApp connection details */}
-                                                    {(s.wa_instance_id || s.wa_phone_id) && (
-                                                        <div className="text-[10px] text-slate-400 font-mono mt-0.5">
-                                                            {s.wa_provider === "green_api" && s.wa_instance_id && `🔗 Instance: ${s.wa_instance_id}`}
-                                                            {s.wa_provider === "meta" && s.wa_phone_id && `📞 Phone ID: ${s.wa_phone_id}`}
-                                                        </div>
+                                                    {s.wa_provider === "green_api" && s.wa_instance_id && (
+                                                        <div className="text-[10px] text-slate-400 font-mono mt-0.5">{`🔗 Instance: ${s.wa_instance_id}`}</div>
                                                     )}
                                                 </div>
                                                 <div className="flex gap-2 flex-wrap items-center">

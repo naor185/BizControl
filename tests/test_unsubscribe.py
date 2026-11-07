@@ -34,9 +34,9 @@ def test_link_and_whatsapp_reply_both_remove_and_tell_the_owner(client, db_sessi
     h = register_and_login(client, slug="unsub", email="owner@unsub.com")
     s = db_session.scalar(select(Studio).where(Studio.slug == "unsub"))
     st = db_session.get(StudioSettings, s.id)
-    st.whatsapp_instance_id, st.whatsapp_phone_id = "inst-1", "phone-1"
+    st.whatsapp_instance_id = "inst-1"
     people = {name: Client(studio_id=s.id, full_name=name, phone=phone) for name, phone in (
-        ("קישור", "0521110001"), ("וואטסאפ", "0521110002"), ("ציטוט", "0521110003"), ("מטא", "0521110004"),
+        ("קישור", "0521110001"), ("וואטסאפ", "0521110002"), ("ציטוט", "0521110003"),
         ("שואלת", "0521110005"), ("בעלים", "0521110006"))}
     people["לא אישר"] = Client(studio_id=s.id, full_name="לא אישר", phone="0521110007", marketing_consent=False)
     db_session.add_all(people.values())
@@ -52,12 +52,11 @@ def test_link_and_whatsapp_reply_both_remove_and_tell_the_owner(client, db_sessi
     assert client.post(f"/api/public/invite/{code}/optout").status_code == 200
     assert len(optouts()) == 1
 
-    # a "הסר" reply on WhatsApp — plain, quoting our message, and through Meta
+    # a "הסר" reply on WhatsApp — plain, and quoting our message
     assert _green(client, "הסר", "972521110002").json()["status"] == "unsubscribed"
     assert _green(client, "תסירו אותי בבקשה 🙏", "972521110003", quoted=True).json()["status"] == "unsubscribed"
-    client.post("/api/webhook/meta", json={"object": "whatsapp_business_account", "entry": [{"changes": [{"value": {
-        "metadata": {"phone_number_id": "phone-1"},
-        "messages": [{"from": "972521110004", "type": "text", "text": {"body": "STOP"}}]}}]}]})
+    # the Meta connection was removed (2026-11-07) — nothing answers there any more
+    assert client.post("/api/webhook/meta", json={"object": "whatsapp_business_account"}).status_code in (404, 405)
     # an ordinary question is not a removal, and a known client is not turned into a lead
     assert _green(client, "אפשר להסיר את התור?", "972521110005").json()["status"] == "ok"
     # an unknown number asking to be removed is left alone — no lead
@@ -67,10 +66,10 @@ def test_link_and_whatsapp_reply_both_remove_and_tell_the_owner(client, db_sessi
     assert client.patch(f"/api/clients/{people['בעלים'].id}", headers=h, json={"receives_marketing": False}).status_code == 200
 
     titles = sorted(n.title for n in optouts())
-    assert titles == sorted(f"{n} הוסר/ה מרשימת ההודעות" for n in ("קישור", "וואטסאפ", "ציטוט", "מטא"))
+    assert titles == sorted(f"{n} הוסר/ה מרשימת ההודעות" for n in ("קישור", "וואטסאפ", "ציטוט"))
     rows = {r["full_name"]: r for r in client.get("/api/clients/marketing-optouts", headers=h).json()}
     assert {n: r["reason"] for n, r in rows.items()} == {
-        "קישור": "link", "וואטסאפ": "whatsapp", "ציטוט": "whatsapp", "מטא": "whatsapp", "בעלים": "owner", "לא אישר": "no_consent"}
+        "קישור": "link", "וואטסאפ": "whatsapp", "ציטוט": "whatsapp", "בעלים": "owner", "לא אישר": "no_consent"}
     assert rows["קישור"]["opted_out_at"] and rows["לא אישר"]["opted_out_at"] is None
 
     # the client asked to come back — switched on again, they leave the list

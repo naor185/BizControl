@@ -41,9 +41,9 @@ def get_settings(ctx: AuthContext = Depends(require_studio_ctx), db: Session = D
     if ctx.role in WORKERS:
         # a worker's calendar reads these settings — not the business's keys or its bank details (they were open to
         # any worker: the WhatsApp key, the Google refresh token, the e-mail key, the bank account)
-        for secret in ("resend_api_key", "whatsapp_api_key", "whatsapp_phone_id", "whatsapp_instance_id",
+        for secret in ("resend_api_key", "whatsapp_api_key", "whatsapp_instance_id",
                        "google_calendar_client_id", "google_calendar_client_secret", "google_calendar_refresh_token",
-                       "bank_name", "bank_branch", "bank_account", "facebook_page_id", "instagram_account_id"):
+                       "bank_name", "bank_branch", "bank_account"):
             if hasattr(out, secret):
                 setattr(out, secret, None)
     return out
@@ -210,7 +210,7 @@ def test_whatsapp(payload: TestWhatsappIn, ctx: AuthContext = Depends(require_st
     if ctx.role not in ("owner", "admin", "manager"):
         raise HTTPException(status_code=403, detail="Forbidden")
     settings = db.get(StudioSettings, ctx.studio_id)
-    if not settings or not settings.whatsapp_provider:
+    if not settings or settings.whatsapp_provider != "green_api":
         raise HTTPException(status_code=400, detail="WhatsApp לא מוגדר — יש להגדיר ספק ופרטי חיבור")
     try:
         send_whatsapp_message(payload.phone, "✅ הודעת בדיקה ממערכת BizControl — החיבור תקין!", settings)

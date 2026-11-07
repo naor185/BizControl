@@ -92,7 +92,7 @@ Per-studio feature flags stored in `studio_features` table. Use `require_feature
 ### Message Queue (`message_jobs` table)
 All outbound messages (WhatsApp, email) are **enqueued** first, then processed by `process_due_jobs`. Use `MessageJob` model. Always set `reminder_type` (e.g. `"1day"`, `"7day"`, `"same_day"`) for reminder messages to enable dedup — never use body-tag dedup (`[7day]` in message text).
 
-WhatsApp providers: `green_api` (linked device) or `meta` (Cloud API). Both dispatched via `send_whatsapp_message()` in `message_worker.py`.
+WhatsApp provider: `green_api` (linked device) only — the Meta Cloud API connection was removed (2026-11-07). Sent via `send_whatsapp_message()` in `message_worker.py`; a business without its own Green API sends from the platform's number (`platform_config` platform_wa_instance).
 
 ### AI
 - `app/services/ai_client.py` — the one AI provider client: Groq, Gemini or OpenAI, detected by API key prefix

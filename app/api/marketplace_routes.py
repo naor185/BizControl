@@ -523,7 +523,7 @@ def get_my_studio_profile(ctx: AuthContext = Depends(require_studio_ctx), db: Se
         or settings.landing_page_description
         or None
     )
-    phone = settings.marketplace_phone or settings.whatsapp_phone_id or None
+    phone = settings.marketplace_phone or None
     instagram = settings.marketplace_instagram or settings.review_link_instagram or None
     facebook = settings.marketplace_facebook or settings.review_link_facebook or None
 

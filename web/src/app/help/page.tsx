@@ -638,33 +638,6 @@ const ARTICLES: Article[] = [
         ],
     },
     {
-        id: "settings-meta",
-        title: tx("חיבור וואטסאפ — Meta Cloud API"),
-        category: tx("חיבורים חיצוניים"),
-        icon: "🔵",
-        content: [
-            {
-                text: tx("Meta Cloud API מאפשרת 1,000 הודעות חינם בחודש. דורש מספר טלפון נפרד שאינו מחובר לאפליקציית וואטסאפ."),
-            },
-            {
-                heading: tx("הגדרה שלב אחר שלב"),
-                steps: [
-                    tx("כנס ל-developers.facebook.com ← 'My Apps' ← 'Create App'."),
-                    tx("בחר 'Business' ← מלא שם ← 'Create App'."),
-                    tx("חפש 'WhatsApp' בלוח הבקרה ← 'Set Up'."),
-                    tx("Phone Number ID — מופיע בלשונית 'API Setup' ← העתק."),
-                    tx("Access Token קבוע: Business Settings → System Users → Create System User (Admin) ← 'Generate Token' ← בחר אפליקציה ← הרשאה whatsapp_business_messaging ← Generate ← העתק."),
-                    tx("הכנס Phone Number ID + Token בהגדרות ← שמור."),
-                    tx("העתק Webhook URL מהתיבה הכחולה בהגדרות."),
-                    tx("ב-Meta Developers → WhatsApp → Configuration → Webhook → Edit."),
-                    tx("הכנס Callback URL (מהתיבה הכחולה) + Verify Token: bizcontrol_verify."),
-                    tx("לחץ 'Verify and Save' ← תחת Webhook Fields הפעל: messages."),
-                ],
-                warning: tx("דורש מספר טלפון שאינו מחובר לאפליקציית וואטסאפ (SIM נפרד / eSIM)."),
-            },
-        ],
-    },
-    {
         id: "settings-email",
         title: tx("חיבור מייל — Resend API"),
         category: tx("חיבורים חיצוניים"),
@@ -692,70 +665,6 @@ const ARTICLES: Article[] = [
                     tx("Resend יראה לך רשומות DNS להוסיף אצל ספק הדומיין שלך (Wix / GoDaddy / Cloudflare)."),
                     tx("הוסף את הרשומות ← המתן עד 24 שעות לאימות."),
                     tx("לאחר אימות — הכנס כתובת שולח (studio@yourdomain.com) בשדה 'כתובת שולח' בהגדרות."),
-                ],
-            },
-        ],
-    },
-    {
-        id: "settings-meta-social",
-        title: tx("Instagram + Facebook — לידים אוטומטיים"),
-        category: tx("חיבורים חיצוניים"),
-        icon: "📸",
-        content: [
-            {
-                text: tx("כל הודעת DM באינסטגרם, הודעת Messenger בפייסבוק, או מילוי טופס Lead Ads — מגיעים אוטומטית לאינבוקס הלידים ב-BizControl."),
-            },
-            {
-                heading: tx("מה נדרש לפני ההגדרה"),
-                steps: [
-                    tx("דף פייסבוק עסקי פעיל."),
-                    tx("חשבון Instagram Business מחובר לדף הפייסבוק (הגדרות דף ← Instagram)."),
-                    tx("גישה ל-developers.facebook.com עם חשבון שהוא Admin על הדף."),
-                ],
-            },
-            {
-                heading: tx("שלב 1 — יצירת Meta App"),
-                steps: [
-                    tx("כנס ל-developers.facebook.com ← 'My Apps' ← 'Create App'."),
-                    tx("בחר סוג 'Business' ← מלא שם ← Create."),
-                    tx("בלוח הבקרה של האפליקציה: הוסף מוצרים — Messenger, Instagram, Webhooks."),
-                ],
-            },
-            {
-                heading: tx("שלב 2 — קבלת Access Token"),
-                steps: [
-                    "Business Settings (business.facebook.com) ← System Users ← Add.",
-                    tx("צור System User מסוג Admin ← Generate Token."),
-                    tx("בחר את האפליקציה שיצרת ← הרשאות: pages_read_engagement, instagram_basic, leads_retrieval, messages."),
-                    tx("שמור את ה-Token (מתחיל ב-EAA...)."),
-                ],
-            },
-            {
-                heading: tx("שלב 3 — הגדרה ב-BizControl"),
-                steps: [
-                    tx("הגדרות ← אינטגרציות ← 'חבר Instagram & Facebook'."),
-                    tx("הכנס Facebook Page ID (נמצא בדף ← About ← Page Transparency)."),
-                    tx("הכנס Instagram Account ID (מהגרף API Explorer: me?fields=instagram_business_account)."),
-                    tx("הכנס את ה-Access Token ← שמור."),
-                ],
-            },
-            {
-                heading: tx("שלב 4 — הגדרת Webhook ב-Meta"),
-                steps: [
-                    tx("ב-Meta Developers ← האפליקציה שלך ← Webhooks ← Add Callback URL."),
-                    tx("Callback URL: העתק מ-BizControl (מסך שלב 2 באשף)."),
-                    "Verify Token: bizcontrol_verify",
-                    tx("לחץ Verify and Save."),
-                    tx("Subscribe לאירועים: messages, messaging_postbacks, leadgen, feed."),
-                ],
-                tip: tx("לאחר הגדרה: שלח DM לדף/לאינסטגרם ← תוך שניות יופיע ליד חדש בBizControl."),
-            },
-            {
-                heading: tx("מה מגיע אוטומטית לאחר ההגדרה"),
-                table: [
-                    { col1: "Instagram DM", col2: tx("ליד חדש עם שם + הודעה ראשונה") },
-                    { col1: "Facebook Messenger", col2: tx("ליד חדש עם שם + הודעה ראשונה") },
-                    { col1: tx("Lead Ads (טופס מודעה)"), col2: tx("ליד עם כל הפרטים מהטופס") },
                 ],
             },
         ],

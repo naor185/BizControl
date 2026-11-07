@@ -47,20 +47,8 @@ type StudioSettings = {
     calendar_start_hour: string;
     calendar_end_hour: string;
     whatsapp_provider: string | null;
-    whatsapp_phone_id: string | null;
     whatsapp_api_key: string | null;
     whatsapp_instance_id: string | null;
-};
-
-type Integration = {
-    platform: string;
-    is_active: boolean;
-    expires_at: string | null;
-    is_permanent: boolean;
-    phone_number_id: string | null;
-    access_token: string | null;
-    page_id: string | null;
-    instagram_account_id: string | null;
 };
 
 type FeatureFlag = {
@@ -86,19 +74,11 @@ type LeadAnalytics = {
     campaigns: CampaignStat[];
 };
 
-const PLATFORM_META = {
-    whatsapp:  { label: "WhatsApp Business", icon: "💬", color: "border-green-400",  badge: "bg-green-50 text-green-700"  },
-    instagram: { label: "Instagram DMs",     icon: "📸", color: "border-pink-400",   badge: "bg-pink-50 text-pink-700"   },
-    facebook:  { label: "Facebook Messenger",icon: "👍", color: "border-blue-400",   badge: "bg-blue-50 text-blue-700"   },
-    lead_ads:  { label: tx("Lead Ads (טפסים)"), icon: "📋", color: "border-purple-400", badge: "bg-purple-50 text-purple-700"},
-} as const;
-
 const SOURCE_LABELS: Record<string, string> = {
     whatsapp: "💬 WhatsApp", instagram: "📸 Instagram", facebook: "👍 Facebook", manual: tx("✏️ ידני"),
 };
 
 const FEATURE_LABELS: Record<string, { label: string; desc: string; icon: string }> = {
-    whatsapp_cloud:       { label: "WhatsApp Cloud API",  desc: tx("WhatsApp Cloud API של Meta (לא Green API)"),         icon: "📱" },
     ai_auto_tag:          { label: "AI Auto-Tag",         desc: tx("תיוג אוטומטי של לידים לפי תוכן ההודעה"),            icon: "🏷" },
     lead_attribution:     { label: "Lead Attribution",    desc: tx("מעקב מלא: מודעה → ליד → תור → הכנסה"),              icon: "🎯" },
     voice:                { label: "BizControl Voice",    desc: tx("מודול טלפוניה, לוג שיחות ושיוך ללקוחות"),           icon: "📞" },
@@ -145,16 +125,10 @@ export default function StudioDetailPage() {
     const [settings, setSettings] = useState<StudioSettings | null>(null);
     const [savingSettings, setSavingSettings] = useState(false);
     const [newPlan, setNewPlan] = useState("");
-    const [waPhoneId, setWaPhoneId] = useState("");
-    const [waApiKey, setWaApiKey] = useState("");
     const [waInstanceId, setWaInstanceId] = useState("");
     const [waGreenToken, setWaGreenToken] = useState("");
     const [savingWa, setSavingWa] = useState(false);
-    const [waCopied, setWaCopied] = useState<string | null>(null);
-    const [integrations, setIntegrations] = useState<Integration[]>([]);
     const [analytics, setAnalytics] = useState<LeadAnalytics | null>(null);
-    const [savingIntegration, setSavingIntegration] = useState<string | null>(null);
-    const [intCredentials, setIntCredentials] = useState<Record<string, Record<string, string>>>({});
     const [features, setFeatures] = useState<FeatureFlag[]>([]);
     const [togglingFeature, setTogglingFeature] = useState<string | null>(null);
     const [enablingAll, setEnablingAll] = useState(false);
@@ -165,11 +139,10 @@ export default function StudioDetailPage() {
     const load = useCallback(async () => {
         setErr(null);
         try {
-            const [d, n, s, ints, anal, feats] = await Promise.all([
+            const [d, n, s, anal, feats] = await Promise.all([
                 apiFetch<StudioDetail>(`/api/admin/studios/${studioId}/detail`),
                 apiFetch<Note[]>(`/api/admin/studios/${studioId}/notes`),
                 apiFetch<StudioSettings>(`/api/admin/studios/${studioId}/settings`),
-                apiFetch<Integration[]>(`/api/admin/studios/${studioId}/integrations`),
                 apiFetch<LeadAnalytics>(`/api/admin/studios/${studioId}/lead-analytics`).catch(() => null),
                 apiFetch<FeatureFlag[]>(`/api/superadmin/features/${studioId}`).catch(() => []),
             ]);
@@ -177,26 +150,12 @@ export default function StudioDetailPage() {
             setNotes(n);
             setSettings(s);
             setNewPlan(s.subscription_plan);
-            setWaPhoneId(s.whatsapp_phone_id || "");
-            setWaApiKey(s.whatsapp_api_key || "");
             setWaInstanceId(s.whatsapp_instance_id || "");
-            setIntegrations(ints);
             setAnalytics(anal);
             setFeatures(feats);
             // Load nav modules
             const navMods = await apiFetch<Record<string, boolean>>(`/api/admin/studios/${studioId}/modules`).catch(() => ({}));
             setNavModules(navMods);
-            // Pre-fill credential fields from existing integration data
-            const creds: Record<string, Record<string, string>> = {};
-            for (const i of ints) {
-                creds[i.platform] = {
-                    phone_number_id: i.phone_number_id || "",
-                    access_token: i.access_token || "",
-                    page_id: i.page_id || "",
-                    instagram_account_id: i.instagram_account_id || "",
-                };
-            }
-            setIntCredentials(creds);
         } catch (e: any) {
             if (e?.message?.includes("403") || e?.message?.includes("401")) {
                 router.replace("/login");
@@ -313,21 +272,6 @@ export default function StudioDetailPage() {
             toast.error(e?.message);
         } finally {
             setSavingSettings(false);
-        }
-    };
-
-    const handleIntegration = async (platform: string, patch: Record<string, unknown>) => {
-        setSavingIntegration(platform);
-        try {
-            const updated = await apiFetch<Integration>(`/api/admin/studios/${studioId}/integrations/${platform}`, {
-                method: "PATCH",
-                body: JSON.stringify(patch),
-            });
-            setIntegrations(prev => prev.map(i => i.platform === platform ? updated : i));
-        } catch (e: any) {
-            toast.error(e?.message);
-        } finally {
-            setSavingIntegration(null);
         }
     };
 
@@ -666,249 +610,6 @@ export default function StudioDetailPage() {
                         </div>
                     </div>
                 )}
-
-                {/* WhatsApp Business */}
-                {settings && (
-                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                        <div className="px-4 py-3 border-b border-gray-50 flex items-center gap-2">
-                            <span className="text-base">💬</span>
-                            <h2 className="text-sm font-semibold text-gray-700">WhatsApp Business (Meta Cloud API)</h2>
-                            {/* Save writes whatsapp_provider="meta" (matches what
-                                message_worker.py's sender actually checks) — this used
-                                to compare against "meta_cloud", a value that's never
-                                actually written, so a correctly-configured studio's
-                                badge stayed on "not connected" forever even though
-                                sending worked fine. */}
-                            {settings.whatsapp_provider === "meta" && settings.whatsapp_phone_id && (
-                                <span className="text-xs text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full font-medium">{tx("מחובר")}</span>
-                            )}
-                        </div>
-
-                        <div className="p-4 space-y-4">
-                            {/* Webhook info */}
-                            <div className="bg-gray-50 rounded-xl p-3 space-y-2 text-xs">
-                                <p className="text-gray-500 font-medium">{tx("הגדרות Webhook למרכז העסקים של Meta:")}</p>
-                                {[
-                                    { label: "Webhook URL", value: "https://api.biz-control.com/api/webhook/meta" },
-                                    { label: "Verify Token", value: "bizcontrol_verify" },
-                                ].map(({ label, value }) => (
-                                    <div key={label} className="flex items-center gap-2">
-                                        <span className="text-gray-400 w-24 shrink-0">{label}</span>
-                                        <code className="flex-1 bg-white border border-gray-200 rounded-lg px-2 py-1 text-gray-800 truncate">{value}</code>
-                                        <button
-                                            onClick={() => {
-                                                navigator.clipboard.writeText(value);
-                                                setWaCopied(label);
-                                                setTimeout(() => setWaCopied(null), 2000);
-                                            }}
-                                            className="shrink-0 px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors text-gray-600"
-                                        >
-                                            {waCopied === label ? "✓" : tx("העתק")}
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
-
-                            {/* Phone Number ID */}
-                            <div>
-                                <label className="block text-xs font-semibold text-gray-500 mb-1.5">Phone Number ID</label>
-                                <input
-                                    type="text"
-                                    value={waPhoneId}
-                                    onChange={e => setWaPhoneId(e.target.value)}
-                                    placeholder="123456789012345"
-                                    dir="ltr"
-                                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black/10"
-                                />
-                                <p className="text-xs text-gray-400 mt-1">{tx("מ-Meta Business Suite → WhatsApp → הגדרות API")}</p>
-                            </div>
-
-                            {/* Access Token */}
-                            <div>
-                                <label className="block text-xs font-semibold text-gray-500 mb-1.5">Access Token</label>
-                                <PasswordInput
-                                    value={waApiKey}
-                                    onChange={e => setWaApiKey(e.target.value)}
-                                    placeholder="EAAxxxx..."
-                                    dir="ltr"
-                                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black/10"
-                                />
-                            </div>
-
-                            <button
-                                onClick={async () => {
-                                    setSavingWa(true);
-                                    try {
-                                        await handleSaveSettings({
-                                            whatsapp_provider: waPhoneId || waApiKey ? "meta" : null,
-                                            whatsapp_phone_id: waPhoneId || null,
-                                            whatsapp_api_key: waApiKey || null,
-                                        });
-                                    } finally {
-                                        setSavingWa(false);
-                                    }
-                                }}
-                                disabled={savingWa}
-                                className="w-full py-2.5 bg-black text-white text-sm font-semibold rounded-xl hover:bg-gray-800 transition-colors disabled:opacity-40"
-                            >
-                                {savingWa ? tx("שומר...") : tx("שמור הגדרות WhatsApp")}
-                            </button>
-
-                            {settings.whatsapp_provider === "meta" && settings.whatsapp_phone_id && (
-                                <button
-                                    onClick={() => {
-                                        if (!confirm(tx("לנתק את WhatsApp מהסטודיו הזה?"))) return;
-                                        handleSaveSettings({ whatsapp_provider: null, whatsapp_phone_id: null, whatsapp_api_key: null });
-                                        setWaPhoneId("");
-                                        setWaApiKey("");
-                                    }}
-                                    className="w-full py-2 text-xs text-red-500 hover:text-red-700 transition-colors"
-                                >
-                                    {tx("נתק WhatsApp")}
-                                </button>
-                            )}
-                        </div>
-                    </div>
-                )}
-
-                {/* Integrations */}
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                    <div className="px-4 py-3 border-b border-gray-50 flex items-center gap-2">
-                        <span className="text-base">🔌</span>
-                        <h2 className="text-sm font-semibold text-gray-700">{tx("אינטגרציות רשתות חברתיות")}</h2>
-                        <span className="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full font-medium">{tx("סופר-אדמין")}</span>
-                    </div>
-                    <div className="p-4 space-y-3">
-                        {(["whatsapp","instagram","facebook","lead_ads"] as const).map(platform => {
-                            const meta = PLATFORM_META[platform];
-                            const intg = integrations.find(i => i.platform === platform);
-                            const creds = intCredentials[platform] || {};
-                            const isActive = intg?.is_active ?? false;
-                            const isPermanent = intg?.is_permanent ?? false;
-                            const daysLeft = intg?.expires_at
-                                ? Math.ceil((new Date(intg.expires_at).getTime() - Date.now()) / 86_400_000)
-                                : null;
-                            const expired = daysLeft !== null && daysLeft < 0;
-                            const saving = savingIntegration === platform;
-
-                            return (
-                                <div key={platform} className={`border-2 rounded-2xl overflow-hidden transition-all ${isActive && !expired ? meta.color : "border-gray-100"}`}>
-                                    {/* Header row */}
-                                    <div className="flex items-center gap-3 px-4 py-3 bg-gray-50">
-                                        <span className="text-xl">{meta.icon}</span>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-sm font-semibold text-gray-900">{meta.label}</p>
-                                            <p className="text-xs text-gray-400">
-                                                {!isActive || expired ? tx("לא פעיל") :
-                                                    isPermanent ? tx("פעיל — קבוע") :
-                                                    daysLeft !== null ? tx("פעיל — עוד {0} ימים", { 0: daysLeft }) : tx("פעיל")}
-                                            </p>
-                                        </div>
-                                        {/* Toggle */}
-                                        <Switch checked={isActive && !expired} onChange={() => handleIntegration(platform, { is_active: !isActive })}
-                                            disabled={saving} />
-                                    </div>
-
-                                    {/* Trial / Permanent buttons */}
-                                    <div className="px-4 py-2 flex flex-wrap gap-2 border-t border-gray-100 bg-white">
-                                        {[7, 14, 30, 90].map(days => (
-                                            <button
-                                                key={days}
-                                                onClick={() => handleIntegration(platform, { trial_days: days })}
-                                                disabled={saving}
-                                                className="px-3 py-1 text-xs font-semibold bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-40"
-                                            >
-                                                {tx("ניסיון")} {days}{tx("י׳")}
-                                            </button>
-                                        ))}
-                                        <button
-                                            onClick={() => handleIntegration(platform, { permanent: true })}
-                                            disabled={saving}
-                                            className="px-3 py-1 text-xs font-semibold bg-black text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-40"
-                                        >
-                                            {saving ? "..." : tx("קבוע ✓")}
-                                        </button>
-                                    </div>
-
-                                    {/* Credentials */}
-                                    <div className="px-4 py-3 border-t border-gray-100 bg-white space-y-2">
-                                        {platform === "whatsapp" && (
-                                            <>
-                                                <input
-                                                    placeholder="Phone Number ID"
-                                                    dir="ltr"
-                                                    value={creds.phone_number_id || ""}
-                                                    onChange={e => setIntCredentials(prev => ({ ...prev, [platform]: { ...prev[platform], phone_number_id: e.target.value }}))}
-                                                    className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-black/10"
-                                                />
-                                                <PasswordInput
-                                                    placeholder="Access Token (EAAxxxx...)"
-                                                    dir="ltr"
-                                                    value={creds.access_token || ""}
-                                                    onChange={e => setIntCredentials(prev => ({ ...prev, [platform]: { ...prev[platform], access_token: e.target.value }}))}
-                                                    className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-black/10"
-                                                />
-                                            </>
-                                        )}
-                                        {platform === "instagram" && (
-                                            <>
-                                                <input
-                                                    placeholder="Instagram Account ID"
-                                                    dir="ltr"
-                                                    value={creds.instagram_account_id || ""}
-                                                    onChange={e => setIntCredentials(prev => ({ ...prev, [platform]: { ...prev[platform], instagram_account_id: e.target.value }}))}
-                                                    className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-black/10"
-                                                />
-                                                <PasswordInput
-                                                    placeholder="Access Token"
-                                                    dir="ltr"
-                                                    value={creds.access_token || ""}
-                                                    onChange={e => setIntCredentials(prev => ({ ...prev, [platform]: { ...prev[platform], access_token: e.target.value }}))}
-                                                    className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-black/10"
-                                                />
-                                            </>
-                                        )}
-                                        {platform === "facebook" && (
-                                            <>
-                                                <input
-                                                    placeholder="Facebook Page ID"
-                                                    dir="ltr"
-                                                    value={creds.page_id || ""}
-                                                    onChange={e => setIntCredentials(prev => ({ ...prev, [platform]: { ...prev[platform], page_id: e.target.value }}))}
-                                                    className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-black/10"
-                                                />
-                                                <PasswordInput
-                                                    placeholder="Access Token"
-                                                    dir="ltr"
-                                                    value={creds.access_token || ""}
-                                                    onChange={e => setIntCredentials(prev => ({ ...prev, [platform]: { ...prev[platform], access_token: e.target.value }}))}
-                                                    className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-black/10"
-                                                />
-                                            </>
-                                        )}
-                                        {platform !== "lead_ads" && (
-                                            <button
-                                                onClick={() => handleIntegration(platform, {
-                                                    phone_number_id: creds.phone_number_id || null,
-                                                    access_token: creds.access_token || null,
-                                                    page_id: creds.page_id || null,
-                                                    instagram_account_id: creds.instagram_account_id || null,
-                                                })}
-                                                disabled={saving}
-                                                className="w-full py-1.5 bg-black text-white text-xs font-semibold rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-40"
-                                            >
-                                                {saving ? tx("שומר...") : tx("שמור פרטי חיבור")}
-                                            </button>
-                                        )}
-                                        {platform === "lead_ads" && (
-                                            <p className="text-xs text-gray-400">{tx("Lead Ads עובד אוטומטית דרך ה-Webhook של Facebook/Instagram — אין צורך ב-token נפרד.")}</p>
-                                        )}
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
 
                 {/* Nav Management */}
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
