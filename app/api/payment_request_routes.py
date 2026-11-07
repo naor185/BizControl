@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 from app.core.deps import AuthContext, require_studio_ctx
 from app.core.permissions import WORKERS, no_workers, worker_may
 from app.core.database import get_db
+from app.core.limiter import rate_limit
 from app.services import payment_requests as svc
 
 router = APIRouter(prefix="/payment-requests", tags=["PaymentRequests"])
@@ -94,14 +95,14 @@ def public_view(request_id: UUID, db: Session = Depends(get_db)):
     return svc.public_view(db, svc.get_public(db, request_id))
 
 
-@public_router.post("/{request_id}/proof", status_code=204)
+@public_router.post("/{request_id}/proof", status_code=204, dependencies=[rate_limit("10/minute;60/hour")])
 async def public_proof(request_id: UUID, file: UploadFile = File(...), db: Session = Depends(get_db)):
     req = svc.get_public(db, request_id)
     data = await file.read(svc.MAX_BYTES + 1)
     svc.save_proof(db, req, data)
 
 
-@public_router.post("/{request_id}/confirm")
+@public_router.post("/{request_id}/confirm", dependencies=[rate_limit("10/minute;60/hour")])
 def public_confirm(request_id: UUID, body: ConfirmIn, db: Session = Depends(get_db)):
     req = svc.get_public(db, request_id)
     svc.report(db, req, body.notes)

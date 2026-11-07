@@ -18,6 +18,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.limiter import rate_limit
 from app.core.deps import require_studio_ctx, AuthContext
 from app.core.permissions import require_roles, Perms
 
@@ -1235,7 +1236,7 @@ def track_gift_card_page_view(studio_id: str, db: Session = Depends(get_db)):
     db.commit()
 
 
-@public_router.post("/order/{studio_id}", status_code=201)
+@public_router.post("/order/{studio_id}", status_code=201, dependencies=[rate_limit("5/minute;20/hour", per_business="60/hour")])
 def public_create_gift_card_order(studio_id: str, body: PublicGiftCardOrderIn, db: Session = Depends(get_db)):
     """Public — customer places a gift-card order. Card is created as
     'pending_payment' and is NOT redeemable until staff confirms the Bit

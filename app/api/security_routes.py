@@ -73,10 +73,8 @@ def _check_pin(db: Session, settings: UserPinSettings, pin: str, studio_id: uuid
 
 
 def _get_ip(request: Request) -> str | None:
-    forwarded = request.headers.get("x-forwarded-for")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    return getattr(request.client, "host", None)
+    from app.core.limiter import client_ip
+    return client_ip(request)
 
 
 # ── Schemas ───────────────────────────────────────────────────────────────────

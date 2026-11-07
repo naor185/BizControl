@@ -69,8 +69,8 @@ curl -X POST https://YOUR-RAILWAY-URL/api/admin/setup \
   -H "Content-Type: application/json" \
   -d '{
     "secret": "YOUR_ADMIN_SETUP_SECRET",
-    "email": "ncbilutattoo@gmail.com",
-    "password": "Admin123!",
+    "email": "YOUR_EMAIL",
+    "password": "A_STRONG_PASSWORD",
     "display_name": "Naor"
   }'
 ```

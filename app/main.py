@@ -27,9 +27,8 @@ if _sentry_dsn:
         logging.getLogger(__name__).warning("sentry-sdk not installed, skipping")
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
-from app.core.limiter import limiter
+from app.core.limiter import limiter, too_many_requests
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from app.db.session import SessionLocal
@@ -662,7 +661,7 @@ app = FastAPI(
     openapi_url=None if _is_production else "/openapi.json",
 )
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_exception_handler(RateLimitExceeded, too_many_requests)
 
 
 async def _error_in_the_users_language(request, exc):

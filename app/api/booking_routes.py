@@ -15,6 +15,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.limiter import rate_limit
 from app.core.sites import logo_address
 from app.core.studio_access import raise_if_archived
 from fastapi import Depends
@@ -156,7 +157,7 @@ class BookingRequest(BaseModel):
     notes: Optional[str] = None
 
 
-@router.post("/{slug}/book")
+@router.post("/{slug}/book", dependencies=[rate_limit("10/minute;30/hour", per_business="100/hour")])
 def create_booking(slug: str, payload: BookingRequest, db: Session = Depends(get_db)):
     """Create an appointment from a public booking request."""
     import uuid as _uuid
@@ -285,7 +286,7 @@ class AppointmentRequestIn(BaseModel):
     notes: Optional[str] = None
 
 
-@router.post("/{slug}/request", status_code=201)
+@router.post("/{slug}/request", status_code=201, dependencies=[rate_limit("10/minute;30/hour", per_business="100/hour")])
 def public_request_appointment(
     slug: str,
     payload: AppointmentRequestIn,
@@ -359,7 +360,7 @@ class WaitListJoinIn(BaseModel):
     notes: Optional[str] = None
 
 
-@router.post("/{slug}/wait-list", status_code=201)
+@router.post("/{slug}/wait-list", status_code=201, dependencies=[rate_limit("10/minute;30/hour", per_business="100/hour")])
 def public_join_wait_list(slug: str, payload: WaitListJoinIn, db: Session = Depends(get_db)):
     """Public endpoint — client self-joins the wait list for a studio."""
     from app.models.studio import Studio

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.core.database import get_db
+from app.core.limiter import rate_limit
 from app.models.studio import Studio
 from app.models.user import User
 from app.models.studio_settings import StudioSettings
@@ -12,7 +13,7 @@ router = APIRouter(prefix="/studios", tags=["Studios"])
 
 ph = PasswordHasher()
 
-@router.post("/register", response_model=StudioRegisterResponse)
+@router.post("/register", response_model=StudioRegisterResponse, dependencies=[rate_limit("3/minute;10/hour")])
 def register_studio(payload: StudioRegisterRequest, db: Session = Depends(get_db)):
     """A new business, in the free month like every new business (owner, 2026-10-10) — it used to open on the
     old free plan with no end date. The sign-up people use is BizFind's (/api/marketplace/auth/register)."""

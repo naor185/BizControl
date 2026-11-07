@@ -171,8 +171,8 @@ def client(db_session):
 
     app.dependency_overrides[core_db.get_db] = override_get_db
     app.dependency_overrides[db_deps.get_db] = override_get_db
-    from app.core.limiter import limiter
-    limiter.reset()   # each test starts with fresh rate-limit counters (login allows 10 a minute)
+    from app.core.limiter import reset as reset_limits
+    reset_limits()   # each test starts with fresh rate-limit counters (login allows 10 a minute)
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()
@@ -180,12 +180,13 @@ def client(db_session):
 
 
 def register_and_login(client, slug: str, email: str):
+    # each sign-up from an address of its own — one address may sign up 3 businesses a minute (core/limiter)
     r = client.post("/api/studios/register", json={
         "name": f"Studio {slug}",
         "slug": slug,
         "email": email,
         "password": "password123"
-    })
+    }, headers={"X-Forwarded-For": f"8.{uuid.uuid4().int % 250}.{uuid.uuid4().int % 250}.{uuid.uuid4().int % 250 + 1}"})
     assert r.status_code == 200, r.text
     # A bare business, as every test before the October 2026 plans assumes: on the old base plan ("free" — calendar,
     # clients and the till), each test turning on what it uses (a locked StudioModule, like the superadmin does).

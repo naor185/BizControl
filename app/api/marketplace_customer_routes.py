@@ -30,7 +30,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.sites import logo_address
 from app.core.security import JWT_SECRET, validate_password_strength
-from app.core.limiter import limiter
+from app.core.limiter import limiter, rate_limit
 
 router = APIRouter(prefix="/marketplace/auth", tags=["MarketplaceAuth"])
 
@@ -276,7 +276,7 @@ def complete_profile(
     return {"ok": True}
 
 
-@router.post("/register-email")
+@router.post("/register-email", dependencies=[rate_limit("5/minute;20/hour")])
 def register_email(body: EmailRegisterIn, db: Session = Depends(get_db)):
     email = body.email.strip().lower()
     if "@" not in email or "." not in email.split("@")[-1]:

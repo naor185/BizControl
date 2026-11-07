@@ -696,6 +696,7 @@ _PATTERNS_RX = [(re.compile("^" + re.escape(he).replace(re.escape("{}"), "(.+?)"
                 for he, en in PATTERNS.items()]
 
 EN.update({"איש הצוות לא נמצא": "Team member not found"})   # the till: who did the work / made the sale
+EN.update({"יותר מדי בקשות — נסו שוב בעוד כמה דקות": "Too many requests — try again in a few minutes"})   # core/limiter
 
 EN.update({   # a link to pay (services/payment_requests)
     "פריט לא תקין": "Invalid item", "התשלום כבר אושר": "The payment was already approved", "הקישור בוטל": "The link was canceled",

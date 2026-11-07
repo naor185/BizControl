@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 from app.core.database import get_db
 from app.core.deps import require_studio_ctx, AuthContext
-from app.core.limiter import limiter
+from app.core.limiter import limiter, rate_limit
 from app.core.studio_access import raise_if_archived, studio_is_archived, studio_site_live
 from app.db.deps import get_db as _get_db
 from app.utils.logger import get_logger
@@ -48,7 +48,7 @@ class MarketplaceLoginIn(BaseModel):
     password: str
 
 
-@router.post("/auth/login")
+@router.post("/auth/login", dependencies=[rate_limit("10/minute")])
 def marketplace_login(request: Request, payload: MarketplaceLoginIn, db: Session = Depends(get_db)):
     """
     Login for business owners/staff via the BizFind portal — email+password
@@ -122,7 +122,7 @@ def _slugify(name: str) -> str:
     return slug[:48] or "business"
 
 
-@router.post("/auth/register", status_code=201)
+@router.post("/auth/register", status_code=201, dependencies=[rate_limit("3/minute;10/hour")])
 def bizfind_register(payload: BizFindRegisterIn, db: Session = Depends(get_db)):
     """Self-registration for business owners coming from BizFind."""
     from datetime import datetime, timezone, timedelta
@@ -314,7 +314,7 @@ class VerifyEmailIn(BaseModel):
     token: str
 
 
-@router.post("/auth/verify-email")
+@router.post("/auth/verify-email", dependencies=[rate_limit("10/minute")])
 def verify_email(payload: VerifyEmailIn, db: Session = Depends(get_db)):
     """Public — confirm a business owner's email from the link in the
     verification email. Token lives in users.email_verify_token; valid 7 days."""

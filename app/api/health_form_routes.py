@@ -27,6 +27,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.limiter import rate_limit
 from app.core.deps import AuthContext, require_studio_ctx
 from app.core.permissions import require_management
 from app.models.user import User
@@ -37,9 +38,9 @@ public_router = APIRouter(prefix="/public/health", tags=["Public"])
 
 
 def _ip(request: Request) -> str | None:
-    """The client's address — behind the host's proxy, the first one it forwarded."""
-    forwarded = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
-    return forwarded or (request.client.host if request.client else None)
+    """The client's address — behind the host's proxy (core/limiter)."""
+    from app.core.limiter import client_ip
+    return client_ip(request)
 
 
 def _uuid(value: str, what: str) -> uuid.UUID:
@@ -215,7 +216,7 @@ def public_file(token: str, db: Session = Depends(get_db)):
     return Response(f.data, media_type=f.content_type, headers={"Cache-Control": "private, no-store"})
 
 
-@public_router.post("/{token}")
+@public_router.post("/{token}", dependencies=[rate_limit("10/minute;60/hour")])
 def public_sign(token: str, payload: ClientSignIn, request: Request, db: Session = Depends(get_db)):
     try:
         d = health_forms.by_token(db, token)

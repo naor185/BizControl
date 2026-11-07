@@ -11,6 +11,7 @@ from datetime import datetime, date, timedelta, timezone
 from typing import Optional
 
 from app.core.database import get_db
+from app.core.limiter import rate_limit
 from app.core.sites import logo_address
 from app.core.studio_access import raise_if_archived
 from app.models.studio import Studio
@@ -232,7 +233,7 @@ def get_public_studio_info(studio_id: str, db: Session = Depends(get_db)):
         locale=settings.default_locale or "he",
     )
 
-@router.post("/studio/{studio_id}/join")
+@router.post("/studio/{studio_id}/join", dependencies=[rate_limit("10/minute;60/hour", per_business="150/hour")])
 def join_studio(studio_id: str, payload: ClientJoinRequest, db: Session = Depends(get_db)):
     from app.crud.client import _handle_new_club_member
 
@@ -388,7 +389,7 @@ def get_public_payment_info(appointment_id: PyUUID, db: Session = Depends(get_db
     )
 
 
-@router.post("/payment/{appointment_id}/proof")
+@router.post("/payment/{appointment_id}/proof", dependencies=[rate_limit("10/minute;60/hour")])
 async def upload_payment_proof(appointment_id: PyUUID, file: UploadFile = File(...), db: Session = Depends(get_db)):
     """The client attaches a picture of the payment (a Bit screenshot…) — services/deposit_report."""
     from app.services import deposit_report
@@ -398,7 +399,7 @@ async def upload_payment_proof(appointment_id: PyUUID, file: UploadFile = File(.
     return {"ok": True}
 
 
-@router.post("/payment/{appointment_id}/confirm")
+@router.post("/payment/{appointment_id}/confirm", dependencies=[rate_limit("10/minute;60/hour")])
 def confirm_payment_sent(appointment_id: PyUUID, payload: PaymentConfirmRequest, db: Session = Depends(get_db)):
     """The client tapped "שילמתי" — the business is told at once (the bell and a push) and approves it from the
     calendar (services/deposit_report)."""

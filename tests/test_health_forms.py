@@ -130,7 +130,7 @@ def test_the_client_fills_it_from_a_whatsapp_link_and_the_artist_signs_in_the_st
 
     answers = {q["id"]: {"answer": "no"} for q in view["questions"] if q["kind"] == "yes_no"}
     signed = client.post(f"/api/public/health/{token}", json={"answers": answers, "age": 28, "signature": SIG},
-                         headers={"x-forwarded-for": "203.0.113.7, 10.0.0.1", "user-agent": "iPhone"})
+                         headers={"x-forwarded-for": "31.154.20.7, 10.0.0.1", "user-agent": "iPhone"})
     assert signed.status_code == 200, signed.text
     assert signed.json() == {"status": "signed", "business_name": "Studio ink-health", "locale": "he"}           # nothing of what was signed
     assert client.post(f"/api/public/health/{token}", json={"answers": answers, "age": 28,
@@ -139,7 +139,7 @@ def test_the_client_fills_it_from_a_whatsapp_link_and_the_artist_signs_in_the_st
 
     row = client.get(f"/api/health-declarations/{d['id']}", headers=h).json()
     assert (row["status"], row["client_signed_via"], row["client_ip"], row["client_device"], row["link"]) == (
-        "waiting_performer", "link", "203.0.113.7", "iPhone", None)
+        "waiting_performer", "link", "31.154.20.7", "iPhone", None)
     assert client.post(f"/api/health-declarations/{d['id']}/send-link", headers=h).status_code == 400
     assert client.post(f"/api/health-declarations/{d['id']}/performer", headers=h, json={"signature": SIG}).json()["status"] == "signed"
 

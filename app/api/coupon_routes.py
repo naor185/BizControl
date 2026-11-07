@@ -15,6 +15,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.limiter import rate_limit
 from app.core.deps import AuthContext, require_studio_ctx
 from app.core.features import has_module, require_module
 from app.core.permissions import require_management
@@ -176,7 +177,7 @@ class ClickIn(BaseModel):
     count: bool = True          # the page counts a visit once per browser session
 
 
-@public_router.post("/{slug}/{code}")
+@public_router.post("/{slug}/{code}", dependencies=[rate_limit("30/minute;300/hour")])
 def open_coupon_link(slug: str, code: str, body: ClickIn, db: Session = Depends(get_db)):
     """Someone opened the coupon's link — what it gives, counted as a click. 404 when it does not work now (the page
     then just shows the business)."""
