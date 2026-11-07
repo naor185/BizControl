@@ -140,16 +140,16 @@ def _fetch_studio_logo(logo_url: Optional[str], logo_filename: Optional[str]):
     import io
     import os
     import urllib.request
-    from PIL import Image
+    from app.services.image_store import open_image
 
     try:
         if logo_url and logo_url.startswith("http"):
             with urllib.request.urlopen(logo_url, timeout=4) as resp:
-                return Image.open(io.BytesIO(resp.read())).convert("RGBA")
+                return open_image(io.BytesIO(resp.read())).convert("RGBA")
         if logo_filename:
             path = os.path.join("uploads", logo_filename)
             if os.path.exists(path):
-                return Image.open(path).convert("RGBA")
+                return open_image(path).convert("RGBA")
     except Exception:
         pass
     return None

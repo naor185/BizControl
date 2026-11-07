@@ -3,7 +3,7 @@ import re
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
-from jose import jwt
+import jwt   # PyJWT — python-jose was left unmaintained with open advisories (the pre-launch review, 2026-11-07)
 from fastapi import HTTPException
 
 JWT_SECRET = os.getenv("JWT_SECRET", "dev-secret-change-me")
@@ -12,6 +12,9 @@ JWT_ALG = os.getenv("JWT_ALG", "HS256")
 _env = os.getenv("ENVIRONMENT", "development").lower()
 if _env == "production" and JWT_SECRET == "dev-secret-change-me":
     raise RuntimeError("FATAL: JWT_SECRET env var must be set in production")
+
+# a token that is forged, expired or malformed — what decode_token raises
+TokenError = jwt.PyJWTError
 
 ACCESS_TOKEN_MINUTES = int(os.getenv("ACCESS_TOKEN_MINUTES", "10080"))  # 7 days — mobile-friendly
 REFRESH_TOKEN_DAYS = int(os.getenv("REFRESH_TOKEN_DAYS", "60"))  # 60 days — stay logged in

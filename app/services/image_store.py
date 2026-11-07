@@ -9,6 +9,18 @@ from datetime import datetime, timezone
 
 log = logging.getLogger(__name__)
 
+# The formats a picture people send is read as — photos and screenshots. Pillow reads many more (TIFF, FlashPix, MPO,
+# DCX…), and most of its open advisories are in those decoders (the pre-launch review, 2026-11-07; Pillow 13, which
+# fixes them, needs a newer Python than the server's).
+SAFE_FORMATS = ("JPEG", "PNG", "WEBP", "GIF")
+
+
+def open_image(src):
+    """A picture (bytes in a BytesIO, or a path), read only as one of SAFE_FORMATS — anything else raises
+    PIL.UnidentifiedImageError, as a file that isn't a picture."""
+    from PIL import Image
+    return Image.open(src, formats=SAFE_FORMATS)
+
 
 def save_image(image_bytes: bytes, content_type: str, folder: str, prefix: str, db=None) -> str | None:
     """The image's address, or None when it couldn't be saved anywhere."""

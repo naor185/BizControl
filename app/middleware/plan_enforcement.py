@@ -13,12 +13,11 @@ import json
 import time
 from typing import Dict, Tuple
 
-from jose import JWTError
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
 
-from app.core.security import decode_token
+from app.core.security import TokenError, decode_token
 from app.core.studio_access import ACCESS_OK_STATUSES
 from app.db.session import SessionLocal
 from app.models.studio import Studio
@@ -95,7 +94,7 @@ class PlanEnforcementMiddleware(BaseHTTPMiddleware):
         token = auth_header[len("Bearer "):]
         try:
             payload = decode_token(token)
-        except JWTError:
+        except TokenError:
             # Invalid token → let the route's own auth handle it
             return await call_next(request)
 

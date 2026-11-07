@@ -49,7 +49,8 @@ def save_proof(db: Session, appt: Appointment, data: bytes) -> str:
     if len(data) > MAX_BYTES:
         raise HTTPException(status_code=413, detail="התמונה גדולה מדי")
     try:
-        im = Image.open(io.BytesIO(data))
+        from app.services.image_store import open_image
+        im = open_image(io.BytesIO(data))
         im.load()
     except (UnidentifiedImageError, OSError, Image.DecompressionBombError):
         raise HTTPException(status_code=400, detail="זו לא תמונה — צלמו מסך של אישור התשלום")

@@ -12,11 +12,10 @@ from sqlalchemy import text
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
 from pydantic import BaseModel, Field
-from jose import JWTError
 
 from app.core.database import get_db
 from app.core.limiter import limiter
-from app.core.security import create_access_token, create_refresh_token, decode_token, create_set_password_token, validate_password_strength, JWT_SECRET, JWT_ALG
+from app.core.security import TokenError, create_access_token, create_refresh_token, decode_token, create_set_password_token, validate_password_strength, JWT_SECRET, JWT_ALG
 from app.core.auth_deps import get_current_user
 from app.core.permissions import require_roles, Perms, may_do, MANAGER_PERMISSIONS, WORKERS, worker_permissions
 from app.models.studio import Studio
@@ -28,7 +27,6 @@ from app.services.auth_service import (
     create_pending_token, create_studio_selection_token, issue_full_tokens, studio_label,
 )
 from app.utils.email_templates import reset_password_email_html
-from jose import jwt as jose_jwt
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 ph = PasswordHasher()
@@ -88,7 +86,7 @@ class TwoFAVerifyIn(BaseModel):
 def verify_2fa(request: Request, payload: TwoFAVerifyIn, db: Session = Depends(get_db)):
     try:
         data = decode_token(payload.pending_token)
-    except JWTError:
+    except TokenError:
         raise HTTPException(status_code=401, detail="קוד זמני לא תקין או פג תוקף")
     if data.get("type") != "2fa_pending":
         raise HTTPException(status_code=401, detail="Token type invalid")
@@ -173,7 +171,7 @@ def select_studio(request: Request, payload: SelectStudioIn, db: Session = Depen
     """
     try:
         data = decode_token(payload.selection_token)
-    except JWTError:
+    except TokenError:
         raise HTTPException(status_code=401, detail="קוד זמני לא תקין או פג תוקף")
     if data.get("type") != "studio_selection_pending":
         raise HTTPException(status_code=401, detail="Token type invalid")

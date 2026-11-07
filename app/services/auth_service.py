@@ -16,7 +16,7 @@ from argon2.exceptions import VerifyMismatchError
 from fastapi import HTTPException
 from sqlalchemy import text as _text
 from sqlalchemy.orm import Session
-from jose import jwt as jose_jwt
+import jwt as pyjwt
 
 from app.core.security import create_access_token, create_refresh_token, JWT_SECRET, JWT_ALG
 from app.models.user import User
@@ -179,7 +179,7 @@ def create_pending_token(user_id: str, studio_id: str) -> str:
     """Step 2 of a 2FA login — proves password already verified, without a
     full access token yet. See app/api/auth_routes.py's /2fa/verify."""
     exp = datetime.now(timezone.utc) + timedelta(minutes=PENDING_TOKEN_MINUTES)
-    return jose_jwt.encode(
+    return pyjwt.encode(
         {"type": "2fa_pending", "user_id": user_id, "studio_id": studio_id, "exp": exp},
         JWT_SECRET, algorithm=JWT_ALG,
     )
@@ -195,7 +195,7 @@ def create_studio_selection_token(candidate_user_ids: list[str]) -> str:
     supplied studio_id.
     """
     exp = datetime.now(timezone.utc) + timedelta(minutes=PENDING_TOKEN_MINUTES)
-    return jose_jwt.encode(
+    return pyjwt.encode(
         {"type": "studio_selection_pending", "user_ids": candidate_user_ids, "exp": exp},
         JWT_SECRET, algorithm=JWT_ALG,
     )

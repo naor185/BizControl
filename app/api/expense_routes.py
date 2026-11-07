@@ -80,6 +80,7 @@ def _build_receipts_pdf(expenses: list) -> bytes | None:
     import io
     import httpx
     from PIL import Image
+    from app.services.image_store import open_image
 
     images = []
     for exp in expenses:
@@ -90,7 +91,7 @@ def _build_receipts_pdf(expenses: list) -> bytes | None:
             if url.startswith("http"):
                 resp = httpx.get(url, timeout=15)
                 resp.raise_for_status()
-                img = Image.open(io.BytesIO(resp.content))
+                img = open_image(io.BytesIO(resp.content))
             else:
                 # Same local-path convention/safety check as _delete_receipt_file.
                 file_path = os.path.normpath(url.lstrip("/"))
@@ -99,7 +100,7 @@ def _build_receipts_pdf(expenses: list) -> bytes | None:
                     continue
                 if not os.path.exists(file_path):
                     continue
-                img = Image.open(file_path)
+                img = open_image(file_path)
             img = img.convert("RGB")
             img.load()  # force-decode before the source file/response goes out of scope
             images.append(img)
