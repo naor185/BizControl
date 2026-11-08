@@ -153,6 +153,7 @@ export const EN: Record<string, string> = {
     "שגיאה בעדכון משך התור:": "Error updating the appointment length:",
     "לא ניתן להזיז אירועים מגוגל קלנדר חיצוני.": "Events from an external Google Calendar can't be moved.",
     "שגיאה בהזזת המשימה": "Error moving the task",
+    "שגיאה בעדכון שעת הסיום של המשימה": "Error saving the task's end time",
     "להזיז את \"{0}\" ל-{1} בשעה {2}?{3}": "Move \"{0}\" to {1} at {2}?{3}",
     "⚠️ שים לב — תאריך זה כבר עבר.": "⚠️ Note — this date has already passed.",
     "התור הוזז בהצלחה ✅": "Appointment moved ✅",

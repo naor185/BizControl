@@ -867,7 +867,23 @@ function Calendar() {
     // Resize (change duration) — show confirmation, capture times BEFORE revert
     const handleEventResize = async (resizeInfo: any) => {
         const app = resizeInfo.event.extendedProps;
-        if (app.isExternalGoogle || app.isTask || app.isClass) { resizeInfo.revert(); return; }
+        if (app.isExternalGoogle || app.isClass) { resizeInfo.revert(); return; }
+        // A task pulled longer (or shorter) keeps its new end hour (the owner, 2026-11-08) — it used to
+        // snap back. Its end is only an hour of the day, so a pull past midnight is refused.
+        if (app.isTask) {
+            const startDay = resizeInfo.event.startStr.split("T")[0];
+            const [endDay, endClock] = (resizeInfo.event.endStr || "").split("T");
+            const endTime = endClock?.slice(0, 5);
+            if (!endTime || endDay !== startDay) { resizeInfo.revert(); return; }
+            try {
+                await apiFetch(`/api/tasks/${app.taskId}`, { method: "PUT", body: JSON.stringify({ end_time: endTime }) });
+                setTasks(prev => prev.map(t => t.id === app.taskId ? { ...t, end_time: endTime } : t));
+            } catch {
+                showToast(tx("שגיאה בעדכון שעת הסיום של המשימה"), "error");
+                resizeInfo.revert();
+            }
+            return;
+        }
 
         // Capture new times BEFORE revert — revert mutates event object back to original
         const newStartStr = resizeInfo.event.startStr;
@@ -918,17 +934,22 @@ function Calendar() {
             const [, month, day] = newDate.split("-").map(Number);
             const timeMatch = startStr.match(/T(\d{2}:\d{2})/);
             const newTime = (!dropInfo.event.allDay && timeMatch) ? timeMatch[1] : null;
+            // a task with an end moves whole — its end hour goes along (it stayed behind, so 12:00–14:00
+            // moved to 15:00 ended before it began)
+            const [endDay, endClock] = (dropInfo.event.endStr || "").split("T");
+            const newEnd = (newTime && app.end_time && endDay === newDate && endClock) ? endClock.slice(0, 5) : null;
             const body: Record<string, unknown> = app.is_recurring
                 ? { recurrence_day: day, recurrence_month: month }
                 : { task_date: newDate };
             if (newTime) body.start_time = newTime;
+            if (newEnd) body.end_time = newEnd;
             try {
                 await apiFetch(`/api/tasks/${app.taskId}`, {
                     method: "PUT",
                     body: JSON.stringify(body),
                 });
                 setTasks(prev => prev.map(t => t.id === app.taskId
-                    ? { ...t, date: newDate, ...(newTime ? { start_time: newTime } : {}) }
+                    ? { ...t, date: newDate, ...(newTime ? { start_time: newTime } : {}), ...(newEnd ? { end_time: newEnd } : {}) }
                     : t
                 ));
             } catch {
