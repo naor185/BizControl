@@ -1095,7 +1095,7 @@ function Calendar() {
         backgroundColor: t.overdue ? "#dc2626" : t.color,
         borderColor: t.overdue ? "#dc2626" : t.color,
         textColor: "#ffffff",
-        classNames: t.done ? ["opacity-55"] : [],
+        classNames: t.done ? ["bc-task", "opacity-55"] : ["bc-task"],
         editable: canSetTasks,
 
         extendedProps: { isTask: true, taskId: t.id, ...t },
@@ -1615,6 +1615,11 @@ function Calendar() {
                         /* 1px — the block's own content has its padding; a week's columns are narrow */
                         .fc-timegrid-event .fc-event-main { padding: 1px !important; }
                         .fc-timegrid-event .fc-event-main-frame { overflow: hidden !important; }
+                        /* A task shows all its text (the owner, 2026-11-08): a short one's block grows down to fit
+                           it, and every task lies above the appointments instead of under them */
+                        .fc-timegrid-event-harness:has(> .bc-task) { z-index: 20 !important; }
+                        .fc-timegrid-event-harness > .fc-timegrid-event.bc-task { bottom: auto !important; min-height: 100%; }
+                        .fc-timegrid-event.bc-task .fc-event-main { height: auto !important; min-height: 100%; }
                         /* Day header */
                         .fc-col-header-cell { font-size: 0.88rem !important; font-weight: 700 !important; }
                         .fc-col-header-cell-cushion { padding: 6px 4px !important; }
@@ -1747,7 +1752,7 @@ function Calendar() {
                                     const TaskIcon = p.done ? CircleCheck : p.overdue ? TriangleAlert : p.kind === "break" ? Coffee
                                         : p.locks ? Lock : p.is_recurring ? Repeat : Pin;
                                     return (
-                                        <div className="@container h-full w-full overflow-hidden">
+                                        <div className="@container min-h-full w-full">
                                         <div className="px-1 md:px-1.5 py-0.5 h-full w-full text-[11px] @max-[3.5rem]:text-[9.5px] font-semibold leading-tight whitespace-normal break-words @max-[1.75rem]:[writing-mode:vertical-rl] @max-[1.75rem]:rotate-180 @max-[1.75rem]:px-0">
                                             {!arg.event.allDay && (
                                                 <div className="tabular-nums whitespace-nowrap @max-[1.75rem]:hidden">
