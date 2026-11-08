@@ -1698,7 +1698,9 @@ function Calendar() {
                             stickyHeaderDates={true}
                             slotDuration="00:30:00"
                             slotLabelInterval="01:00"
-                            slotEventOverlap={false}
+                            // an appointment over another one lies on top of it (the owner, 2026-11-08) — the
+                            // earlier one keeps the full width instead of both squeezed side by side
+                            slotEventOverlap={true}
                             events={[...events, ...classEvents, ...holidayEvents, ...taskEvents]}
                             select={handleDateSelect}
                             eventClick={handleEventClick}
