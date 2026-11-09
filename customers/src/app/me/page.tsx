@@ -285,7 +285,7 @@ export default function MePage() {
                 <button
                     type="button"
                     onClick={logout}
-                    style={{ ...GLASS_BTN, width: "100%", justifyContent: "center", borderRadius: 16, color: "#f87171", padding: "0.85rem", fontSize: "0.9rem", cursor: "pointer" }}
+                    style={{ ...GLASS_BTN, width: "100%", justifyContent: "center", borderRadius: 16, color: "var(--bf-danger)", padding: "0.85rem", fontSize: "0.9rem", cursor: "pointer" }}
                 >
                     התנתק
                 </button>

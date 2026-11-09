@@ -3370,6 +3370,16 @@ def ensure_schema():
                            WHERE table_name = 'studio_settings' AND column_name = 'whatsapp_phone_id'""")
             if cur.fetchone():
                 cur.execute("UPDATE studio_settings SET whatsapp_phone_id = NULL WHERE whatsapp_phone_id IS NOT NULL")
+        if _once("bizfind_white_v1"):
+            # The owner (2026-11-09), on BizFind's home page: "everything on a white background with black text", and the
+            # businesses' sign-up too. The look set in the superadmin ("עיצוב BizFind") was a turquoise background
+            # (#79c8d2), light-turquoise cards (#dbfffd) and black text; now white and white with black text. The
+            # buttons (green), the fonts and the HERO's words stay as the owner set them — all still editable there.
+            cur.execute("""
+                UPDATE studio_settings ss SET bizfind_theme = (COALESCE(NULLIF(ss.bizfind_theme, ''), '{}')::jsonb
+                    || '{"background": "#ffffff", "cards": "#ffffff", "text": "#000000"}'::jsonb)::text
+                FROM studios s WHERE s.id = ss.studio_id AND s.is_platform
+            """)
 
         conn.commit()
         cur.close()

@@ -401,5 +401,5 @@ const linkBtnStyle: React.CSSProperties = {
     cursor: "pointer", marginTop: "0.75rem", padding: "0.4rem",
 };
 const errStyle: React.CSSProperties = {
-    color: "#f87171", fontSize: "0.8rem", marginBottom: "0.6rem",
+    color: "var(--bf-danger)", fontSize: "0.8rem", marginBottom: "0.6rem",
 };

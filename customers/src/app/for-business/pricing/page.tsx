@@ -37,7 +37,7 @@ function PlanCard({
     return (
         <div style={{
             ...GLASS_CARD,
-            border: featured ? "1.5px solid #fff" : "1px solid var(--bf-line)",
+            border: featured ? "1.5px solid var(--bf-text)" : "1px solid var(--bf-line)",
             padding: "2rem 1.5rem",
             position: "relative",
             boxShadow: featured ? "0 10px 40px rgb(var(--bf-text-rgb) / .08)" : "none",

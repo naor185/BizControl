@@ -154,7 +154,7 @@ export default function ClassesPage() {
             </div>
         );
     }
-    if (error) return shell(<div style={{ ...card, padding: "1.5rem", textAlign: "center", color: "#fca5a5" }}>{error}</div>);
+    if (error) return shell(<div style={{ ...card, padding: "1.5rem", textAlign: "center", color: "var(--bf-danger)" }}>{error}</div>);
     if (!data) return shell(<div style={{ display: "flex", justifyContent: "center", padding: "3rem" }}><Loader2 className="spin" size={28} style={{ color: primary }} /></div>);
 
     const days = Array.from({ length: 7 }, (_, i) => shiftDay(data.week, i)).filter(d => data.sessions.some(s => ilDay(s.starts_at) === d));
@@ -423,7 +423,7 @@ function SessionCard({ s, primary, busy, onBook, onCancel, onWait, onLeave, onTa
                 <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", color: muted, fontSize: "0.78rem", marginTop: 4 }}>
                     {s.instructor_name && <span style={{ display: "inline-flex", gap: 4, alignItems: "center" }}><UserRound size={13} />{s.instructor_name}</span>}
                     {s.room_name && <span style={{ display: "inline-flex", gap: 4, alignItems: "center" }}><MapPin size={13} />{s.room_name}</span>}
-                    <span style={{ display: "inline-flex", gap: 4, alignItems: "center", color: s.spots_left === 0 ? "#fca5a5" : muted }}>
+                    <span style={{ display: "inline-flex", gap: 4, alignItems: "center", color: s.spots_left === 0 ? "var(--bf-danger)" : muted }}>
                         <Users size={13} />{s.spots_left === 0 ? "מלא" : s.spots_left === 1 ? "נשאר מקום אחד" : s.spots_left <= 3 ? `נשארו ${s.spots_left} מקומות` : `${s.spots_left} מקומות פנויים`}
                     </span>
                 </div>
@@ -446,7 +446,7 @@ function SessionCard({ s, primary, busy, onBook, onCancel, onWait, onLeave, onTa
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
                     <span style={{ fontSize: "0.72rem", fontWeight: 800, color: "#86efac" }}>רשום/ה</span>
                     <button type="button" onClick={onCancel}
-                        style={{ minHeight: 36, padding: "0 0.8rem", borderRadius: 10, border: "1px solid rgba(248,113,113,.4)", background: "transparent", color: "#fca5a5", fontSize: "0.8rem", fontWeight: 700, cursor: "pointer" }}>
+                        style={{ minHeight: 36, padding: "0 0.8rem", borderRadius: 10, border: "1px solid rgba(248,113,113,.4)", background: "transparent", color: "var(--bf-danger)", fontSize: "0.8rem", fontWeight: 700, cursor: "pointer" }}>
                         ביטול
                     </button>
                 </div>
@@ -604,7 +604,7 @@ function MyClasses({ mine, primary, busy, onCancel, onMove, onLeave, onTake, onC
                                 </button>
                             )}
                             <button type="button" onClick={() => onCancel(b)}
-                                style={{ minHeight: 40, padding: "0 0.9rem", borderRadius: 10, border: "1px solid rgba(248,113,113,.4)", background: "transparent", color: "#fca5a5", fontWeight: 700, cursor: "pointer" }}>
+                                style={{ minHeight: 40, padding: "0 0.9rem", borderRadius: 10, border: "1px solid rgba(248,113,113,.4)", background: "transparent", color: "var(--bf-danger)", fontWeight: 700, cursor: "pointer" }}>
                                 ביטול
                             </button>
                         </div>

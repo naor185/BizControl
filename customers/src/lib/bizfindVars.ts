@@ -25,6 +25,7 @@ export function bizfindVars(t: BizFindTheme | undefined): Record<string, string>
         v["--bf-bg"] = t.background;
         v["--bf-bg-rgb"] = rgb(t.background).join(" ");
         v["--bf-scheme"] = luminance(t.background) > 0.4 ? "light" : "dark";
+        v["--bf-danger"] = luminance(t.background) > 0.4 ? "#dc2626" : "#f87171";   // a pale red can't be read on white
     }
     if (t?.text) {
         v["--bf-text"] = t.text;
@@ -46,4 +47,4 @@ export function bizfindVars(t: BizFindTheme | undefined): Record<string, string>
 
 /** The --bf-* tokens the superadmin may set — one left out goes back to the default. */
 export const BIZFIND_TOKENS = ["--bf-bg", "--bf-bg-rgb", "--bf-scheme", "--bf-text", "--bf-text-rgb", "--bf-glass",
-    "--bf-surface", "--bf-glass-strong", "--bf-muted", "--bf-accent", "--bf-accent-rgb", "--bf-on-accent"];
+    "--bf-surface", "--bf-glass-strong", "--bf-muted", "--bf-accent", "--bf-accent-rgb", "--bf-on-accent", "--bf-danger"];

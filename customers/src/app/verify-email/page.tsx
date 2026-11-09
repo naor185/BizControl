@@ -44,7 +44,7 @@ function VerifyInner() {
     }
 
     const card: React.CSSProperties = {
-        background: "rgba(12,12,12,.9)", border: "1px solid var(--bf-line)", borderRadius: 20, padding: "2.5rem 2rem", maxWidth: 440, width: "100%",
+        background: "var(--bf-surface)", border: "1px solid var(--bf-line)", borderRadius: 20, padding: "2.5rem 2rem", maxWidth: 440, width: "100%",
         textAlign: "center", boxSizing: "border-box", color: "var(--bf-text)",
     };
     const btn: React.CSSProperties = {

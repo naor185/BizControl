@@ -175,7 +175,7 @@ function ClaimBanner({ businessId, phone }: { businessId: string; phone?: string
                     </button>
                 </div>
             )}
-            {err && <div style={{ color: "#f87171", fontSize: "0.78rem", marginTop: "0.6rem", fontWeight: 600 }}>{err}</div>}
+            {err && <div style={{ color: "var(--bf-danger)", fontSize: "0.78rem", marginTop: "0.6rem", fontWeight: 600 }}>{err}</div>}
         </div>
     );
 }
@@ -527,7 +527,7 @@ export default function BusinessPage() {
                                         return (
                                             <div key={day} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.45rem 0.75rem", borderRadius: 10, background: isToday ? "var(--bf-glass-strong)" : "rgb(var(--bf-text-rgb) / .025)", border: isToday ? "1px solid rgb(var(--bf-text-rgb) / .3)" : "1px solid transparent" }}>
                                                 <span style={{ fontSize: "0.86rem", fontWeight: isToday ? 800 : 500, color: isToday ? "var(--bf-text)" : "var(--bf-muted)" }}>{DAY_LABELS[day]}{isToday ? " · היום" : ""}</span>
-                                                <span dir="ltr" style={{ fontSize: "0.84rem", fontWeight: 600, fontVariantNumeric: "tabular-nums", color: d.closed ? "#f87171" : "var(--bf-text)" }}>
+                                                <span dir="ltr" style={{ fontSize: "0.84rem", fontWeight: 600, fontVariantNumeric: "tabular-nums", color: d.closed ? "var(--bf-danger)" : "var(--bf-text)" }}>
                                                     {d.closed ? "סגור" : `${d.open} – ${d.close}`}
                                                 </span>
                                             </div>
@@ -699,7 +699,7 @@ export default function BusinessPage() {
                                         </span>
                                     </label>
                                 )}
-                                {reviewError && <div role="alert" style={{ color: "#fca5a5", fontSize: "0.85rem", marginBottom: "0.6rem" }}>{reviewError}</div>}
+                                {reviewError && <div role="alert" style={{ color: "var(--bf-danger)", fontSize: "0.85rem", marginBottom: "0.6rem" }}>{reviewError}</div>}
                                 <button type="button" onClick={submitReview} disabled={submitting || (needsRules && !acceptRules)}
                                     style={{ ...PRIMARY_BTN, opacity: submitting || (needsRules && !acceptRules) ? 0.6 : 1 }}>
                                     {submitting ? "שולח..." : <><Send size={15} aria-hidden /> שלח ביקורת</>}
@@ -896,7 +896,7 @@ function RequestModal({ slug, studioName, services, startNotes, onClose }: {
                                 placeholder="לדוגמה: מחפש תור בערב, עדיפות יום חמישי..."
                                 style={{ ...reqInput, resize: "vertical", height: 72 }} />
                         </div>
-                        {err && <p style={{ color: "#f87171", fontSize: "0.8rem", margin: 0 }}>{err}</p>}
+                        {err && <p style={{ color: "var(--bf-danger)", fontSize: "0.8rem", margin: 0 }}>{err}</p>}
                         <button type="button" onClick={submit} disabled={loading}
                             style={{ ...PRIMARY_BTN, justifyContent: "center", padding: "0.9rem", fontSize: "0.95rem", opacity: loading ? 0.7 : 1 }}>
                             {loading ? "שולח..." : <><Send size={16} aria-hidden /> שלח בקשה</>}

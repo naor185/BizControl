@@ -117,7 +117,7 @@ export default function BusinessDetailPage() {
             )}
 
             {error && !loading && (
-                <div style={{ textAlign: "center", padding: "3rem", color: "#f87171" }}>{error}</div>
+                <div style={{ textAlign: "center", padding: "3rem", color: "var(--bf-danger)" }}>{error}</div>
             )}
 
             {signedOut && !loading && (

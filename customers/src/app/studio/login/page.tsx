@@ -75,7 +75,7 @@ export default function StudioLoginPage() {
                 </div>
 
                 {/* Card */}
-                <div style={{ background: "rgba(12,12,12,.9)", backdropFilter: "blur(14px)", borderRadius: 24, padding: "2rem", border: "1px solid var(--bf-line)" }}>
+                <div style={{ background: "var(--bf-surface)", backdropFilter: "blur(14px)", borderRadius: 24, padding: "2rem", border: "1px solid var(--bf-line)" }}>
                     <h1 style={{ fontSize: "1.4rem", fontWeight: 900, color: "var(--bf-text)", marginBottom: "0.4rem" }}>ברוכים הבאים</h1>
                     <p style={{ color: "var(--bf-muted)", fontSize: "0.88rem", marginBottom: "1.75rem" }}>
                         כניסה עם פרטי BizControl שלכם
@@ -108,7 +108,7 @@ export default function StudioLoginPage() {
                         </div>
 
                         {err && (
-                            <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "rgba(248,113,113,.08)", border: "1px solid rgba(248,113,113,.35)", borderRadius: 10, padding: "0.65rem 0.9rem", color: "#fca5a5", fontSize: "0.85rem" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "rgba(248,113,113,.08)", border: "1px solid rgba(248,113,113,.35)", borderRadius: 10, padding: "0.65rem 0.9rem", color: "var(--bf-danger)", fontSize: "0.85rem" }}>
                                 <AlertTriangle size={16} style={{ flexShrink: 0 }} aria-hidden /> {err}
                             </div>
                         )}

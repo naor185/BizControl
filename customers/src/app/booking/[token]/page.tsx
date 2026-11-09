@@ -90,7 +90,7 @@ export default function BookingStatusPage() {
                     {data.service_note && <Row label="שירות" value={data.service_note} />}
                     {data.studio_address && <Row label="כתובת" value={data.studio_address} />}
                     {data.rejection_reason && (
-                        <div style={{ borderRadius: 10, border: "1px solid rgba(248,113,113,.35)", background: "rgba(248,113,113,.08)", padding: "0.6rem 0.8rem", color: "#fca5a5", fontSize: "0.82rem" }}>
+                        <div style={{ borderRadius: 10, border: "1px solid rgba(248,113,113,.35)", background: "rgba(248,113,113,.08)", padding: "0.6rem 0.8rem", color: "var(--bf-danger)", fontSize: "0.82rem" }}>
                             <span style={{ fontWeight: 700 }}>סיבה: </span>{data.rejection_reason}
                         </div>
                     )}

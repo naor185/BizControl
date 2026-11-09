@@ -46,6 +46,7 @@ const GLOBAL_CSS = `
                         --bf-accent-rgb: 255 255 255;
                         --bf-on-accent: #000000;                  /* its text */
                         --bf-scheme: dark;
+                        --bf-danger: #f87171;                     /* an error's words — a deeper red on a light background */
                     }
                     html { color-scheme: var(--bf-scheme); }
                     * { box-sizing: border-box; margin: 0; padding: 0; }

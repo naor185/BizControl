@@ -158,7 +158,7 @@ function RegisterInner() {
                         כל המערכת פתוחה ל-{freeDays} יום, בלי כרטיס אשראי. בסוף התקופה בוחרים מסלול.
                     </p>
 
-                    <div style={{ ...GLASS_CARD, borderRadius: 14, border: "1.5px solid #fff", padding: "1rem 1.25rem", display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "1.25rem" }}>
+                    <div style={{ ...GLASS_CARD, borderRadius: 14, border: "1.5px solid var(--bf-text)", padding: "1rem 1.25rem", display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "1.25rem" }}>
                         <Rocket size={22} aria-hidden />
                         <div style={{ flex: 1 }}>
                             <div style={{ fontWeight: 800, color: "var(--bf-text)" }}>{freeLabel}</div>
@@ -278,7 +278,7 @@ function RegisterInner() {
                             <label style={labelStyle}>אימות סיסמה *</label>
                             <PasswordInput style={inputStyle} placeholder="הקלידו שוב את הסיסמה" dir="ltr" autoComplete="new-password" value={form.password_confirm} onChange={e => set("password_confirm", e.target.value)} />
                             {form.password_confirm.length > 0 && !passwordsMatch && (
-                                <p style={{ color: "#f87171", fontSize: "0.78rem", marginTop: "0.35rem" }}>הסיסמאות אינן תואמות</p>
+                                <p style={{ color: "var(--bf-danger)", fontSize: "0.78rem", marginTop: "0.35rem" }}>הסיסמאות אינן תואמות</p>
                             )}
                         </div>
                         <div>
@@ -289,7 +289,7 @@ function RegisterInner() {
                     </div>
 
                     {err && (
-                        <div style={{ background: "rgba(248,113,113,.08)", border: "1px solid rgba(248,113,113,.35)", color: "#fca5a5", borderRadius: 12, padding: "0.75rem 1rem", marginTop: "1rem", fontSize: "0.88rem" }}>
+                        <div style={{ background: "rgba(248,113,113,.08)", border: "1px solid rgba(248,113,113,.35)", color: "var(--bf-danger)", borderRadius: 12, padding: "0.75rem 1rem", marginTop: "1rem", fontSize: "0.88rem" }}>
                             {err}
                         </div>
                     )}
@@ -330,7 +330,7 @@ export default function RegisterPage() {
                     <p style={{ color: "var(--bf-muted)", fontSize: "0.85rem", marginTop: "0.4rem" }}>הצטרפו לפלטפורמה</p>
                 </div>
 
-                <div style={{ background: "rgba(12,12,12,.9)", backdropFilter: "blur(14px)", borderRadius: 24, padding: "2rem", border: "1px solid var(--bf-line)" }}>
+                <div style={{ background: "var(--bf-surface)", backdropFilter: "blur(14px)", borderRadius: 24, padding: "2rem", border: "1px solid var(--bf-line)" }}>
                     <Suspense fallback={<div>טוען...</div>}>
                         <RegisterInner />
                     </Suspense>

@@ -49,7 +49,7 @@ function Checkin() {
     };
 
     const body = !key ? (
-        <Message icon={<AlertCircle size={40} color="#fca5a5" />} title="הקוד לא שלם" text="סרקו שוב את הקוד שבכניסה." />
+        <Message icon={<AlertCircle size={40} style={{ color: "var(--bf-danger)" }} />} title="הקוד לא שלם" text="סרקו שוב את הקוד שבכניסה." />
     ) : loggedIn === null ? null : !loggedIn ? (
         <div style={{ ...card, padding: "1.5rem", textAlign: "center" }}>
             <DoorOpen size={40} style={{ color: "var(--bf-text)", margin: "0 auto 0.75rem" }} />
@@ -58,7 +58,7 @@ function Checkin() {
             <LoginButton onDone={() => setLoggedIn(true)} />
         </div>
     ) : error ? (
-        <Message icon={<AlertCircle size={40} color="#fca5a5" />} title="לא הצלחנו לסמן הגעה" text={error} />
+        <Message icon={<AlertCircle size={40} style={{ color: "var(--bf-danger)" }} />} title="לא הצלחנו לסמן הגעה" text={error} />
     ) : !result ? (
         <div style={{ display: "flex", justifyContent: "center", padding: "3rem" }}><Loader2 className="spin" size={30} aria-label="בודקים" style={{ color: "var(--bf-text)" }} /></div>
     ) : result.checked_in.length > 0 ? (
