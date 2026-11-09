@@ -2026,8 +2026,9 @@ function Calendar() {
                                     </div>
                                 </div>
 
-                                {/* Client section */}
-                                <div>
+                                {/* Client section — relative, so the client list below the search is as wide as this
+                                    section, not stretched across the page (the owner, 2026-11-09) */}
+                                <div className="relative">
                                     <label className="block text-sm font-semibold text-slate-700 mb-1.5">{tx("לקוח")}</label>
 
                                     {/* Row 1: search */}
@@ -2069,8 +2070,9 @@ function Calendar() {
                                                 filteredClients.filter(c => !c.is_walk_in).map(c => (
                                                     <div key={c.id} className="px-4 py-2 hover:bg-slate-50 cursor-pointer border-b border-slate-50 last:border-0 text-start"
                                                         onMouseDown={() => { setClientId(c.id); setClientSearch(c.full_name || c.phone || ""); setIsWalkIn(false); setIsClientDropdownOpen(false); }}>
-                                                        <div className="font-semibold text-slate-800 text-sm">{c.full_name}</div>
-                                                        {c.phone && <div className="text-xs text-slate-500" dir="ltr">{c.phone}</div>}
+                                                        <div className="font-semibold text-slate-800 text-sm leading-tight">{c.full_name}</div>
+                                                        {/* the number right under the name, on the name's side — only the number itself is LTR */}
+                                                        {c.phone && <div className="text-xs text-slate-500 leading-tight mt-0.5 tabular-nums"><span dir="ltr">{c.phone}</span></div>}
                                                     </div>
                                                 ))
                                             ) : (
