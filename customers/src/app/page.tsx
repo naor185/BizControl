@@ -74,19 +74,19 @@ function HeroSection({ q, city, setQ, setCity, locating, onLocate, searchRef }: 
 
             {/* ── Text + Search overlay ── */}
             <div style={{ position: "absolute", inset: 0, zIndex: 2, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "2rem 1.25rem", textAlign: "center" }}>
-                <div style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem", background: "rgba(255,255,255,.12)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,.28)", color: "#fff", fontSize: "0.78rem", fontWeight: 700, padding: "0.3rem 0.85rem", borderRadius: 20, marginBottom: "1.1rem" }}>
+                <div className="bfx-rise" style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem", background: "rgba(255,255,255,.12)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,.28)", color: "#fff", fontSize: "0.78rem", fontWeight: 700, padding: "0.3rem 0.85rem", borderRadius: 20, marginBottom: "1.1rem" }}>
                     <MapPin size={14} aria-hidden /> {words?.hero_badge || "גלה עסקים סביבך"}
                 </div>
-                <h1 style={{ fontSize: "clamp(2rem,5.5vw,3.4rem)", fontWeight: 900, color: "#fff", lineHeight: 1.15, marginBottom: "0.6rem", textShadow: "0 2px 20px rgba(0,0,0,.4)" }}>
+                <h1 className="bfx-rise" style={{ ["--delay" as string]: "140ms", fontSize: "clamp(2rem,5.5vw,3.4rem)", fontWeight: 900, color: "#fff", lineHeight: 1.15, marginBottom: "0.6rem", textShadow: "0 2px 20px rgba(0,0,0,.4)" }}>
                     <span style={{ color: "rgba(255,255,255,.72)" }}>{words?.hero_title_dim || "כל מה שאתה מחפש,"}</span><br />
                     {words?.hero_title || "קרוב אליך."}
                 </h1>
-                <p style={{ color: "rgba(255,255,255,.85)", fontSize: "clamp(0.88rem,2vw,1.05rem)", lineHeight: 1.6, marginBottom: "2rem", maxWidth: 520, textShadow: "0 1px 8px rgba(0,0,0,.4)" }}>
+                <p className="bfx-rise" style={{ ["--delay" as string]: "280ms", color: "rgba(255,255,255,.85)", fontSize: "clamp(0.88rem,2vw,1.05rem)", lineHeight: 1.6, marginBottom: "2rem", maxWidth: 520, textShadow: "0 1px 8px rgba(0,0,0,.4)" }}>
                     {words?.hero_subtitle || "ספרים, סטודיואים, ציפורניים, ספא ועוד — מצא וקבע תור בשניות"}
                 </p>
 
                 {/* Search box */}
-                <div style={{ width: "100%", maxWidth: 680, background: "rgba(0,0,0,.5)", backdropFilter: "blur(14px)", border: "1px solid rgba(255,255,255,.22)", borderRadius: 20, padding: "0.6rem", boxShadow: "0 8px 40px rgba(0,0,0,.45)", display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                <div className="bfx-rise" style={{ ["--delay" as string]: "420ms", width: "100%", maxWidth: 680, background: "rgba(0,0,0,.5)", backdropFilter: "blur(14px)", border: "1px solid rgba(255,255,255,.22)", borderRadius: 20, padding: "0.6rem", boxShadow: "0 8px 40px rgba(0,0,0,.45)", display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
                     <div style={{ flex: "2 1 200px", position: "relative" }}>
                         <Search size={17} color="rgba(255,255,255,.6)" aria-hidden style={{ position: "absolute", right: "0.9rem", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
                         <input
@@ -314,7 +314,7 @@ export default function HomePage() {
 
                 {/* ── Category grid (no search) ── */}
                 {!isSearching && categories.length > 0 && (
-                    <section style={{ padding: "1.75rem 0 0.5rem" }}>
+                    <section data-reveal="" style={{ padding: "1.75rem 0 0.5rem" }}>
                         <h2 style={{ fontWeight: 800, fontSize: "1.05rem", color: "var(--bf-text)", marginBottom: "1rem" }}>גלה לפי קטגוריה</h2>
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(120px,1fr))", gap: "0.65rem" }}>
                             {categories.slice(0, 8).map(cat => (
@@ -357,7 +357,7 @@ export default function HomePage() {
                     )}
 
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(280px,1fr))", gap: "1rem" }}>
-                        {studios.map(s => <StudioCard key={s.id} s={s} />)}
+                        {studios.map((s, i) => <StudioCard key={s.id} s={s} i={i} />)}
                     </div>
                 </section>
             </div>
@@ -374,11 +374,11 @@ function Chip({ label, onRemove }: { label: string; onRemove: () => void }) {
     );
 }
 
-function StudioCard({ s }: { s: StudioCard }) {
+function StudioCard({ s, i }: { s: StudioCard; i: number }) {
     const [hovered, setHovered] = useState(false);
 
     return (
-        <Link href={`/b/${s.slug}`} style={{ textDecoration: "none", display: "block" }}>
+        <Link href={`/b/${s.slug}`} data-reveal="" style={{ textDecoration: "none", display: "block", ["--d" as string]: `${(i % 3) * 110}ms` }}>
             <div
                 onMouseEnter={() => setHovered(true)}
                 onMouseLeave={() => setHovered(false)}

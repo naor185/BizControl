@@ -66,7 +66,7 @@ export default function StudioLoginPage() {
             <div style={{ width: "100%", maxWidth: 420 }}>
 
                 {/* Logo */}
-                <div style={{ textAlign: "center", marginBottom: "2rem" }}>
+                <div className="bfx-rise" style={{ textAlign: "center", marginBottom: "2rem" }}>
                     <Link href="/" style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "0.6rem" }}>
                         <img src="/logo.png" alt="" style={{ width: 40, height: 40, objectFit: "contain" }} />
                         <span style={{ fontWeight: 900, fontSize: "1.2rem", color: "var(--bf-text)" }}>BizFind</span>
@@ -75,7 +75,7 @@ export default function StudioLoginPage() {
                 </div>
 
                 {/* Card */}
-                <div style={{ background: "var(--bf-surface)", backdropFilter: "blur(14px)", borderRadius: 24, padding: "2rem", border: "1px solid var(--bf-line)" }}>
+                <div className="bfx-rise" style={{ background: "var(--bf-surface)", backdropFilter: "blur(14px)", borderRadius: 24, padding: "2rem", border: "1px solid var(--bf-line)", boxShadow: "0 30px 80px rgb(var(--bf-text-rgb) / .07)", ["--delay" as string]: "140ms" }}>
                     <h1 style={{ fontSize: "1.4rem", fontWeight: 900, color: "var(--bf-text)", marginBottom: "0.4rem" }}>ברוכים הבאים</h1>
                     <p style={{ color: "var(--bf-muted)", fontSize: "0.88rem", marginBottom: "1.75rem" }}>
                         כניסה עם פרטי BizControl שלכם

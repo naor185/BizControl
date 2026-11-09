@@ -322,7 +322,7 @@ export default function RegisterPage() {
             <div style={{ width: "100%", maxWidth: 480 }}>
 
                 {/* Logo */}
-                <div style={{ textAlign: "center", marginBottom: "2rem" }}>
+                <div className="bfx-rise" style={{ textAlign: "center", marginBottom: "2rem" }}>
                     <Link href="/" style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "0.6rem" }}>
                         <img src="/logo.png" alt="" style={{ width: 40, height: 40, objectFit: "contain" }} />
                         <span style={{ fontWeight: 900, fontSize: "1.2rem", color: "var(--bf-text)" }}>BizFind</span>
@@ -330,7 +330,7 @@ export default function RegisterPage() {
                     <p style={{ color: "var(--bf-muted)", fontSize: "0.85rem", marginTop: "0.4rem" }}>הצטרפו לפלטפורמה</p>
                 </div>
 
-                <div style={{ background: "var(--bf-surface)", backdropFilter: "blur(14px)", borderRadius: 24, padding: "2rem", border: "1px solid var(--bf-line)" }}>
+                <div className="bfx-rise" style={{ background: "var(--bf-surface)", backdropFilter: "blur(14px)", borderRadius: 24, padding: "2rem", border: "1px solid var(--bf-line)", boxShadow: "0 30px 80px rgb(var(--bf-text-rgb) / .07)", ["--delay" as string]: "140ms" }}>
                     <Suspense fallback={<div>טוען...</div>}>
                         <RegisterInner />
                     </Suspense>

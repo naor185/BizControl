@@ -35,8 +35,9 @@ function PlanCard({
     featured?: boolean;
 }) {
     return (
-        <div style={{
+        <div className="bfx-card" style={{
             ...GLASS_CARD,
+            flex: 1,
             border: featured ? "1.5px solid var(--bf-text)" : "1px solid var(--bf-line)",
             padding: "2rem 1.5rem",
             position: "relative",
@@ -126,20 +127,20 @@ export default function PricingPage() {
 
                 {/* Hero */}
                 <div style={{ textAlign: "center", marginBottom: "3.5rem" }}>
-                    <h1 style={{ fontSize: "clamp(2rem,4vw,2.8rem)", fontWeight: 900, color: "var(--bf-text)", marginBottom: "0.75rem" }}>
+                    <h1 className="bfx-rise" style={{ fontSize: "clamp(2.1rem,5.5vw,3.6rem)", fontWeight: 900, letterSpacing: "-0.02em", lineHeight: 1.15, color: "var(--bf-text)", marginBottom: "0.9rem", textWrap: "balance" as never }}>
                         בחרו את התוכנית המתאימה לכם
                     </h1>
-                    <p style={{ fontSize: "1.05rem", color: "var(--bf-muted)", maxWidth: 560, margin: "0 auto 1.5rem" }}>
+                    <p className="bfx-rise" style={{ fontSize: "1.1rem", color: "var(--bf-muted)", maxWidth: 560, margin: "0 auto 1.75rem", ["--delay" as string]: "150ms" }}>
                         כל מסלול מתחיל בחודש ראשון חינם: {trialDays} יום עם כל המערכת פתוחה, בלי כרטיס אשראי.
                     </p>
 
                     {/* Trial banner */}
-                    <Link href="/for-business/register?plan=trial" style={{
-                        ...PRIMARY_BTN, display: "inline-flex", padding: "0.9rem 2rem", fontSize: "1rem",
+                    <Link className="bfx-rise" href="/for-business/register?plan=trial" style={{
+                        ...PRIMARY_BTN, display: "inline-flex", padding: "0.9rem 2rem", fontSize: "1rem", ["--delay" as string]: "300ms",
                     }}>
                         <Rocket size={18} aria-hidden /> התחילו חודש ראשון חינם <ChevronLeft size={18} aria-hidden />
                     </Link>
-                    <p style={{ color: "var(--bf-faint)", fontSize: "0.8rem", marginTop: "0.6rem", display: "flex", gap: "0.9rem", justifyContent: "center", flexWrap: "wrap" }}>
+                    <p className="bfx-rise" style={{ color: "var(--bf-faint)", fontSize: "0.8rem", marginTop: "0.6rem", display: "flex", gap: "0.9rem", justifyContent: "center", flexWrap: "wrap", ["--delay" as string]: "420ms" }}>
                         <span style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem" }}><Check size={13} aria-hidden /> ללא כרטיס אשראי</span>
                         <span style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem" }}><Check size={13} aria-hidden /> מבטלים מתי שרוצים</span>
                     </p>
@@ -147,15 +148,17 @@ export default function PricingPage() {
 
                 {/* ── Plans ── */}
                 <div style={{ marginBottom: "4rem" }}>
-                    <div style={{ ...GLASS_CARD, borderRadius: 16, padding: "1.25rem 1.5rem", marginBottom: "1.75rem", maxWidth: 640, marginInline: "auto" }}>
+                    <div data-reveal="" style={{ ...GLASS_CARD, borderRadius: 16, padding: "1.25rem 1.5rem", marginBottom: "1.75rem", maxWidth: 640, marginInline: "auto" }}>
                         <div style={{ fontWeight: 800, fontSize: "1.1rem", color: "var(--bf-text)", marginBottom: "0.3rem", display: "flex", alignItems: "center", gap: "0.35rem" }}><Zap size={18} aria-hidden /> BizFind + BizControl</div>
                         <div style={{ fontSize: "0.88rem", color: "var(--bf-muted)" }}>
                             כל תוכנית כוללת הופעה בחיפוש BizFind + מערכת ניהול מלאה: יומן, CRM, קופה, חשבוניות ואוטומציות.
                         </div>
                     </div>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "1.25rem", maxWidth: 1000, marginInline: "auto" }}>
-                        {tiers.map(t => (
-                            <PlanCard key={t.key} tier={t} scope="bizcontrol" featured={t.badge !== null} />
+                        {tiers.map((t, i) => (
+                            <div key={t.key} data-reveal="" style={{ display: "flex", ["--d" as string]: `${i * 130}ms` }}>
+                                <PlanCard tier={t} scope="bizcontrol" featured={t.badge !== null} />
+                            </div>
                         ))}
                     </div>
                     <p style={{ textAlign: "center", color: "var(--bf-faint)", fontSize: "0.82rem", marginTop: "1rem" }}>
@@ -165,7 +168,7 @@ export default function PricingPage() {
                 </div>
 
                 {/* FAQ */}
-                <div style={{ ...GLASS_CARD, maxWidth: 640, margin: "0 auto", padding: "2rem" }}>
+                <div data-reveal="" style={{ ...GLASS_CARD, maxWidth: 640, margin: "0 auto", padding: "2rem" }}>
                     <h2 style={{ fontWeight: 800, fontSize: "1.2rem", marginBottom: "1.5rem", color: "var(--bf-text)" }}>שאלות נפוצות</h2>
                     {[
                         ["מה כולל החודש החינמי?", `הכול. ${trialDays} יום עם כל המערכת פתוחה, כולל BizControl, בלי כרטיס אשראי.`],

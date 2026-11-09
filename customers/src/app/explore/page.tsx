@@ -265,7 +265,7 @@ function GridCard({ s }: { s: StudioCard }) {
     const [imgFailed, setImgFailed] = useState(false);
     const showCover = s.cover_url && !imgFailed;
     return (
-        <Link href={`/b/${s.slug}`} style={{ textDecoration: "none", display: "block" }}>
+        <Link href={`/b/${s.slug}`} data-reveal="" style={{ textDecoration: "none", display: "block" }}>
             <div onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
                 style={{ ...GLASS_CARD, borderColor: hovered ? "rgb(var(--bf-text-rgb) / .35)" : "var(--bf-line)", overflow: "hidden", transform: hovered ? "translateY(-3px)" : "none", transition: "transform .25s, border-color .25s" }}>
                 <div style={{ height: 140, position: "relative", background: showCover ? undefined : NO_COVER }}>
@@ -293,7 +293,7 @@ function GridCard({ s }: { s: StudioCard }) {
 
 function ListCard({ s }: { s: StudioCard }) {
     return (
-        <Link href={`/b/${s.slug}`} style={{ textDecoration: "none" }}>
+        <Link href={`/b/${s.slug}`} data-reveal="" style={{ textDecoration: "none", display: "block" }}>
             <div style={{ ...GLASS_CARD, borderRadius: 16, padding: "0.9rem 1rem", display: "flex", gap: "1rem", alignItems: "center", transition: "border-color .2s, background .2s" }}
                 onMouseEnter={e => { e.currentTarget.style.borderColor = "rgb(var(--bf-text-rgb) / .35)"; e.currentTarget.style.background = "var(--bf-glass-strong)"; }}
                 onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--bf-line)"; e.currentTarget.style.background = "var(--bf-glass)"; }}>

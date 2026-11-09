@@ -358,7 +358,7 @@ export default function BusinessPage() {
             <div style={{ maxWidth: 840, margin: "0 auto", padding: "0 1.25rem 6rem" }}>
 
                 {/* ── Identity: the business's logo on the cover's lower edge ── */}
-                <div style={{ display: "flex", gap: "1rem", alignItems: "flex-end", marginTop: -48, marginBottom: "1.4rem", position: "relative", zIndex: 2 }}>
+                <div className="bfx-rise" style={{ display: "flex", gap: "1rem", alignItems: "flex-end", marginTop: -48, marginBottom: "1.4rem", position: "relative", zIndex: 2 }}>
                     {p!.logo_url ? (
                         <div style={{ width: 96, height: 96, flexShrink: 0, borderRadius: 24, background: "#fff", padding: 7, border: "1px solid var(--bf-line)", boxShadow: "0 14px 36px rgba(0,0,0,.7)" }}>
                             <img src={imgUrl(p!.logo_url)} alt={`הלוגו של ${p!.name}`} style={{ width: "100%", height: "100%", objectFit: "contain", borderRadius: 17, display: "block" }} />
@@ -414,7 +414,7 @@ export default function BusinessPage() {
                 )}
 
                 {/* ── CTA buttons ── */}
-                <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "1.5rem" }}>
+                <div className="bfx-rise" style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "1.5rem", ["--delay" as string]: "180ms" }}>
                     {p!.is_claimed !== false && (p!.self_booking_enabled ? (
                         <Link href={`/b/${slug}/book`} style={PRIMARY_BTN}>
                             <CalendarDays size={17} aria-hidden /> קביעת תור
@@ -562,7 +562,7 @@ export default function BusinessPage() {
                         {p!.services.length === 0 ? (
                             <div style={{ textAlign: "center", padding: "3rem", color: "var(--bf-faint)" }}>אין שירותים להצגה</div>
                         ) : p!.services.map(s => (
-                            <div key={s.id} style={{ background: "var(--bf-glass)", border: "1px solid var(--bf-line)", borderRadius: 18, padding: "1rem 1.1rem", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem", position: "relative", overflow: "hidden" }}>
+                            <div key={s.id} data-reveal="" style={{ background: "var(--bf-glass)", border: "1px solid var(--bf-line)", borderRadius: 18, padding: "1rem 1.1rem", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem", position: "relative", overflow: "hidden" }}>
                                 {/* Color stripe */}
                                 <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 4, background: s.color || "var(--bf-accent)", borderRadius: "0 18px 18px 0" }} />
                                 <div style={{ flex: 1, paddingRight: "0.5rem" }}>
@@ -941,7 +941,7 @@ const HERO_BTN: React.CSSProperties = {
 
 function Card({ children }: { children: React.ReactNode }) {
     return (
-        <div style={{ ...GLASS_CARD, padding: "1.25rem" }}>
+        <div data-reveal="" style={{ ...GLASS_CARD, padding: "1.25rem" }}>
             {children}
         </div>
     );

@@ -1,5 +1,4 @@
 "use client";
-import { useEffect, useRef } from "react";
 import Link from "next/link";
 import {
     BarChart3, CalendarCheck, CalendarDays, Check, ChevronLeft, Eye, Images, Link2, MapPin, PhoneCall, Rocket, Star,
@@ -48,12 +47,9 @@ const METRICS: { icon: LucideIcon; label: string; fill: number }[] = [
     { icon: CalendarCheck, label: "תורים אונליין", fill: 0.78 },
 ];
 
-// The motion (owner, 2026-11-09: "animations like Apple's site, and a growth animation with a rising graph").
-// Everything is visible by default — a part below the screen is hidden ("wait") only once the page runs, and comes in
-// ("in") as it's scrolled to. Without motion (the phone's reduce-motion setting) nothing moves.
-const MOTION_CSS = `
-.bfx-rise { animation: bfx-rise 1s cubic-bezier(.2,.7,.2,1) both; animation-delay: var(--delay, 0ms); }
-@keyframes bfx-rise { from { opacity: 0; transform: translateY(28px); filter: blur(6px); } to { opacity: 1; transform: none; filter: none; } }
+// This page's own motion — the glow, the growth picture and the steps' line (owner, 2026-11-09: "a growth animation
+// with a rising graph"). The rising and the scroll reveals are BizFind's, for every page (lib/motion.ts).
+const GROWTH_CSS = `
 .bfx-glow { position: absolute; left: 50%; top: -140px; width: min(900px, 140vw); height: 560px; margin-left: calc(min(900px, 140vw) / -2);
   background: radial-gradient(closest-side, rgb(var(--bf-accent-rgb) / .22), transparent 72%); filter: blur(24px);
   animation: bfx-drift 14s ease-in-out infinite alternate; pointer-events: none; }
@@ -61,9 +57,6 @@ const MOTION_CSS = `
 .bfx-shine { background: linear-gradient(to left, var(--bf-text) 0%, var(--bf-text) 30%, var(--bf-accent) 100%);
   -webkit-background-clip: text; background-clip: text; color: transparent; }
 
-[data-reveal] { transition: opacity 1s cubic-bezier(.2,.7,.2,1), transform 1s cubic-bezier(.2,.7,.2,1); transition-delay: var(--d, 0ms); }
-[data-reveal="wait"] { opacity: 0; transform: translateY(48px); }
-[data-reveal="wait"].bfx-zoom { transform: scale(.9); }
 
 .bfx-bar { transform-box: fill-box; transform-origin: 50% 100%; }
 [data-reveal="wait"] .bfx-bar { transform: scaleY(0); }
@@ -89,8 +82,6 @@ const MOTION_CSS = `
 [data-reveal="in"] .bfx-meter { animation: bfx-meter 1.4s cubic-bezier(.2,.8,.2,1) both; animation-delay: calc(350ms + var(--d, 0ms)); }
 @keyframes bfx-meter { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 
-.bfx-card { height: 100%; box-sizing: border-box; transition: transform .35s ease, box-shadow .35s ease; }
-.bfx-card:hover { transform: translateY(-4px); box-shadow: 0 18px 40px rgb(var(--bf-text-rgb) / .08); }
 
 .bfx-steps { position: relative; }
 .bfx-steps[data-reveal] { opacity: 1; transform: none; }
@@ -99,37 +90,17 @@ const MOTION_CSS = `
 .bfx-steps[data-reveal="wait"]::before { transform: scaleY(0); }
 
 @media (prefers-reduced-motion: reduce) {
-  .bfx-rise, .bfx-glow, .bfx-ring, .bfx-bar, .bfx-line, .bfx-area, .bfx-dot, .bfx-chip, .bfx-meter { animation: none !important; }
-  [data-reveal], .bfx-steps::before, .bfx-card { transition: none !important; }
+  .bfx-glow, .bfx-ring, .bfx-bar, .bfx-line, .bfx-area, .bfx-dot, .bfx-chip, .bfx-meter { animation: none !important; }
+  .bfx-steps::before { transition: none !important; }
 }
 `;
 
 export default function ForBusinessPage() {
-    const root = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-        const page = root.current;
-        if (!page || !("IntersectionObserver" in window) || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-        const io = new IntersectionObserver(entries => {
-            for (const e of entries) {
-                if (!e.isIntersecting) continue;
-                (e.target as HTMLElement).dataset.reveal = "in";
-                io.unobserve(e.target);
-            }
-        }, { threshold: 0.15, rootMargin: "0px 0px -6% 0px" });
-        page.querySelectorAll<HTMLElement>("[data-reveal]").forEach(el => {
-            if (el.getBoundingClientRect().top < window.innerHeight * 0.9) { el.dataset.reveal = "in"; return; }  // already on the screen
-            el.dataset.reveal = "wait";
-            io.observe(el);
-        });
-        return () => io.disconnect();
-    }, []);
-
     const h2: React.CSSProperties = { textAlign: "center", fontSize: "clamp(1.8rem,4.2vw,2.8rem)", fontWeight: 900, letterSpacing: "-0.01em", lineHeight: 1.2, marginBottom: "0.75rem", textWrap: "balance" as never };
 
     return (
-        <div ref={root} dir="rtl" style={{ color: "var(--bf-text)", background: "var(--bf-bg)", overflowX: "clip" }}>
-            <style dangerouslySetInnerHTML={{ __html: MOTION_CSS }} />
+        <div dir="rtl" style={{ color: "var(--bf-text)", background: "var(--bf-bg)", overflowX: "clip" }}>
+            <style dangerouslySetInnerHTML={{ __html: GROWTH_CSS }} />
 
             {/* Header */}
             <header style={{ background: "rgb(var(--bf-bg-rgb) / .85)", backdropFilter: "blur(14px)", borderBottom: "1px solid var(--bf-line)", padding: "0 1.5rem", height: 64, display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 50 }}>

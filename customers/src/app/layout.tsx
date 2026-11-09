@@ -9,6 +9,8 @@ import { API } from "@/lib/api";
 import { bizfindVars } from "@/lib/bizfindVars";
 import type { PlatformTheme } from "@/lib/usePlatformTheme";
 import PlatformThemeProvider from "@/components/PlatformThemeProvider";
+import Reveal from "@/components/Reveal";
+import { MOTION_CSS } from "@/lib/motion";
 
 // The site's own details for Google and link previews; each business's page has its own (b/[slug]/layout.tsx).
 export const metadata: Metadata = {
@@ -62,7 +64,7 @@ const GLOBAL_CSS = `
                     .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; height: calc(60px + env(safe-area-inset-bottom, 0px)); padding-bottom: env(safe-area-inset-bottom, 0px); background: rgb(var(--bf-bg-rgb) / .92); backdrop-filter: blur(14px); border-top: 1px solid var(--bf-line); display: flex; z-index: 100; }
                     .bottom-nav a { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; text-decoration: none; color: var(--bf-faint); font-size: 0.65rem; font-weight: 600; transition: color .2s; }
                     .bottom-nav a:hover { color: var(--bf-text); }
-`;
+${MOTION_CSS}`;
 
 // The superadmin's look, from the server, in the page itself — so every page (each one a full load: the bottom bar
 // links) opens in it, even on a first visit (2026-10-18: "it shows black behind between pages"), and the home page's
@@ -104,6 +106,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                 <ThemeProvider />
                 <PushRegistrar />
                 <BackButtonHandler />
+                <Reveal />
                 {children}
                 <nav className="bottom-nav">
                     <a href="/"><Home size={20} /><span>ראשי</span></a>
