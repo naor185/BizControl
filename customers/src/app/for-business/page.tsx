@@ -152,7 +152,7 @@ export default function ForBusinessPage() {
                     <div className="bfx-rise" style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem", background: "var(--bf-glass)", color: "var(--bf-text)", fontWeight: 700, fontSize: "0.82rem", padding: "0.35rem 0.9rem", borderRadius: 20, marginBottom: "1.5rem", border: "1px solid var(--bf-line)" }}>
                         <Rocket size={14} aria-hidden /> הפלטפורמה לעסקים של ישראל
                     </div>
-                    <h1 style={{ fontSize: "clamp(2.4rem,7vw,4.6rem)", fontWeight: 900, lineHeight: 1.12, letterSpacing: "-0.02em", marginBottom: "1.5rem" }}>
+                    <h1 style={{ fontSize: "clamp(2.1rem,7vw,4.6rem)", fontWeight: 900, lineHeight: 1.12, letterSpacing: "-0.02em", marginBottom: "1.5rem", textWrap: "balance" as never }}>
                         <span className="bfx-rise" style={{ display: "block", color: "rgb(var(--bf-text-rgb) / .72)", ["--delay" as string]: "120ms" }}>הגדילו את העסק שלכם.</span>
                         <span className="bfx-rise bfx-shine" style={{ display: "block", ["--delay" as string]: "260ms" }}>לקוחות חדשים כל יום.</span>
                     </h1>
