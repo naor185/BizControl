@@ -1042,6 +1042,8 @@ export const EN: Record<string, string> = {
     "נשלח ל-{0} — הדוח ו-{1} משמרות": "Sent to {0} — the report and {1} shifts",
     "השמירה נכשלה": "Saving failed",
     "לרואה החשבון": "To the accountant",
+    "מהירות הקול של ויקי: {0}": "Viki's voice speed: {0}",
+    "מהירות הקול": "Voice speed",
     "שליחת": "Send",
     "ל-": "to",
     "לשלוח לבד בראשון לכל חודש את החודש שעבר": "Send last month by itself on the 1st of every month",

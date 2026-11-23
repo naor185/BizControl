@@ -15,7 +15,7 @@ import { ChevronDown, ChevronLeft, PlayCircle, Volume2, VolumeX, X } from "lucid
 import { apiFetch, getCurrentUserRole } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import { OWNER_START, TOURS, posterOf, type TourDef, type TourMove, type TourStep } from "@/lib/tours";
-import { alreadySaid, forgetSaid, hasVoice, saveVoiceOn, say, sayAgain, stopVoice, voiceOn } from "@/lib/vikiVoice";
+import { alreadySaid, forgetSaid, hasVoice, saveVoiceOn, saveVoiceSpeed, say, sayAgain, SPEEDS, stopVoice, voiceOn, voiceSpeed } from "@/lib/vikiVoice";
 import VideoModal from "./VideoModal";
 import VikiAvatar from "./VikiAvatar";
 
@@ -78,6 +78,7 @@ export default function TourProvider({ children }: { children: React.ReactNode }
     const doneBefore = useRef<{ tour: string; ids: Set<string> } | null>(null);
     const scrolledTo = useRef("");
     const [voice, setVoice] = useState(voiceOn);
+    const [speed, setSpeed] = useState(voiceSpeed);
     const [blocked, setBlocked] = useState(false);            // the browser held the sound back until a tap
 
     const setMinimized = (v: boolean) => { setMinimizedState(v); try { localStorage.setItem(MIN_KEY, v ? "1" : "0"); } catch { /* fine */ } };
@@ -419,6 +420,14 @@ export default function TourProvider({ children }: { children: React.ReactNode }
                                 {voice ? <Volume2 className="w-5 h-5" aria-hidden /> : <VolumeX className="w-5 h-5" aria-hidden />}
                             </button>
                         ))}
+                        {speaker && voice && !blocked && (
+                            <button type="button" dir="ltr"
+                                onClick={() => { const v = SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length]; setSpeed(v); saveVoiceSpeed(v); }}
+                                aria-label={tx("מהירות הקול של ויקי: {0}", { 0: `x${speed}` })} title={tx("מהירות הקול")}
+                                className={`min-w-9 h-9 px-1.5 flex items-center justify-center rounded-full text-xs font-black tabular-nums ${speed === 1 ? "text-slate-400 hover:bg-slate-100" : "bg-sky-50 text-sky-700 hover:bg-sky-100"}`}>
+                                x{speed}
+                            </button>
+                        )}
                         {tour && !picking && (
                             <button type="button" onClick={() => setMinimized(true)} aria-label={tx("הקטנת המדריך")} className="w-9 h-9 flex items-center justify-center rounded-full text-slate-400 hover:bg-slate-100">
                                 <ChevronDown className="w-5 h-5" aria-hidden />

@@ -78,6 +78,18 @@ const said = new Set<string>();
 let playing: HTMLAudioElement | null = null;
 let last: string[] = [];
 
+// How fast she talks — x1, x1.5 or x2, like a voice message (the owner, 2026-11-23); kept on this device. A change
+// applies at once, to the sentence she is saying too.
+export const SPEEDS: number[] = [1, 1.5, 2];
+const SPEED_KEY = "viki_speed";
+export const voiceSpeed = (): number => {
+    try { const v = Number(localStorage.getItem(SPEED_KEY)); return SPEEDS.includes(v) ? v : 1; } catch { return 1; }
+};
+export const saveVoiceSpeed = (v: number): void => {
+    try { localStorage.setItem(SPEED_KEY, String(v)); } catch { /* fine */ }
+    if (playing) playing.playbackRate = v;
+};
+
 export const alreadySaid = (key: string): boolean => said.has(key);
 export const forgetSaid = (): void => said.clear();
 export const stopVoice = (): void => { playing?.pause(); };
@@ -94,6 +106,7 @@ export function say(keys: string[], held: (yes: boolean) => void): void {
         if (!clip) return;
         said.add(clip.k);
         const a = new Audio(clip.src);
+        a.defaultPlaybackRate = a.playbackRate = voiceSpeed();
         playing = a;
         a.onended = next;
         a.play().then(() => held(false)).catch(() => held(true));
