@@ -24,6 +24,7 @@ import {
     deleteExpenseReceiptImage,
     bulkDeleteExpenseReceiptImages,
     sendExpensesToAccountant,
+    apiFetch,
     checkDuplicateExpense,
     downloadExpenseReceiptsZip,
     Expense,
@@ -679,13 +680,34 @@ function SendToAccountantModal({
     const [dateTo, setDateTo] = useState(lastOfMonth);
     const [sending, setSending] = useState(false);
     const [error, setError] = useState("");
+    // The accountant's email, shown and changeable right here (the owner, 2026-11-23) — the same one the invoices and
+    // the pay report go to (invoice_settings.accountant_email). Without the receipts permission it can't be read here,
+    // so the window falls back to saying where it is set.
+    const [email, setEmail] = useState("");
+    const [savedEmail, setSavedEmail] = useState("");
+    const [emailHere, setEmailHere] = useState(true);
+    useEffect(() => {
+        apiFetch<{ accountant_email?: string | null }>("/api/invoices/settings")
+            .then(s => { setEmail(s.accountant_email || ""); setSavedEmail(s.accountant_email || ""); })
+            .catch(() => setEmailHere(false));
+    }, []);
 
     const handleSend = async () => {
         if (!dateFrom || !dateTo) { setError(tx("יש לבחור טווח תאריכים")); return; }
-        if (!confirm(tx("לשלוח את כל ההוצאות בין {0} ל-{1} במייל לרואה החשבון?", { 0: dateFrom, 1: dateTo }))) return;
+        if (dateFrom > dateTo) { setError(tx("תאריך ההתחלה אחרי תאריך הסיום")); return; }
+        const to = email.trim();
+        if (emailHere && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) { setError(tx("יש להזין מייל תקין של רואה החשבון")); return; }
+        const question = emailHere
+            ? tx("לשלוח את כל ההוצאות בין {0} ל-{1} אל {2}?", { 0: dateFrom, 1: dateTo, 2: to })
+            : tx("לשלוח את כל ההוצאות בין {0} ל-{1} במייל לרואה החשבון?", { 0: dateFrom, 1: dateTo });
+        if (!confirm(question)) return;
         setSending(true);
         setError("");
         try {
+            if (emailHere && to !== savedEmail) {
+                await apiFetch("/api/invoices/settings/accountant-email", { method: "PATCH", body: JSON.stringify({ accountant_email: to }) });
+                setSavedEmail(to);
+            }
             const res = await sendExpensesToAccountant(dateFrom, dateTo);
             toast.success(tx("נשלחו {0} הוצאות לרו\"ח במייל ✅", { 0: res.sent_count }));
             onSent();
@@ -712,9 +734,23 @@ function SendToAccountantModal({
                         <PickerBox type="date" label={tx("עד תאריך")} value={dateTo} onChange={v => setDateTo(v)} className="w-full text-start rounded-[10px] border border-white/15 bg-white/[.08] px-[.9rem] py-[.65rem] text-[.9rem] text-white" />
                     </label>
                 </div>
-                <p style={{ color: "#94a3b8", fontSize: ".8rem", marginTop: "1rem" }}>
-                    {tx("כל ההוצאות בטווח התאריכים יישלחו במייל אחד לרואה החשבון (לפי המייל שמוגדר בעמוד החשבוניות → הגדרות), עם קישור לתמונת קבלה לכל הוצאה.")}
-                </p>
+                {emailHere ? (
+                    <>
+                        <div className="form-grid" style={{ gridTemplateColumns: "1fr", marginTop: "1rem" }}>
+                            <label>{tx("נשלח אל — המייל של רואה החשבון")}
+                                <input type="email" dir="ltr" inputMode="email" autoComplete="email" value={email}
+                                       onChange={e => setEmail(e.target.value)} placeholder="accountant@example.com" style={{ textAlign: "start" }} />
+                            </label>
+                        </div>
+                        <p style={{ color: "#94a3b8", fontSize: ".8rem", marginTop: ".75rem" }}>
+                            {tx("כל ההוצאות בטווח התאריכים יישלחו במייל אחד, עם קישור לתמונת קבלה לכל הוצאה. מייל ששונה כאן נשמר — אליו נשלחים גם החשבוניות ודוח השכר.")}
+                        </p>
+                    </>
+                ) : (
+                    <p style={{ color: "#94a3b8", fontSize: ".8rem", marginTop: "1rem" }}>
+                        {tx("כל ההוצאות בטווח התאריכים יישלחו במייל אחד לרואה החשבון (לפי המייל שמוגדר בעמוד החשבוניות → הגדרות), עם קישור לתמונת קבלה לכל הוצאה.")}
+                    </p>
+                )}
                 {error && <p className="error-msg">{error}</p>}
                 <div className="modal-actions">
                     <button className="btn-secondary" onClick={onClose}>{tx("ביטול")}</button>
@@ -999,7 +1035,7 @@ export default function ExpensesPage() {
                         .btn-primary:disabled { opacity:.5; cursor:default; }
                         .btn-secondary { background:#fff; color:#1a1a2e; border:1px solid #e5e7eb; padding:0.7rem 1.4rem; border-radius:10px; font-size:0.9rem; cursor:pointer; transition:all .15s; }
                         .btn-secondary:hover { background:#f8f9fa; }
-                        .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.55); backdrop-filter:blur(4px); display:flex; align-items:center; justify-content:center; z-index:1000; padding:1rem; }
+                        .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.55); backdrop-filter:blur(4px); display:flex; align-items:center; justify-content:center; z-index:55; padding:1rem; }
                         .modal-panel { background:linear-gradient(145deg,#1e1b4b,#312e81); border:1px solid rgba(167,139,250,.3); border-radius:20px; width:100%; max-width:560px; padding:2rem; max-height:90dvh; overflow-y:auto; }
                         .modal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; }
                         .modal-header h2 { font-size:1.3rem; font-weight:700; color:#a78bfa; }
